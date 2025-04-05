@@ -28,7 +28,7 @@ class FactoryLoaderServiceTest extends TestCase
 
     private function registerClassAlias(string $class): void
     {
-        if (!class_exists($class)) {
+        if (! class_exists($class)) {
             $parts = explode('\\', $class);
             $namespace = implode('\\', \array_slice($parts, 0, -1));
             $className = end($parts);

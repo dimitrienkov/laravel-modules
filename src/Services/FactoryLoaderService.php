@@ -6,24 +6,25 @@ namespace DimitrienkoV\LaravelModules\Services;
 
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use LogicException;
 
-class FactoryLoaderService
+final readonly class FactoryLoaderService
 {
     public function __construct(
         protected Repository $configRepository
-    ) {}
-
-    public function configureFactoryNameResolver(): void
-    {
-        Factory::guessFactoryNamesUsing(fn (string $modelName): ?string => $this->resolveFactoryClass($modelName));
+    ) {
     }
 
-    private function resolveFactoryClass(string $modelName): ?string
+    public function autoload(): void
     {
-        $factoryClass = $this->buildFactoryClassNamespace($modelName);
+        /**
+         * @var callable(class-string<Model>):class-string<Factory<Model>> $resolver
+         */
+        $resolver = fn (string $modelName): string => $this->buildFactoryClassNamespace($modelName);
 
-        return class_exists($factoryClass) ? $factoryClass : null;
+        Factory::guessFactoryNamesUsing($resolver);
     }
 
     private function buildFactoryClassNamespace(string $modelName): string
@@ -32,10 +33,13 @@ class FactoryLoaderService
         $factoriesPath = $this->configRepository->get('modules.paths.factories', 'Factories');
         $modelsPath = $this->configRepository->get('modules.paths.models', 'Models');
 
+        if (! \is_string($databasePath) || ! \is_string($factoriesPath) || ! \is_string($modelsPath)) {
+            throw new LogicException('Invalid config paths for modules or config directory.');
+        }
+
         $modelClassName = class_basename($modelName);
+        $namespace = Str::beforeLast($modelName, "\\$modelsPath\\$modelClassName");
 
-        $namespace = Str::before($modelName, "\\$modelsPath\\$modelClassName");
-
-        return "$namespace\\$databasePath\\$factoriesPath\\$modelClassName".'Factory';
+        return "{$namespace}\\{$databasePath}\\{$factoriesPath}\\{$modelClassName}Factory";
     }
 }

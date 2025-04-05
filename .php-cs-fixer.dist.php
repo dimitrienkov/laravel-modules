@@ -36,4 +36,5 @@ return (new PhpCsFixer\Config)
             'spacing' => 'one',
         ],
     ])
-    ->setFinder($finder);
+    ->setFinder($finder)
+    ->setRiskyAllowed(true);

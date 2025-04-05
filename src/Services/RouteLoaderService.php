@@ -4,72 +4,121 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Services;
 
-use DimitrienkoV\LaravelModules\DTOs\RouteGroupConfigDTO;
-use DimitrienkoV\LaravelModules\Enums\RouteTypeEnum;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Filesystem\Filesystem;
 use Illuminate\Routing\RouteRegistrar;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\File;
+use Throwable;
 
-class RouteLoaderService
+final readonly class RouteLoaderService
 {
     public function __construct(
-        protected Application $application,
-        protected Filesystem $filesystem,
-        protected RouteRegistrar $routeRegistrar,
-        protected Repository $configRepository
-    ) {}
+        private Application    $app,
+        private RouteRegistrar $router,
+        private Repository     $config,
+    ) {
+    }
 
-    public function loadRoutes(RouteTypeEnum $type = RouteTypeEnum::ALL): void
+    /**
+     * @param array<string> $types
+     * @throws Throwable
+     */
+    public function autoload(array $types = ['web', 'api', 'inertia']): void
     {
-        $typesToLoad = $type === RouteTypeEnum::ALL ? RouteTypeEnum::getAvailableTypes() : [$type];
+        $moduleRoutes = $this->discoverRoutes($types);
+        $moduleRoutes->each(fn (string $routeFile) => $this->registerModuleRoutes($routeFile));
+    }
 
-        foreach ($typesToLoad as $typeEnum) {
-            $this->loadRoutesByType($typeEnum);
+    /**
+     * @param array<string> $types
+     * @return Collection<int, string>
+     */
+    private function discoverRoutes(array $types): Collection
+    {
+        $modulesPath = $this->getModulesPath();
+        $moduleDirectories = $this->getModuleDirectories($modulesPath);
+
+        /** @var Collection<int, string> $routes */
+        $routes = Collection::make($types)
+            ->map(fn (string $type) => $this->discoverRoutesByType($moduleDirectories, $type))
+            ->flatten()
+            ->filter(fn ($route) => \is_string($route))
+            ->values();
+
+        return $routes;
+    }
+
+    /**
+     * @param string $modulesPath
+     * @return Collection<int, string>
+     */
+    private function getModuleDirectories(string $modulesPath): Collection
+    {
+        return Collection::make(File::directories($modulesPath));
+    }
+
+    /**
+     * @param Collection<int, string> $moduleDirectories
+     * @param string $type
+     * @return array<string>
+     */
+    private function discoverRoutesByType(Collection $moduleDirectories, string $type): array
+    {
+        return $moduleDirectories
+            ->map(fn (string $modulePath): ?string => $this->findRouteFile($modulePath, $type))
+            ->filter()
+            ->all();
+    }
+
+    private function findRouteFile(string $modulePath, string $type): ?string
+    {
+        $routePath = implode(DIRECTORY_SEPARATOR, [
+            $modulePath,
+            'Routes',
+            "{$type}.php",
+        ]);
+
+        return is_file($routePath) ? $routePath : null;
+    }
+
+    private function registerModuleRoutes(string $routeFile): void
+    {
+        $attributes = $this->getAttributesFromConfig($routeFile);
+
+        $prefix = isset($attributes['prefix']) && \is_string($attributes['prefix'])
+            ? $attributes['prefix']
+            : '';
+
+        $middleware = $attributes['middleware'] ?? [];
+
+        if (! \is_array($middleware) && ! \is_string($middleware)) {
+            $middleware = [];
         }
+
+        $this->router
+            ->prefix($prefix)
+            ->middleware($middleware)
+            ->group($routeFile);
     }
 
-    private function loadRoutesByType(RouteTypeEnum $typeEnum): void
+    private function getModulesPath(): string
     {
-        $routeFiles = $this->getRouteFilesForType($typeEnum);
+        /** @var string $modulesPath */
+        $modulesPath = $this->config->get('modules.paths.modules', 'app/Modules');
 
-        if ($routeFiles->isEmpty()) {
-            return;
-        }
-
-        $routeFiles->each(
-            fn (string $routeFile) => $this->registerRouteGroup($routeFile, $this->defaultRouteConfig($typeEnum))
-        );
+        return $this->app->basePath($modulesPath);
     }
 
-    private function getRouteFilesForType(RouteTypeEnum $typeEnum): Collection
+    /**
+     * @return array<string, mixed>
+     */
+    private function getAttributesFromConfig(string $routeFile): array
     {
-        return (new Collection($this->filesystem->glob($this->getBasePath($typeEnum))))->filter();
-    }
+        $routeType = basename($routeFile, '.php');
+        /** @var array<string, mixed> $attributes */
+        $attributes = (array)$this->config->get("modules.routing.types.{$routeType}", []);
 
-    private function getBasePath(RouteTypeEnum $typeEnum): string
-    {
-        $modulesPath = $this->configRepository->get('modules.paths.modules', 'app/Modules');
-        $routesPath = $this->configRepository->get('modules.paths.routes', 'Routes');
-
-        return $this->application->basePath("$modulesPath/*/$routesPath/{$typeEnum->value}.php");
-    }
-
-    private function registerRouteGroup(string $routeFile, RouteGroupConfigDTO $configDTO): void
-    {
-        $this->routeRegistrar->prefix($configDTO->prefix)->middleware($configDTO->middleware)->group($routeFile);
-    }
-
-    private function defaultRouteConfig(RouteTypeEnum $typeEnum): RouteGroupConfigDTO
-    {
-        $routeDefaults = $this->configRepository->get('modules.route.middlewares');
-
-        $defaultConfig = $routeDefaults[$typeEnum->value] ?? [];
-
-        return new RouteGroupConfigDTO(
-            $defaultConfig['prefix'] ?? '',
-            $defaultConfig['middleware'] ?? ''
-        );
+        return $attributes;
     }
 }

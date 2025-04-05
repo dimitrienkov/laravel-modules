@@ -15,9 +15,10 @@ class TestCase extends \PHPUnit\Framework\TestCase
 
         $this->mockConfigRepository
             ->shouldReceive('get')
-            ->andReturnUsing(static fn(string $arg) => collect(explode('.', $arg))
+            ->andReturnUsing(
+                static fn (string $arg) => collect(explode('.', $arg))
                 ->slice(1)
-                ->reduce(static fn($result, string $key) => $result[$key] ?? null, $config)
+                ->reduce(static fn ($result, string $key) => $result[$key] ?? null, $config)
             )->times(3);
     }
 }

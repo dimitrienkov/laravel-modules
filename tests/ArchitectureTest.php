@@ -13,7 +13,7 @@ class ArchitectureTest extends TestCase
         'var_dump(',
         'print_r(',
         'exit(',
-        'die('
+        'die(',
     ];
 
     public function testNoDebugAndTerminationFunctionsInCode(): void
@@ -26,7 +26,9 @@ class ArchitectureTest extends TestCase
 
             foreach ($this->disallowedFunctions as $function) {
                 $this->assertStringNotContainsString(
-                    $function, $content, "Found '{$function}' in file: {$file->getRealPath()}"
+                    $function,
+                    $content,
+                    "Found '{$function}' in file: {$file->getRealPath()}"
                 );
             }
         }
