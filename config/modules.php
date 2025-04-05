@@ -15,15 +15,15 @@ return [
     ],
     'route' => [
         'middlewares' => [
-            RouteTypeEnum::API->value => [
+            'api' => [
                 'prefix' => 'api',
                 'middleware' => 'api',
             ],
-            RouteTypeEnum::WEB->value => [
+            'web' => [
                 'prefix' => null,
                 'middleware' => [],
             ],
-            RouteTypeEnum::INERTIA->value => [
+            'inertia' => [
                 'prefix' => null,
                 'middleware' => HandleInertiaRequests::class,
             ],
