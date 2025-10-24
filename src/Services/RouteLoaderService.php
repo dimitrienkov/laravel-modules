@@ -21,11 +21,12 @@ final readonly class RouteLoaderService
     }
 
     /**
-     * @param array<string> $types
+     * @param array<string>|null $types
      * @throws Throwable
      */
-    public function autoload(array $types = ['web', 'api', 'inertia']): void
+    public function autoload(?array $types = null): void
     {
+        $types = $types ?? $this->getRoutingTypesFromConfig();
         $moduleRoutes = $this->discoverRoutes($types);
         $moduleRoutes->each(fn (string $routeFile) => $this->registerModuleRoutes($routeFile));
     }
@@ -108,6 +109,21 @@ final readonly class RouteLoaderService
         $modulesPath = $this->config->get('modules.paths.modules', 'app/Modules');
 
         return $this->app->basePath($modulesPath);
+    }
+
+    /**
+     * @return array<string>
+     */
+    private function getRoutingTypesFromConfig(): array
+    {
+        /** @var array<string, mixed> $routingTypes */
+        $routingTypes = $this->config->get('modules.routing.types', []);
+
+        if (empty($routingTypes) || ! \is_array($routingTypes)) {
+            return ['web', 'api'];
+        }
+
+        return array_keys($routingTypes);
     }
 
     /**
