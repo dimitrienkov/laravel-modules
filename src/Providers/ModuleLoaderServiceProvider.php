@@ -9,6 +9,7 @@ use DimitrienkoV\LaravelModules\Services\FactoryLoaderService;
 use DimitrienkoV\LaravelModules\Services\MigrationLoaderService;
 use DimitrienkoV\LaravelModules\Services\MoonShineLoaderService;
 use DimitrienkoV\LaravelModules\Services\RouteLoaderService;
+use DimitrienkoV\LaravelModules\Services\ServiceProviderLoaderService;
 use Illuminate\Support\ServiceProvider;
 use Throwable;
 
@@ -18,11 +19,12 @@ class ModuleLoaderServiceProvider extends ServiceProvider
      * @throws Throwable
      */
     public function boot(
-        RouteLoaderService     $routeLoader,
-        MigrationLoaderService $migrationLoader,
-        FactoryLoaderService   $factoryLoader,
-        ConfigLoaderService    $configLoader,
-        MoonShineLoaderService $moonShineLoader,
+        RouteLoaderService          $routeLoader,
+        MigrationLoaderService      $migrationLoader,
+        FactoryLoaderService        $factoryLoader,
+        ConfigLoaderService         $configLoader,
+        MoonShineLoaderService      $moonShineLoader,
+        ServiceProviderLoaderService $serviceProviderLoader,
     ): void {
         $this->mergeConfigFrom(
             __DIR__ . '/../../config/modules.php',
@@ -38,5 +40,6 @@ class ModuleLoaderServiceProvider extends ServiceProvider
         $migrationLoader->autoload();
         $routeLoader->autoload();
         $moonShineLoader->autoload();
+        $serviceProviderLoader->autoload();
     }
 }

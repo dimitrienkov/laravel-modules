@@ -27,8 +27,13 @@ final readonly class MigrationLoaderService
             return;
         }
 
-        $migrationFiles->each(
-            fn (string $migrationFile) => $this->application->make('migrator')->path($migrationFile)
+        $migrationPaths = $migrationFiles->map(fn (string $file): string => dirname($file))
+            ->unique()
+            ->values();
+
+        $migrator = $this->application->make('migrator');
+        $migrationPaths->each(
+            fn (string $path) => $migrator->path($path)
         );
     }
 
@@ -37,19 +42,30 @@ final readonly class MigrationLoaderService
      */
     private function getMigrationFiles(): Collection
     {
-        return (new Collection($this->filesystem->glob($this->getBasePath())))->filter();
-    }
+        $basePaths = collect([
+            $this->config->get('modules.paths.modules'),
+            $this->config->get('modules.paths.integrations'),
+            $this->config->get('modules.paths.subsystems'),
+        ])->filter();
 
-    private function getBasePath(): string
-    {
-        $modulesPath = $this->config->get('modules.paths.modules', 'app/Modules');
         $databasePath = $this->config->get('modules.paths.database', 'Database');
         $migrationsPath = $this->config->get('modules.paths.migrations', 'Migrations');
 
-        if (! \is_string($modulesPath) || ! \is_string($databasePath) || ! \is_string($migrationsPath)) {
-            throw new LogicException('Invalid config paths for modules.');
+        if (! \is_string($databasePath) || ! \is_string($migrationsPath)) {
+            throw new LogicException('Invalid config paths for database or migrations.');
         }
 
-        return $this->application->basePath("$modulesPath/*/$databasePath/$migrationsPath/*.php");
+        $allFiles = collect();
+
+        foreach ($basePaths as $basePath) {
+            $pattern = $this->application->basePath("{$basePath}/*/{$databasePath}/{$migrationsPath}/*.php");
+            $files = $this->filesystem->glob($pattern);
+
+            if ($files !== false) {
+                $allFiles = $allFiles->merge($files);
+            }
+        }
+
+        return $allFiles->filter();
     }
 }

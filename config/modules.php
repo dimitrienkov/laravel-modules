@@ -6,12 +6,15 @@ use DimitrienkoV\LaravelModules\Enums\RouteTypeEnum;
 return [
     'paths' => [
         'modules' => 'app/Modules',
+        'integrations' => 'app/Integrations',
+        'subsystems' => 'app/Subsystems',
         'config' => 'Config',
         'routes' => 'Routes',
         'database' => 'Database',
         'migrations' => 'Migrations',
         'factories' => 'Factories',
         'models' => 'Models',
+        'providers' => 'Providers',
     ],
     'route' => [
         'middlewares' => [
