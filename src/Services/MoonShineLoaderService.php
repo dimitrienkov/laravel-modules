@@ -1,35 +1,100 @@
 <?php
 
+declare(strict_types=1);
+
 namespace DimitrienkoV\LaravelModules\Services;
 
+use Composer\Autoload\ClassLoader;
 use Illuminate\Contracts\Config\Repository;
 use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
-use MoonShine\Contracts\Core\DependencyInjection\OptimizerCollectionContract;
 use MoonShine\Contracts\Core\PageContract;
 use MoonShine\Contracts\Core\ResourceContract;
+use ReflectionClass;
+use ReflectionException;
 
 final readonly class MoonShineLoaderService
 {
     public function __construct(
-        private CoreContract                 $core,
-        private OptimizerCollectionContract $optimizer,
-        private Repository                  $config,
+        private CoreContract $core,
+        private Repository   $config,
     ) {
     }
 
     public function autoload(): void
     {
+        $this->core->autoload();
+        
+        $pages = $this->discoverPages();
+        $resources = $this->discoverResources();
+
+        if (! empty($resources)) {
+            $this->core->resources($resources);
+        }
+
+        if (! empty($pages)) {
+            $this->core->pages($pages);
+        }
+    }
+
+    /**
+     * @return list<class-string<PageContract>>
+     */
+    private function discoverPages(): array
+    {
+        return $this->findInClassmap(PageContract::class);
+    }
+
+    /**
+     * @return list<class-string<ResourceContract>>
+     */
+    private function discoverResources(): array
+    {
+        return $this->findInClassmap(ResourceContract::class);
+    }
+
+    /**
+     * @template T
+     * @param class-string<T> $interface
+     * @return list<class-string<T>>
+     */
+    private function findInClassmap(string $interface): array
+    {
+        $loaders = ClassLoader::getRegisteredLoaders();
+        $loader = array_values($loaders)[0] ?? null;
+
+        if (! $loader) {
+            return [];
+        }
+
+        $classMap = $loader->getClassMap();
         $namespaces = $this->getModuleNamespaces();
 
-        /** @var list<class-string<PageContract>> $pages */
-        $pages = $this->discoverPages($namespaces);
+        $found = [];
 
-        /** @var list<class-string<ResourceContract>> $resources */
-        $resources = $this->discoverResources($namespaces);
+        foreach ($namespaces as $namespace) {
+            foreach (array_keys($classMap) as $class) {
+                if (! str_starts_with($class, $namespace)) {
+                    continue;
+                }
 
-        $this->core
-            ->pages($pages)
-            ->resources($resources);
+                if (! is_a($class, $interface, true)) {
+                    continue;
+                }
+
+                try {
+                    $reflection = new ReflectionClass($class);
+                    if ($reflection->isAbstract()) {
+                        continue;
+                    }
+                } catch (ReflectionException) {
+                    continue;
+                }
+
+                $found[] = $class;
+            }
+        }
+
+        return array_values(array_unique($found));
     }
 
     /**
@@ -51,33 +116,5 @@ final readonly class MoonShineLoaderService
         }
 
         return $namespaces;
-    }
-
-    /**
-     * @param list<string> $namespaces
-     * @return list<class-string<PageContract>>
-     */
-    private function discoverPages(array $namespaces): array
-    {
-        $allPagesArrays = array_map(
-            fn (string $ns): array => $this->optimizer->getType(PageContract::class, $ns),
-            $namespaces
-        );
-
-        return array_values(array_merge([], ...$allPagesArrays));
-    }
-
-    /**
-     * @param list<string> $namespaces
-     * @return list<class-string<ResourceContract>>
-     */
-    private function discoverResources(array $namespaces): array
-    {
-        $allResourcesArrays = array_map(
-            fn (string $ns): array => $this->optimizer->getType(ResourceContract::class, $ns),
-            $namespaces
-        );
-
-        return array_values(array_merge([], ...$allResourcesArrays));
     }
 }

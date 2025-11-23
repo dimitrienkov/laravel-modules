@@ -14,6 +14,7 @@ use DimitrienkoV\LaravelModules\Services\RouteLoaderService;
 use DimitrienkoV\LaravelModules\Services\ServiceProviderLoaderService;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\ServiceProvider;
+use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
 
 final class ModuleLoaderServiceProvider extends ServiceProvider
 {
@@ -28,6 +29,11 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         );
 
         $this->app->make(ConfigLoaderService::class)->autoload();
+
+        // Регистрируем MoonShine ресурсы после резолва CoreContract
+        $this->app->afterResolving(CoreContract::class, function () {
+            $this->app->make(MoonShineLoaderService::class)->autoload();
+        });
     }
 
     /**
@@ -38,8 +44,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         RouteLoaderService           $routeLoader,
         FactoryLoaderService         $factoryLoader,
         ServiceProviderLoaderService $serviceProviderLoader,
-        MoonShineLoaderService       $moonShineLoader,
-        ConfigLoaderService           $configLoader,
+        ConfigLoaderService          $configLoader,
     ): void {
         $this->publishes([
             base_path('config/modules.php') => config_path('modules.php'),
@@ -62,6 +67,5 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $migrationLoader->autoload();
         $routeLoader->autoload();
         $serviceProviderLoader->autoload();
-        $moonShineLoader->autoload();
     }
 }
