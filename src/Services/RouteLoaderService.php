@@ -6,135 +6,138 @@ namespace DimitrienkoV\LaravelModules\Services;
 
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Routing\RouteRegistrar;
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\File;
-use Throwable;
 
 final readonly class RouteLoaderService
 {
     public function __construct(
-        private Application    $app,
-        private RouteRegistrar $router,
-        private Repository     $config,
+        private Application $app,
+        private Router      $router,
+        private Repository  $config,
+        private Filesystem  $filesystem,
     ) {
     }
 
-    /**
-     * @param array<string>|null $types
-     * @throws Throwable
-     */
-    public function autoload(?array $types = null): void
+    public function autoload(): void
     {
-        $types = $types ?? $this->getRoutingTypesFromConfig();
-        $moduleRoutes = $this->discoverRoutes($types);
-        $moduleRoutes->each(fn (string $routeFile) => $this->registerModuleRoutes($routeFile));
+        if ($this->app->routesAreCached()) {
+            return;
+        }
+
+        $this->discoverRoutes()
+            ->each(function (array $route): void {
+                $this->registerRoute($route);
+            });
     }
 
     /**
-     * @param array<string> $types
-     * @return Collection<int, string>
+     * @return Collection<int, array{type: string, path: string, attributes: array<string, mixed>}>
      */
-    private function discoverRoutes(array $types): Collection
+    private function discoverRoutes(): Collection
     {
-        $modulesPath = $this->getModulesPath();
-        $moduleDirectories = $this->getModuleDirectories($modulesPath);
+        $directories = $this->config->get('modules.paths.directories', []);
+        $routesFolder = $this->config->get('modules.paths.routes', 'Routes');
+        $routeTypes = $this->getRouteTypes();
 
-        /** @var Collection<int, string> $routes */
-        $routes = Collection::make($types)
-            ->map(fn (string $type) => $this->discoverRoutesByType($moduleDirectories, $type))
-            ->flatten()
-            ->filter(fn ($route) => \is_string($route))
-            ->values();
+        if (! \is_array($directories)) {
+            $directories = [];
+        }
+
+        if (! \is_string($routesFolder)) {
+            $routesFolder = 'Routes';
+        }
+
+        /** @var Collection<int, array{type: string, path: string, attributes: array<string, mixed>}> $routes */
+        $routes = collect();
+
+        foreach ($directories as $directory) {
+            if (! \is_string($directory)) {
+                continue;
+            }
+
+            $basePath = $this->app->basePath($directory);
+
+            if (! $this->filesystem->isDirectory($basePath)) {
+                continue;
+            }
+
+            $modules = $this->filesystem->directories($basePath);
+
+            foreach ($modules as $modulePath) {
+                foreach ($routeTypes as $type) {
+                    $routeFile = "{$modulePath}/{$routesFolder}/{$type}.php";
+
+                    if ($this->filesystem->exists($routeFile)) {
+                        $routes->push([
+                            'type' => $type,
+                            'path' => $routeFile,
+                            'attributes' => $this->getRouteAttributes($type),
+                        ]);
+                    }
+                }
+            }
+        }
 
         return $routes;
     }
 
     /**
-     * @param string $modulesPath
-     * @return Collection<int, string>
+     * @param array{type: string, path: string, attributes: array<string, mixed>} $route
      */
-    private function getModuleDirectories(string $modulesPath): Collection
+    private function registerRoute(array $route): void
     {
-        return Collection::make(File::directories($modulesPath));
-    }
+        $attributes = $route['attributes'];
 
-    /**
-     * @param Collection<int, string> $moduleDirectories
-     * @param string $type
-     * @return array<string>
-     */
-    private function discoverRoutesByType(Collection $moduleDirectories, string $type): array
-    {
-        return $moduleDirectories
-            ->map(fn (string $modulePath): ?string => $this->findRouteFile($modulePath, $type))
-            ->filter()
-            ->all();
-    }
+        $prefix = '';
+        if (isset($attributes['prefix']) && \is_string($attributes['prefix'])) {
+            $prefix = $attributes['prefix'];
+        }
 
-    private function findRouteFile(string $modulePath, string $type): ?string
-    {
-        $routePath = implode(DIRECTORY_SEPARATOR, [
-            $modulePath,
-            'Routes',
-            "{$type}.php",
-        ]);
-
-        return is_file($routePath) ? $routePath : null;
-    }
-
-    private function registerModuleRoutes(string $routeFile): void
-    {
-        $attributes = $this->getAttributesFromConfig($routeFile);
-
-        $prefix = isset($attributes['prefix']) && \is_string($attributes['prefix'])
-            ? $attributes['prefix']
-            : '';
-
-        $middleware = $attributes['middleware'] ?? [];
-
-        if (! \is_array($middleware) && ! \is_string($middleware)) {
-            $middleware = [];
+        $middleware = [];
+        if (isset($attributes['middleware']) && \is_array($attributes['middleware'])) {
+            $middleware = $attributes['middleware'];
         }
 
         $this->router
             ->prefix($prefix)
             ->middleware($middleware)
-            ->group($routeFile);
-    }
-
-    private function getModulesPath(): string
-    {
-        /** @var string $modulesPath */
-        $modulesPath = $this->config->get('modules.paths.modules', 'app/Modules');
-
-        return $this->app->basePath($modulesPath);
+            ->group($route['path']);
     }
 
     /**
-     * @return array<string>
+     * @return Collection<int, string>
      */
-    private function getRoutingTypesFromConfig(): array
+    private function getRouteTypes(): Collection
     {
-        /** @var array<string, mixed> $routingTypes */
-        $routingTypes = $this->config->get('modules.routing.types', []);
+        $types = $this->config->get('modules.routing.types', []);
 
-        if (empty($routingTypes) || ! \is_array($routingTypes)) {
-            return ['web', 'api'];
+        if (! \is_array($types)) {
+            return collect();
         }
 
-        return array_keys($routingTypes);
+        return collect(array_keys($types))
+            ->filter(fn ($key): bool => \is_string($key))
+            ->values();
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function getAttributesFromConfig(string $routeFile): array
+    private function getRouteAttributes(string $type): array
     {
-        $routeType = basename($routeFile, '.php');
-        /** @var array<string, mixed> $attributes */
-        $attributes = (array)$this->config->get("modules.routing.types.{$routeType}", []);
+        $attributes = $this->config->get("modules.routing.types.{$type}", []);
 
-        return $attributes;
+        if (! \is_array($attributes)) {
+            return [];
+        }
+
+        /** @var array<string, mixed> */
+        return array_filter(
+            $attributes,
+            fn (mixed $key): bool => \is_string($key),
+            ARRAY_FILTER_USE_KEY
+        );
     }
 }

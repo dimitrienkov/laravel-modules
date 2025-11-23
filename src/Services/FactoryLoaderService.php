@@ -8,38 +8,44 @@ use Illuminate\Contracts\Config\Repository;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
-use LogicException;
 
 final readonly class FactoryLoaderService
 {
     public function __construct(
-        protected Repository $configRepository
+        private Repository $config
     ) {
+    }
+
+    /**
+     * @template TModel of Model
+     * @param class-string<TModel> $modelClass
+     * @return class-string<Factory<TModel>>
+     */
+    private function resolveFactoryClass(string $modelClass): string
+    {
+        /** @phpstan-ignore-next-line */
+        $databaseDir = (string)$this->config->get('modules.paths.database', 'Database');
+
+        /** @phpstan-ignore-next-line */
+        $factoriesDir = (string)$this->config->get('modules.paths.factories', 'Factories');
+
+        /** @phpstan-ignore-next-line */
+        $modelsDir = (string)$this->config->get('modules.paths.models', 'Models');
+
+        $modelName = class_basename($modelClass);
+        $moduleNamespace = Str::beforeLast($modelClass, "\\{$modelsDir}\\{$modelName}");
+
+        /** @var class-string<Factory<TModel>> $factoryClass */
+        $factoryClass = "{$moduleNamespace}\\{$databaseDir}\\{$factoriesDir}\\{$modelName}Factory";
+
+        return $factoryClass;
     }
 
     public function autoload(): void
     {
-        /**
-         * @var callable(class-string<Model>):class-string<Factory<Model>> $resolver
-         */
-        $resolver = fn (string $modelName): string => $this->buildFactoryClassNamespace($modelName);
-
-        Factory::guessFactoryNamesUsing($resolver);
-    }
-
-    private function buildFactoryClassNamespace(string $modelName): string
-    {
-        $databasePath = $this->configRepository->get('modules.paths.database', 'Database');
-        $factoriesPath = $this->configRepository->get('modules.paths.factories', 'Factories');
-        $modelsPath = $this->configRepository->get('modules.paths.models', 'Models');
-
-        if (! \is_string($databasePath) || ! \is_string($factoriesPath) || ! \is_string($modelsPath)) {
-            throw new LogicException('Invalid config paths for modules or config directory.');
-        }
-
-        $modelClassName = class_basename($modelName);
-        $namespace = Str::beforeLast($modelName, "\\$modelsPath\\$modelClassName");
-
-        return "{$namespace}\\{$databasePath}\\{$factoriesPath}\\{$modelClassName}Factory";
+        /** @phpstan-ignore-next-line */
+        Factory::guessFactoryNamesUsing(
+            fn (string $modelClass): string => $this->resolveFactoryClass($modelClass)
+        );
     }
 }

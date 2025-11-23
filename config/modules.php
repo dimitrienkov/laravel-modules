@@ -1,34 +1,36 @@
 <?php
 
-use App\Http\Middleware\HandleInertiaRequests;
-use DimitrienkoV\LaravelModules\Enums\RouteTypeEnum;
+use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 
 return [
     'paths' => [
-        'modules' => 'app/Modules',
-        'integrations' => 'app/Integrations',
-        'subsystems' => 'app/Subsystems',
-        'config' => 'Config',
-        'routes' => 'Routes',
+        'directories' => [
+            'app/Modules',
+            'app/Integrations',
+            'app/Subsystems',
+        ],
         'database' => 'Database',
         'migrations' => 'Migrations',
+        'config' => 'Config',
+        'routes' => 'Routes',
+        'providers' => 'Providers',
         'factories' => 'Factories',
         'models' => 'Models',
-        'providers' => 'Providers',
     ],
-    'route' => [
-        'middlewares' => [
+    'routing' => [
+        'types' => [
             'api' => [
                 'prefix' => 'api',
-                'middleware' => 'api',
+                'middleware' => [SubstituteBindings::class, ConvertEmptyStringsToNull::class, 'api'],
             ],
             'web' => [
                 'prefix' => null,
-                'middleware' => [],
+                'middleware' => ['web'],
             ],
             'inertia' => [
                 'prefix' => null,
-                'middleware' => HandleInertiaRequests::class,
+                'middleware' => ['web'],
             ],
         ],
     ],

@@ -4,151 +4,134 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Services;
 
+use Composer\Autoload\ClassLoader;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
-use LogicException;
-use Throwable;
 
 final readonly class ServiceProviderLoaderService
 {
+    private const string CACHE_FILE = 'bootstrap/cache/modules-providers.php';
+
     public function __construct(
         private Application $app,
-        private Repository $config,
+        private Repository  $config,
+        private Filesystem  $filesystem,
     ) {
     }
 
-    /**
-     * @throws Throwable
-     */
     public function autoload(): void
     {
-        $serviceProviders = $this->discoverServiceProviders();
+        $providers = $this->getProviders();
 
-        $serviceProviders->each(function (string $serviceProviderClass): void {
-            $this->registerServiceProvider($serviceProviderClass);
-        });
+        foreach ($providers as $providerClass) {
+            $this->app->register($providerClass);
+        }
     }
 
     /**
-     * @return Collection<int, string>
+     * @return array<int, class-string<ServiceProvider>>
      */
-    private function discoverServiceProviders(): Collection
+    public function getProviders(): array
     {
-        $basePaths = $this->getBasePaths();
-        $allDirectories = $basePaths
-            ->map(fn (string $basePath): Collection => $this->getDirectories($basePath))
-            ->flatten();
+        $cachePath = $this->app->basePath(self::CACHE_FILE);
 
-        return $allDirectories
-            ->map(fn (string $directoryPath): array => $this->discoverServiceProvidersInDirectory($directoryPath))
-            ->flatten()
-            ->filter(fn ($provider): bool => \is_string($provider) && $this->isServiceProvider($provider))
-            ->unique()
-            ->values();
+        if (file_exists($cachePath)) {
+            return require $cachePath;
+        }
+
+        return $this->discoverProviders()->all();
     }
 
     /**
-     * @return Collection<int, string>
+     * @return array<int, class-string<ServiceProvider>>
      */
-    private function getBasePaths(): Collection
+    public function discover(): array
     {
-        $paths = [];
-        
-        $modulesPath = $this->config->get('modules.paths.modules');
-        if ($modulesPath && \is_string($modulesPath)) {
-            $paths[] = $this->app->basePath($modulesPath);
-        }
-        
-        $integrationsPath = $this->config->get('modules.paths.integrations');
-        if ($integrationsPath && \is_string($integrationsPath)) {
-            $paths[] = $this->app->basePath($integrationsPath);
-        }
-        
-        $subsystemsPath = $this->config->get('modules.paths.subsystems');
-        if ($subsystemsPath && \is_string($subsystemsPath)) {
-            $paths[] = $this->app->basePath($subsystemsPath);
-        }
-
-        return Collection::make($paths)->filter(fn (string $path): bool => is_dir($path));
+        return $this->discoverProviders()->all();
     }
 
     /**
-     * @param string $basePath
-     * @return Collection<int, string>
+     * @param array<int, class-string<ServiceProvider>> $data
      */
-    private function getDirectories(string $basePath): Collection
+    public function cache(array $data): void
     {
-        return Collection::make(File::directories($basePath));
+        $this->filesystem->put(
+            $this->app->basePath(self::CACHE_FILE),
+            '<?php return ' . var_export($data, true) . ';' . PHP_EOL
+        );
     }
 
-    /**
-     * @param string $directoryPath
-     * @return array<string>
-     */
-    private function discoverServiceProvidersInDirectory(string $directoryPath): array
+    public function clearCache(): bool
     {
-        $providersPath = $this->getProvidersPath($directoryPath);
+        $cachePath = $this->app->basePath(self::CACHE_FILE);
 
-        if (! is_dir($providersPath)) {
-            return [];
-        }
-
-        $providerFiles = File::allFiles($providersPath);
-
-        return Collection::make($providerFiles)
-            ->map(fn ($file): ?string => $this->getClassNameFromFile($file->getPathname()))
-            ->filter()
-            ->all();
-    }
-
-    private function getProvidersPath(string $directoryPath): string
-    {
-        $providersPath = $this->config->get('modules.paths.providers', 'Providers');
-
-        if (! \is_string($providersPath)) {
-            throw new LogicException('Invalid config path for providers directory.');
-        }
-
-        return implode(DIRECTORY_SEPARATOR, [$directoryPath, $providersPath]);
-    }
-
-    private function getClassNameFromFile(string $filePath): ?string
-    {
-        $content = file_get_contents($filePath);
-
-        if ($content === false) {
-            return null;
-        }
-
-        if (! preg_match('/namespace\s+([^;]+);/', $content, $namespaceMatches)) {
-            return null;
-        }
-
-        if (! preg_match('/(?:final\s+)?class\s+(\w+)(?:\s+extends\s+(\w+))?/', $content, $classMatches)) {
-            return null;
-        }
-
-        $namespace = trim($namespaceMatches[1]);
-        $className = trim($classMatches[1]);
-
-        return $namespace . '\\' . $className;
-    }
-
-    private function isServiceProvider(string $className): bool
-    {
-        if (! class_exists($className)) {
+        if (! file_exists($cachePath)) {
             return false;
         }
 
-        return is_subclass_of($className, ServiceProvider::class);
+        return $this->filesystem->delete($cachePath);
     }
 
-    private function registerServiceProvider(string $serviceProviderClass): void
+    /**
+     * @return Collection<int, class-string<ServiceProvider>>
+     */
+    private function discoverProviders(): Collection
     {
-        $this->app->register($serviceProviderClass);
+        $basePathPatterns = $this->getBasePathPatterns();
+        $providerDir = $this->config->get('modules.paths.providers', 'Providers');
+
+        if (! \is_string($providerDir)) {
+            $providerDir = 'Providers';
+        }
+
+        $providers = [];
+
+        foreach (ClassLoader::getRegisteredLoaders() as $loader) {
+            foreach ($loader->getClassMap() as $class => $path) {
+                $normalizedPath = realpath($path);
+
+                if ($normalizedPath === false) {
+                    continue;
+                }
+
+                if (! str_contains($normalizedPath, DIRECTORY_SEPARATOR . $providerDir . DIRECTORY_SEPARATOR)) {
+                    continue;
+                }
+
+                foreach ($basePathPatterns as $pattern) {
+                    if (str_contains($normalizedPath, $pattern)) {
+                        if (class_exists($class) && is_subclass_of($class, ServiceProvider::class)) {
+                            /** @var class-string<ServiceProvider> $class */
+                            $providers[] = $class;
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        return Collection::make(array_values(array_unique($providers)));
     }
 
+    /**
+     * @return array<int, string>
+     */
+    private function getBasePathPatterns(): array
+    {
+        $directories = $this->config->get('modules.paths.directories', []);
+
+        if (! \is_array($directories)) {
+            return [];
+        }
+
+        /** @var array<int, string> $directories */
+        return array_values(array_map(
+            fn (string $path): string => $this->app->basePath($path),
+            array_filter($directories, 'is_string')
+        ));
+    }
 }
