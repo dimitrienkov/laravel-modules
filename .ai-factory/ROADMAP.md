@@ -5,9 +5,10 @@
 ## Milestones
 
 ### Фаза 0 — Актуализация репозитория и тулинга (фундамент)
-- [ ] **Обновление composer-зависимостей** — поднять до актуальных линейок: `laravel/framework ^11|^12|^13` (последние патчи), `moonshine/contracts ^4`, `moonshine/core ^4`, `orchestra/testbench ^9|^10|^11`, `phpunit/phpunit ^11|^12`, `phpstan/phpstan ^2`, `larastan/larastan ^3` (заменить `nunomaduro/larastan ^2`), `rector/rector ^2`, `driftingly/rector-laravel ^2`, `friendsofphp/php-cs-fixer ^3` (последний), добавить `pestphp/pest ^3` и `pestphp/pest-plugin-arch ^3`. Запустить `composer update`, зафиксировать `composer.lock`.
-- [ ] **Конфиги инструментов качества** — `phpstan.neon` (level 8, larastan, `treatPhpDocTypesAsCertain: false`, кастомное правило-запрет `Illuminate\Database\Eloquent\Model` в `Application/UseCases/*`), `rector.php` (Laravel-set + type-declaration + dead-code + early-return), `.php-cs-fixer.dist.php` (`@PSR12` + strict-types declare + ordered-imports + проектные правила), `phpunit.xml` с testsuites `Architecture`/`Unit`/`Feature`, `Pest.php` bootstrap.
-- [ ] **Composer scripts и CI workflow** — `composer scripts`: `test`, `test:arch`, `test:unit`, `test:feature`, `phpstan`, `rector:dry`, `format`, `format:dry`. GitHub Actions workflow на матрицу `php: [8.3, 8.4] × laravel: [11, 12, 13]`: phpstan + rector:dry + format:dry + полный test-набор обязательны.
+- [x] **Обновление composer-зависимостей** — поднять до актуальных линейок: `laravel/framework ^11|^12|^13` (последние патчи), `moonshine/contracts ^4`, `moonshine/core ^4`, `orchestra/testbench ^9|^10|^11`, `phpunit/phpunit ^11|^12`, `phpstan/phpstan ^2`, `larastan/larastan ^3` (заменить `nunomaduro/larastan ^2`), `rector/rector ^2`, `driftingly/rector-laravel ^2`, `friendsofphp/php-cs-fixer ^3` (последний), добавить `pestphp/pest ^3` и `pestphp/pest-plugin-arch ^3`. Запустить `composer update`, зафиксировать `composer.lock`. _Выполнено 2026-05-23: composer.lock зафиксирован, ничего не понижалось, добавлен `config.allow-plugins`._
+- [x] **Конфиги инструментов качества** — `phpstan.neon` (level 8, larastan, `treatPhpDocTypesAsCertain: false`, кастомное правило-запрет `Illuminate\Database\Eloquent\Model` в `Application/UseCases/*`), `rector.php` (Laravel-set + type-declaration + dead-code + early-return), `.php-cs-fixer.dist.php` (`@PSR12` + strict-types declare + ordered-imports + проектные правила), `phpunit.xml` с testsuites `Architecture`/`Unit`/`Feature`, `Pest.php` bootstrap. _Выполнено 2026-05-23: кастомное правило PHPStan вынесено TODO-якорем в Фазу 1, остальное настроено и пробутилось локально._
+- [x] **Composer scripts** — `composer scripts`: `test` (массив-форма), `test:arch`, `test:unit`, `test:feature`, `phpstan`, `rector:dry`, `format`, `format:dry`. _Выполнено 2026-05-23._
+- [ ] **CI workflow — отложено** — изначально планировался GitHub Actions на матрицу `php: [8.3, 8.4] × laravel: [12, 13]`, но пользователь принял решение пока не использовать CI вообще (репозиторий не публикуется на GitHub в данной фазе). Качественные гейты остаются локальными через `composer phpstan`, `composer rector:dry`, `composer format:dry`, `composer test`. Возврат к CI — отдельная задача при публикации пакета.
 
 ### Фаза 1 — v2.0 ядро (переписать уже реализованное)
 
@@ -45,4 +46,5 @@
 
 | Milestone | Date |
 |-----------|------|
+| Фаза 0 — Актуализация репозитория и тулинга (composer-стек + конфиги + scripts; CI отложен по решению пользователя) | 2026-05-23 |
 

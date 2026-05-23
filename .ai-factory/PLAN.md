@@ -121,23 +121,12 @@ PHP 8.3 + 8.4 × Laravel 12 + 13 = 4 ячейки. Laravel 11 в матрице 
 
 ### Этап C — CI и smoke
 
-8. **Создать `.github/workflows/ci.yml`.** [#8 — blockedBy #3, #4, #5, #6, #7]
-   - Триггеры: `push: { branches: [main] }`, `pull_request: {}`.
-   - Матрица: `php: [8.3, 8.4]`, `laravel: [12, 13]`, `fail-fast: false`.
-   - Шаги:
-     1. `actions/checkout@v4`.
-     2. `shivammathur/setup-php@v2` с `php-version: ${{ matrix.php }}`, `extensions: mbstring,intl,zip,sqlite3`, `coverage: none`.
-     3. `actions/cache@v4` для `~/.composer/cache` по ключу `${{ runner.os }}-${{ matrix.php }}-${{ matrix.laravel }}-${{ hashFiles('composer.json') }}`.
-     4. `composer require "laravel/framework:^${{ matrix.laravel }}" --no-update`.
-     5. `composer update --prefer-dist --no-progress`.
-     6. `composer phpstan` — required.
-     7. `composer rector:dry` — required.
-     8. `composer format:dry` — required.
-     9. `composer test` — required (последовательно arch/unit/feature).
-   - `actions/upload-artifact@v4` для `.ai-factory/tooling-bootstrap.log` на `if: failure()`.
-   - Подписать workflow комментарием со ссылкой на milestone Фазы 0 в `ROADMAP.md`.
+8. **[x] CI workflow — отменено решением пользователя 2026-05-23.** [#8 — blockedBy #3, #4, #5, #6, #7]
+   - Изначально был создан `.github/workflows/ci.yml` (push/PR triggers, матрица php 8.3/8.4 × laravel 12/13, gates phpstan/rector:dry/format:dry/test, upload-artifact бутстрап-лога). Файл удалён по решению пользователя «без CI вообще» — пакет пока не выводится на GitHub Actions.
+   - Качественные гейты остаются локальными через composer scripts (`composer phpstan`, `composer rector:dry`, `composer format:dry`, `composer test`). Они уже сконфигурированы в Task #7.
+   - CI-стратегия отложена до выбора хостинга и публичного/приватного режима репозитория. См. WARN в `.ai-factory/tooling-bootstrap.log`.
 
-9. **Smoke-прогон тулинга локально и фиксация результата.** [#9 — blockedBy #0, #3, #4, #5, #6, #7]
+9. **[x] Smoke-прогон тулинга локально и фиксация результата.** [#9 — blockedBy #0, #3, #4, #5, #6, #7]
    - Выполнить локально: `composer phpstan`, `composer rector:dry`, `composer format:dry`, `composer test`.
    - **Цель smoke** — не зелёный CI, а корректный boot инструментов. Допустимо: phpstan/rector/php-cs-fixer показывают замечания на legacy-коде `src/` 1.x (это вход для Фазы 1). Недопустимо: фатальные ошибки запуска (`Class not found`, конфликт версий, segfault).
    - Финальный INFO-summary в `.ai-factory/tooling-bootstrap.log`: `[smoke] phpstan: <N issues / boot OK>, rector: <N suggestions / boot OK>, php-cs-fixer: <N diffs / boot OK>, tests: <pass/fail counts>`.
@@ -148,9 +137,9 @@ PHP 8.3 + 8.4 × Laravel 12 + 13 = 4 ячейки. Laravel 11 в матрице 
 5+ задач — нужны чекпоинты. Группировка по этапам:
 
 - **(нет коммита) после #0:** Task #0 — провизиние локального окружения, в репозиторий не пишет. Артефакт — `.ai-factory/tooling-bootstrap.log` (gitignored, см. ниже).
-- **Commit 1 (после #1, #2):** `chore(deps): bump to phpstan 2, larastan 3, rector 2, pest 3, testbench 11`
-- **Commit 2 (после #3, #4, #5, #6, #7):** `chore(tooling): phpstan level 8, rector 2 config, strict_types in php-cs-fixer, three testsuites, pest bootstrap, composer scripts`
-- **Commit 3 (после #8, #9):** `ci: github actions matrix php 8.3,8.4 × laravel 12,13 + smoke log`
+- **Commit 1 (после #1, #2):** `chore(deps): bump to phpstan 2, larastan 3, rector 2, pest 3, testbench 11` — выполнен.
+- **Commit 2 (после #3, #4, #5, #6, #7):** `chore(tooling): phpstan level 8, rector 2 config, strict_types in php-cs-fixer, three testsuites, pest bootstrap, composer scripts` — выполнен.
+- **~~Commit 3 (после #8, #9): `ci: github actions matrix ...`~~** — **снято**. CI не используется. Финальный коммит покрывает только обновлённые чекбоксы плана и ROADMAP.
 
 Каждый коммит — атомарный: build репозитория проходит хотя бы на уровне `composer install` после первого коммита, тулинг бутится после второго, CI зелёный/ожидаемо-красный после третьего.
 
