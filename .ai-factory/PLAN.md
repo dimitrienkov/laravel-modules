@@ -39,7 +39,7 @@ PHP 8.3 + 8.4 × Laravel 12 + 13 = 4 ячейки. Laravel 11 в матрице 
 
 ### Этап 0 — Окружение (предусловие для всего пайплайна)
 
-0. **Поставить PHP 8.3 + PHP 8.4 + Composer 2 в WSL (Ubuntu 24.04 noble) через `ppa:ondrej/php`.** [#0]
+0. **[x] Поставить PHP 8.3 + PHP 8.4 + Composer 2 в WSL (Ubuntu 24.04 noble) через `ppa:ondrej/php`.** [#0]
    - Контекст: текущий WSL чист — `which php` / `which composer` пусты, `vendor/` отсутствует. Без этого шага не выполнятся #2 (`composer update`) и #9 (локальный smoke).
    - Шаги:
      1. `sudo apt-get update && sudo apt-get install -y software-properties-common ca-certificates lsb-release gnupg unzip curl`.
@@ -67,13 +67,13 @@ PHP 8.3 + 8.4 × Laravel 12 + 13 = 4 ячейки. Laravel 11 в матрице 
 
 ### Этап A — composer-стек
 
-1. **Обновить `composer.json` — поднять весь стек до v2.0-таргетов.** [#1]
+1. **[x] Обновить `composer.json` — поднять весь стек до v2.0-таргетов.** [#1]
    - Файл: `composer.json`.
    - `require`: оставить как есть (PHP/Laravel/Inertia/MoonShine уже актуальны).
    - `require-dev`: `phpunit/phpunit ^11|^12`, `mockery/mockery ^1.2`, `rector/rector ^2`, `friendsofphp/php-cs-fixer ^3.65`, `driftingly/rector-laravel ^2`, `phpstan/phpstan ^2`, **удалить** `nunomaduro/larastan ^2`, **добавить** `larastan/larastan ^3`, `orchestra/testbench ^9.12|^10|^11`, `pestphp/pest ^3`, `pestphp/pest-plugin-arch ^3`.
    - Лог: DEBUG-diff в `.ai-factory/tooling-bootstrap.log`.
 
-2. **`composer update -W --prefer-dist`, зафиксировать `composer.lock`.** [#2 — blockedBy #0, #1]
+2. **[x] `composer update -W --prefer-dist`, зафиксировать `composer.lock`.** [#2 — blockedBy #0, #1]
    - При конфликтах разруливать руками, без понижения версий из ROADMAP.
    - Если что-то пришлось понизить — `WARN`-запись в лог с указанием библиотеки и причины.
    - Артефакт: обновлённый `composer.lock`.
