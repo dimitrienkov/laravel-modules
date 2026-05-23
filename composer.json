@@ -46,11 +46,19 @@
     }
   },
   "scripts": {
-    "test": "vendor/bin/phpunit --colors=always",
+    "test:arch": "vendor/bin/pest --testsuite=Architecture",
+    "test:unit": "vendor/bin/phpunit --testsuite=Unit",
+    "test:feature": "vendor/bin/phpunit --testsuite=Feature",
+    "test": [
+      "@test:arch",
+      "@test:unit",
+      "@test:feature"
+    ],
     "test:bail": "vendor/bin/pest --bail",
     "rector": "vendor/bin/rector process --clear-cache",
     "rector:dry": "vendor/bin/rector process --clear-cache --dry-run",
     "format": "vendor/bin/php-cs-fixer fix --allow-risky=yes",
+    "format:dry": "vendor/bin/php-cs-fixer fix --allow-risky=yes --dry-run --diff",
     "phpstan": "vendor/bin/phpstan analyse --memory-limit=512M",
     "phpstan:clear": "vendor/bin/phpstan clear-result-cache && vendor/bin/phpstan analyse --memory-limit=512M"
   }

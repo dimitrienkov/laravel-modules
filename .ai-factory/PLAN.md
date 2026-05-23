@@ -80,31 +80,31 @@ PHP 8.3 + 8.4 × Laravel 12 + 13 = 4 ячейки. Laravel 11 в матрице 
 
 ### Этап B — конфиги тулинга (после успешного update идут параллельно)
 
-3. **Переписать `phpstan.neon.dist` под level 8 + `larastan/larastan/extension.neon`.** [#3 — blockedBy #2]
+3. **[x] Переписать `phpstan.neon.dist` под level 8 + `larastan/larastan/extension.neon`.** [#3 — blockedBy #2]
    - `level: 8`, `paths: src, tests`, `treatPhpDocTypesAsCertain: false`.
    - TODO-якорь с ссылкой на ROADMAP для будущего кастомного правила запрета `Illuminate\Database\Eloquent\Model` в `Application/UseCases/*` (правило **не реализуем** в Фазе 0).
    - Лог: `[phpstan] level=8 extension=larastan/larastan/extension.neon`.
 
-4. **Переписать `rector.php` под Rector 2.x + rector-laravel 2.x.** [#4 — blockedBy #2]
+4. **[x] Переписать `rector.php` под Rector 2.x + rector-laravel 2.x.** [#4 — blockedBy #2]
    - API 2.x: `return RectorConfig::configure()->withPaths([...])->withSets([...])->withSkip([...])->withImportNames(...)`.
    - Sets: `LARAVEL_CODE_QUALITY`, `LARAVEL_COLLECTION`, `TYPE_DECLARATION`, `CODE_QUALITY`, `DEAD_CODE`, `EARLY_RETURN`.
    - `paths: src, tests/Architecture`. `skip: tests/*/Fixtures` (на будущее).
    - Лог: `[rector] sets=laravel-quality,laravel-collection,type-decl,code-quality,dead-code,early-return`.
 
-5. **Обновить `.php-cs-fixer.dist.php` под strict-types и расширенный набор правил.** [#5 — blockedBy #2]
+5. **[x] Обновить `.php-cs-fixer.dist.php` под strict-types и расширенный набор правил.** [#5 — blockedBy #2]
    - Сохранить текущий набор; добавить: `declare_strict_types => true`, `single_quote => true`, `phpdoc_align`, `phpdoc_separation`, `ordered_class_elements`, `void_return`, `nullable_type_declaration_for_default_null_value`.
    - Finder: src + tests; если появится `stubs/` — включить через `if (is_dir(__DIR__.'/stubs')) { $finder->in(__DIR__.'/stubs'); }`.
    - `setRiskyAllowed(true)` — оставить.
    - Лог: `[php-cs-fixer] strict_types=enforced`.
 
-6. **Перенастроить `phpunit.xml.dist` на три testsuites + создать `tests/Pest.php`.** [#6 — blockedBy #2]
+6. **[x] Перенастроить `phpunit.xml.dist` на три testsuites + создать `tests/Pest.php`.** [#6 — blockedBy #2]
    - Файлы: `phpunit.xml.dist` (изменить) и `tests/Pest.php` (создать).
    - Testsuites: `Architecture` (`./tests/Architecture`), `Unit` (`./tests/Unit`), `Feature` (`./tests/Feature`). XSD-схему пинуем на `https://schema.phpunit.de/11.5/phpunit.xsd` — PHPUnit 12.x обратно-совместимо читает её, контрибьютор на 11.x не получит warning.
    - Включить `colors=true`, `cacheDirectory=.phpunit.cache`, `failOnRisky=true`, `failOnWarning=true`. `stopOnError`/`stopOnFailure` — выключить (мешает CI собирать полный отчёт).
    - `tests/Pest.php`: `uses(\Orchestra\Testbench\TestCase::class)->in('Unit', 'Feature');` + `declare(strict_types=1);`. **`Architecture`-suite намеренно не цепляем к Testbench** — arch-тесты работают через reflection и не должны бутить Laravel (ускоряет прогон). Реальных тестов в Фазе 0 не добавляем — это будет в Фазе 1 (`Архитектурные тесты на ядро`).
    - Лог: `[phpunit] testsuites=Architecture,Unit,Feature xsd=phpunit/11.5`.
 
-7. **Дополнить `composer.json` scripts.** [#7 — blockedBy #2]
+7. **[x] Дополнить `composer.json` scripts.** [#7 — blockedBy #2]
    - Привести scripts к набору ROADMAP §Фаза 0 / ARCHITECTURE §13.
    - Финальный список (помимо текущих `phpstan`, `phpstan:clear`, `rector`, `format`):
      - `test:arch` — `vendor/bin/pest --testsuite=Architecture`.

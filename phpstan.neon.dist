@@ -1,13 +1,19 @@
 includes:
-    - vendor/nunomaduro/larastan/extension.neon
+    - vendor/larastan/larastan/extension.neon
 
 parameters:
     paths:
         - src
-    level: 5
+        - tests
+    level: 8
     reportUnmatchedIgnoredErrors: false
     treatPhpDocTypesAsCertain: false
-    ignoreErrors:
+    ignoreErrors: []
     excludePaths:
         - vendor/*
         - tests/*/vendor/*
+        - tests/*/Fixtures/*
+    # TODO(Фаза 1, ROADMAP §"Архитектурные правила в PHPStan"):
+    #   custom rule forbidding `Illuminate\Database\Eloquent\Model` references
+    #   inside `Application/UseCases/*` to keep UseCases storage-agnostic.
+    #   Implementation deferred — Фаза 0 only configures the analyzer.
