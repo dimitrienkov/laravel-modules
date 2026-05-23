@@ -7,7 +7,7 @@
 - `declare(strict_types=1);` — обязателен в каждом PHP-файле под `src/` (проверяется `ArchitectureTest::testStrictTypesDeclaration`).
 - Никаких `dd()`, `dump()`, `var_dump()`, `print_r()`, `exit()`, `die()` в `src/` (проверяется `ArchitectureTest::testNoDebugAndTerminationFunctionsInCode`).
 - Классы по умолчанию `final readonly`, поля приходят через конструкторный property promotion.
-- PHPStan: целевой level max (сейчас 5 — поднимаем по мере рефакторинга).
+- PHPStan: level 8 (max) обязателен с Фазы 0 (2026-05-23); удерживаем без baseline — любое новое нарушение фиксится в коде, не подавляется.
 - Стандарт форматирования: PSR-12 + `.php-cs-fixer.dist.php`.
 
 ## Архитектура и DI

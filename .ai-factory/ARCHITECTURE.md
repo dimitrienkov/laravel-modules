@@ -955,21 +955,26 @@ arch('feature repository is scoped, not singleton')
   - `FeatureRepository` — повторное чтение в рамках request'а, сброс между request'ами (эмулируется через container scoped-binding).
   - тесты MoonShine пропускаются, если MoonShine не установлен.
 
-Команды (`composer scripts`):
+Команды (`composer scripts`, фактическое состояние `composer.json`):
 
 ```json
 {
-  "test:arch":    "pest --filter=Architecture",
-  "test:unit":    "phpunit --testsuite=Unit",
-  "test:feature": "phpunit --testsuite=Feature",
-  "test":         "@test:arch && @test:unit && @test:feature",
-  "phpstan":      "phpstan analyse --memory-limit=512M",
-  "rector:dry":   "rector process --dry-run",
-  "format":       "php-cs-fixer fix --allow-risky=yes"
+  "test:arch":    "vendor/bin/pest --testsuite=Architecture",
+  "test:unit":    "vendor/bin/phpunit --testsuite=Unit",
+  "test:feature": "vendor/bin/phpunit --testsuite=Feature",
+  "test": [
+    "@test:arch",
+    "@test:unit",
+    "@test:feature"
+  ],
+  "phpstan":    "vendor/bin/phpstan analyse --memory-limit=512M",
+  "rector:dry": "vendor/bin/rector process --clear-cache --dry-run",
+  "format":     "vendor/bin/php-cs-fixer fix --allow-risky=yes",
+  "format:dry": "vendor/bin/php-cs-fixer fix --allow-risky=yes --dry-run --diff"
 }
 ```
 
-CI запускает `phpstan`, `rector:dry`, `format --dry-run`, `test` — все четыре обязательны.
+Качественные гейты выполняются локально через `composer phpstan`, `composer rector:dry`, `composer format:dry`, `composer test`. CI workflow отложен (см. `ROADMAP.md`, Фаза 0): репозиторий пока не публикуется на GitHub, возврат к CI — отдельная задача при публикации пакета.
 
 ## 14. Правила зависимостей между слоями
 
