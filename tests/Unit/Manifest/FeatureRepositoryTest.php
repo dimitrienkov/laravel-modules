@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
 
 use DimitrienkoV\LaravelModules\Exceptions\FeatureNotFoundException;
 use DimitrienkoV\LaravelModules\Exceptions\FeatureTypeMismatchException;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
@@ -87,6 +88,32 @@ final class FeatureRepositoryTest extends TestCase
 
         self::assertFalse($features->bool('blog', 'comments_enabled'));
         self::assertTrue($this->featureRepository()->bool('blog', 'comments_enabled'));
+    }
+
+    #[Test]
+    public function string_returns_string_value_for_string_feature(): void
+    {
+        $features = $this->featureRepository();
+
+        self::assertSame('light', $features->string('blog', 'theme'));
+    }
+
+    #[Test]
+    public function string_throws_feature_type_mismatch_for_non_string(): void
+    {
+        $this->expectException(FeatureTypeMismatchException::class);
+        $this->expectExceptionMessage('must be [string]');
+
+        $this->featureRepository()->string('blog', 'comments_enabled');
+    }
+
+    #[Test]
+    public function it_throws_module_not_found_for_unknown_module(): void
+    {
+        $this->expectException(ModuleNotFoundException::class);
+        $this->expectExceptionMessage('[nonexistent]');
+
+        $this->featureRepository()->get('nonexistent', 'any_key');
     }
 
     private function featureRepository(): FeatureRepository

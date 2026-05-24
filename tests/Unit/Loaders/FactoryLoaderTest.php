@@ -45,6 +45,21 @@ final class FactoryLoaderTest extends TestCase
         );
     }
 
+    #[Test]
+    public function it_returns_early_when_factories_directory_is_missing(): void
+    {
+        $modulePath = $this->tempDir . '/Blog';
+        mkdir($modulePath, 0755, true);
+        $loader = new FactoryLoader(new Filesystem(), new ModuleLayout());
+
+        $loader->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
+
+        self::assertSame(
+            'Database\\Factories\\PostFactory',
+            $loader->factoryClassFor('App\\Modules\\Blog\\Domain\\Models\\Post'),
+        );
+    }
+
     private function deleteDirectory(string $directory): void
     {
         if (! is_dir($directory)) {

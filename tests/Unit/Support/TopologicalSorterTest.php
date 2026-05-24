@@ -131,4 +131,41 @@ final class TopologicalSorterTest extends TestCase
             ModuleFactory::make(name: 'users', enabled: false, dependencies: ['blog' => '*']),
         ]);
     }
+
+    #[Test]
+    public function it_handles_diamond_dependency(): void
+    {
+        $d = ModuleFactory::make(name: 'd', version: '1.0.0');
+        $b = ModuleFactory::make(name: 'b', version: '1.0.0', dependencies: ['d' => '*']);
+        $c = ModuleFactory::make(name: 'c', version: '1.0.0', dependencies: ['d' => '*']);
+        $a = ModuleFactory::make(name: 'a', version: '1.0.0', dependencies: ['b' => '*', 'c' => '*']);
+
+        $sorted = (new TopologicalSorter())->sort([$a, $b, $c, $d]);
+
+        $names = array_map(static fn ($module): string => $module->name, $sorted);
+
+        $posD = array_search('d', $names, true);
+        $posB = array_search('b', $names, true);
+        $posC = array_search('c', $names, true);
+        $posA = array_search('a', $names, true);
+
+        self::assertLessThan($posB, $posD);
+        self::assertLessThan($posC, $posD);
+        self::assertLessThan($posA, $posB);
+        self::assertLessThan($posA, $posC);
+    }
+
+    #[Test]
+    public function it_handles_three_level_deep_chain(): void
+    {
+        $d = ModuleFactory::make(name: 'd', version: '1.0.0');
+        $c = ModuleFactory::make(name: 'c', version: '1.0.0', dependencies: ['d' => '*']);
+        $b = ModuleFactory::make(name: 'b', version: '1.0.0', dependencies: ['c' => '*']);
+        $a = ModuleFactory::make(name: 'a', version: '1.0.0', dependencies: ['b' => '*']);
+
+        $sorted = (new TopologicalSorter())->sort([$a, $b, $c, $d]);
+        $names = array_map(static fn ($module): string => $module->name, $sorted);
+
+        self::assertSame(['d', 'c', 'b', 'a'], $names);
+    }
 }

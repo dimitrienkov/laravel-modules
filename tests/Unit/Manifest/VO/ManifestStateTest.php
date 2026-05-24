@@ -50,4 +50,16 @@ final class ManifestStateTest extends TestCase
         self::assertSame('2026-05-24T00:00:00+00:00', $state->installedAt);
         self::assertSame('2026-05-24T12:00:00+00:00', $state->updatedAt);
     }
+
+    #[Test]
+    public function it_rejects_missing_enabled_field(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('state.enabled must be a boolean');
+
+        ManifestState::fromArray(
+            ['installed_at' => '2026-05-24T00:00:00+00:00'],
+            '/tmp/module.json',
+        );
+    }
 }

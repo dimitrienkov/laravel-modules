@@ -15,6 +15,7 @@ parameters:
         - vendor/*
         - tests/*/vendor/*
         - tests/*/Fixtures/*
+        - tests/Architecture/*
     # TODO(Фаза 1, ROADMAP §"Архитектурные правила в PHPStan"):
     #   custom rule forbidding `Illuminate\Database\Eloquent\Model` references
     #   inside `Application/UseCases/*` to keep UseCases storage-agnostic.

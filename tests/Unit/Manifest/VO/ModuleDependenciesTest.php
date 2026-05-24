@@ -52,6 +52,35 @@ final class ModuleDependenciesTest extends TestCase
         ModuleDependencies::fromArray([$name => '^1.0'], '/tmp/module.json');
     }
 
+    #[Test]
+    public function it_accepts_empty_dependencies_array(): void
+    {
+        $deps = ModuleDependencies::fromArray([], '/tmp/module.json');
+
+        self::assertTrue($deps->isEmpty());
+        self::assertSame([], $deps->all());
+        self::assertSame([], $deps->names());
+    }
+
+    #[Test]
+    public function names_returns_dependency_names_in_sorted_order(): void
+    {
+        $deps = ModuleDependencies::fromArray(
+            ['users' => '^1.0', 'auth' => '*', 'media' => '>=2.0'],
+            '/tmp/module.json',
+        );
+
+        self::assertSame(['auth', 'media', 'users'], $deps->names());
+    }
+
+    #[Test]
+    public function constraint_for_returns_null_for_non_existent_dependency(): void
+    {
+        $deps = ModuleDependencies::fromArray(['users' => '^1.0'], '/tmp/module.json');
+
+        self::assertNull($deps->constraintFor('nonexistent'));
+    }
+
     /**
      * @return array<string, array{string}>
      */

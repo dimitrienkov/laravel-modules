@@ -24,5 +24,14 @@ final class ModuleLayoutTest extends TestCase
         self::assertSame('/app/Modules/Blog/Database/Migrations', $layout->migrationsDir($module));
         self::assertSame('/app/Modules/Blog/Database/Factories', $layout->factoriesDir($module));
         self::assertSame('/app/Modules/Blog/Providers', $layout->providersDir($module));
+        self::assertSame('/app/Modules/Blog/Lang', $layout->langDir($module));
+        self::assertSame('/app/Modules/Blog/Resources/views', $layout->viewsDir($module));
+        self::assertSame('/app/Modules/Blog/View/Components', $layout->bladeComponentsDir($module));
+        self::assertSame('/app/Modules/Blog/Console/Commands', $layout->commandsDir($module));
+        self::assertSame('/app/Modules/Blog/Routes/console.php', $layout->consoleRoutesFile($module));
+        self::assertSame('/app/Modules/Blog/Routes/channels.php', $layout->channelsFile($module));
+        self::assertSame('/app/Modules/Blog/Domain/Observers', $layout->observersDir($module));
+        self::assertSame('/app/Modules/Blog/Domain/Policies', $layout->policiesDir($module));
+        self::assertSame('/app/Modules/Blog/Http/Middleware', $layout->middlewareDir($module));
     }
 }

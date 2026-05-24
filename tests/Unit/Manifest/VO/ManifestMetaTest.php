@@ -85,4 +85,16 @@ final class ManifestMetaTest extends TestCase
 
         self::assertSame('blog', $meta->displayName);
     }
+
+    #[Test]
+    public function it_rejects_missing_version_field(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('meta.version must be a non-empty string');
+
+        ManifestMeta::fromArray(
+            ['name' => 'blog'],
+            '/tmp/module.json',
+        );
+    }
 }

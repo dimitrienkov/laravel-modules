@@ -100,6 +100,22 @@ final class ComposerNamespaceResolverTest extends TestCase
         (new ComposerNamespaceResolver($this->tempDir))->resolve($this->tempDir . '/app/Modules/Blog');
     }
 
+    #[Test]
+    public function it_throws_when_path_is_not_covered_by_any_psr4_mapping(): void
+    {
+        $this->writeComposer([
+            'autoload' => [
+                'psr-4' => [
+                    'App\\' => 'app/',
+                ],
+            ],
+        ]);
+
+        $this->expectException(NamespaceResolutionException::class);
+
+        (new ComposerNamespaceResolver($this->tempDir))->resolve($this->tempDir . '/vendor/some/package');
+    }
+
     /**
      * @param array<string, mixed> $composer
      */
