@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Support;
 
-use DimitrienkoV\LaravelModules\Manifest\FeatureSchema;
-use DimitrienkoV\LaravelModules\Manifest\FeatureValues;
-use DimitrienkoV\LaravelModules\Manifest\ManifestMeta;
-use DimitrienkoV\LaravelModules\Manifest\ManifestState;
-use DimitrienkoV\LaravelModules\Manifest\Module;
-use DimitrienkoV\LaravelModules\Manifest\ModuleDependencies;
+use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
+use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
+use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
+use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
 
 final readonly class ModuleFactory
 {
@@ -26,7 +25,6 @@ final readonly class ModuleFactory
     ): Module {
         $path ??= sys_get_temp_dir() . '/laravel-modules/' . $name;
         $namespace ??= 'App\\Modules\\' . ucfirst($name);
-        $features = new FeatureSchema([]);
 
         return new Module(
             name: $name,
@@ -43,8 +41,7 @@ final readonly class ModuleFactory
                 dependencies: new ModuleDependencies($dependencies),
             ),
             state: new ManifestState($enabled, null),
-            features: $features,
-            values: new FeatureValues($features, []),
+            features: new FeatureSchema([]),
         );
     }
 }

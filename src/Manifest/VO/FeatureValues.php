@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DimitrienkoV\LaravelModules\Manifest;
+namespace DimitrienkoV\LaravelModules\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\FeatureNotFoundException;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;

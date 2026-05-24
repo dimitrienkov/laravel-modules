@@ -1,0 +1,125 @@
+<?php
+
+declare(strict_types=1);
+
+namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders\Pipeline;
+
+use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Loaders\Pipeline\ModuleLoaderPipeline;
+use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+
+final class ModuleLoaderPipelineTest extends TestCase
+{
+    #[Test]
+    public function it_runs_loaders_in_priority_order(): void
+    {
+        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new \ArrayObject();
+
+        $pipeline = new ModuleLoaderPipeline(
+            registry: new PipelineFakeRegistry([
+                ModuleFactory::make(name: 'blog'),
+            ]),
+            loaders: [
+                new PipelineRecordingLoader($calls, 20, 'late'),
+                new PipelineRecordingLoader($calls, 10, 'early'),
+            ],
+        );
+
+        $pipeline->boot();
+
+        self::assertSame([
+            ['early', 'blog'],
+            ['late', 'blog'],
+        ], $calls->getArrayCopy());
+    }
+
+    #[Test]
+    public function it_skips_disabled_modules(): void
+    {
+        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new \ArrayObject();
+
+        $pipeline = new ModuleLoaderPipeline(
+            registry: new PipelineFakeRegistry([
+                ModuleFactory::make(name: 'enabled'),
+                ModuleFactory::make(name: 'disabled', enabled: false),
+            ]),
+            loaders: [
+                new PipelineRecordingLoader($calls, 10, 'loader'),
+            ],
+        );
+
+        $pipeline->boot();
+
+        self::assertSame([['loader', 'enabled']], $calls->getArrayCopy());
+    }
+
+    #[Test]
+    public function it_handles_empty_loaders(): void
+    {
+        $pipeline = new ModuleLoaderPipeline(
+            registry: new PipelineFakeRegistry([
+                ModuleFactory::make(name: 'blog'),
+            ]),
+            loaders: [],
+        );
+
+        $pipeline->boot();
+
+        $this->expectNotToPerformAssertions();
+    }
+}
+
+final class PipelineRecordingLoader implements LoaderInterface
+{
+    /**
+     * @param \ArrayObject<int, array{0: string, 1: string}> $calls
+     */
+    public function __construct(
+        private readonly \ArrayObject $calls,
+        private readonly int $priority,
+        private readonly string $name,
+    ) {
+    }
+
+    public function load(Module $module): void
+    {
+        $this->calls->append([$this->name, $module->name]);
+    }
+
+    public function priority(): int
+    {
+        return $this->priority;
+    }
+}
+
+final readonly class PipelineFakeRegistry implements ModuleRegistryInterface
+{
+    /**
+     * @param array<int, Module> $modules
+     */
+    public function __construct(
+        private array $modules,
+    ) {
+    }
+
+    public function all(): array
+    {
+        return $this->modules;
+    }
+
+    public function find(string $name): Module
+    {
+        throw new \RuntimeException("Module [{$name}] was not registered.");
+    }
+
+    public function loadOrder(): array
+    {
+        return $this->modules;
+    }
+}

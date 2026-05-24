@@ -26,7 +26,7 @@ final class ManifestValueObjectsTest extends TestCase
     public function manifest_value_objects_are_final_readonly_classes(): void
     {
         foreach ($this->valueObjects as $className) {
-            $path = __DIR__ . "/../../src/Manifest/{$className}.php";
+            $path = __DIR__ . "/../../src/Manifest/VO/{$className}.php";
             $contents = (string) file_get_contents($path);
 
             self::assertStringContainsString(

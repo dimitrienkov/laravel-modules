@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Feature;
 
-use DimitrienkoV\LaravelModules\Console\Commands\ModulesOptimizeClearCommand;
-use DimitrienkoV\LaravelModules\Console\Commands\ModulesOptimizeCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeClearCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeCommand;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -39,7 +41,9 @@ final class ModulesOptimizeCommandTest extends TestCase
         $this->writeManifest();
 
         $app = $this->application();
-        $app->instance(ModuleRegistry::class, $this->registry());
+        $registry = $this->registry();
+        $app->instance(ModuleRegistry::class, $registry);
+        $app->instance(ModuleRegistryCache::class, $this->registryCache());
         $app->make(Kernel::class)->registerCommand($app->make(ModulesOptimizeCommand::class));
         $app->make(Kernel::class)->registerCommand($app->make(ModulesOptimizeClearCommand::class));
     }
@@ -79,30 +83,46 @@ final class ModulesOptimizeCommandTest extends TestCase
         self::assertFileExists($this->tempDir . '/bootstrap/cache/modules-providers.php');
     }
 
+    private function registryCache(): ModuleRegistryCache
+    {
+        return new ModuleRegistryCache(
+            validator: new ManifestValidator(),
+            layout: new ModuleLayout(),
+            basePath: $this->tempDir,
+        );
+    }
+
     private function registry(): ModuleRegistry
     {
         $layout = new ModuleLayout();
         $validator = new ManifestValidator();
+        $config = new Repository([
+            'modules' => [
+                'paths' => [
+                    'directories' => ['app/Modules'],
+                ],
+            ],
+        ]);
 
         return new ModuleRegistry(
-            config: new Repository([
-                'modules' => [
-                    'paths' => [
-                        'directories' => ['app/Modules'],
-                    ],
-                ],
-            ]),
-            filesystem: new Filesystem(),
             manifests: new ModuleManifestRepository(
                 layout: $layout,
                 writer: new AtomicJsonWriter(),
                 validator: $validator,
                 namespaceResolver: new ComposerNamespaceResolver($this->tempDir),
             ),
-            validator: $validator,
             sorter: new TopologicalSorter(),
-            layout: $layout,
-            basePath: $this->tempDir,
+            scanner: new ModuleDirectoryScanner(
+                config: $config,
+                filesystem: new Filesystem(),
+                layout: $layout,
+                basePath: $this->tempDir,
+            ),
+            cache: new ModuleRegistryCache(
+                validator: $validator,
+                layout: $layout,
+                basePath: $this->tempDir,
+            ),
         );
     }
 

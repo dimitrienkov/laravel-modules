@@ -10,7 +10,7 @@ use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleDependencyDisabledException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleDependencyIncompatibleException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleDependencyMissingException;
-use DimitrienkoV\LaravelModules\Manifest\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 
 final readonly class TopologicalSorter
 {

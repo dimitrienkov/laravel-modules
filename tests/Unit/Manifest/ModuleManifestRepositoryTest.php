@@ -7,10 +7,10 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
-use DimitrienkoV\LaravelModules\Manifest\FeatureValues;
-use DimitrienkoV\LaravelModules\Manifest\ManifestState;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
+use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
+use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -54,8 +54,19 @@ final class ModuleManifestRepositoryTest extends TestCase
         self::assertSame('App\\Modules\\Blog', $module->namespace);
         self::assertTrue($module->isEnabled());
         self::assertSame('*', $module->meta->dependencies->constraintFor('users'));
-        self::assertSame(true, $module->values->get('blog', 'comments_enabled'));
-        self::assertSame(20, $module->values->get('blog', 'posts_per_page'));
+    }
+
+    #[Test]
+    public function it_reads_values_separately_from_module_descriptor(): void
+    {
+        $this->writeManifest($this->validManifest());
+
+        $repo = $this->repository();
+        $module = $repo->load($this->modulePath);
+        $values = $repo->readValues($module);
+
+        self::assertSame(20, $values->get('blog', 'posts_per_page'));
+        self::assertSame(true, $values->get('blog', 'comments_enabled'));
     }
 
     #[Test]
@@ -82,9 +93,11 @@ final class ModuleManifestRepositoryTest extends TestCase
     public function it_saves_canonical_manifest_without_persisting_feature_defaults(): void
     {
         $this->writeManifest($this->validManifest());
-        $module = $this->repository()->load($this->modulePath);
+        $repo = $this->repository();
+        $module = $repo->load($this->modulePath);
+        $values = $repo->readValues($module);
 
-        $this->repository()->save($module);
+        $repo->save($module, $values);
 
         $stored = $this->readStoredManifest();
 
@@ -111,7 +124,8 @@ final class ModuleManifestRepositoryTest extends TestCase
     public function it_updates_feature_values_through_typed_value_object(): void
     {
         $this->writeManifest($this->validManifest());
-        $module = $this->repository()->load($this->modulePath);
+        $repo = $this->repository();
+        $module = $repo->load($this->modulePath);
         $values = FeatureValues::fromArray(
             ['comments_enabled' => false, 'posts_per_page' => 30],
             $module->features,
@@ -119,10 +133,10 @@ final class ModuleManifestRepositoryTest extends TestCase
             $module->manifestPath(),
         );
 
-        $updated = $this->repository()->updateFeatureValues($module, $values);
+        $repo->updateFeatureValues($module, $values);
         $stored = $this->readStoredManifest();
 
-        self::assertFalse($updated->values->get('blog', 'comments_enabled'));
+        self::assertFalse($stored['settings']['values']['comments_enabled']);
         self::assertSame(30, $stored['settings']['values']['posts_per_page']);
     }
 
@@ -206,7 +220,9 @@ final class ModuleManifestRepositoryTest extends TestCase
         $this->expectException(ManifestWriteException::class);
         $this->expectExceptionMessage('temporary file could not be renamed atomically');
 
-        $this->repository()->save(ModuleFactory::make(path: $this->modulePath));
+        $module = ModuleFactory::make(path: $this->modulePath);
+        $values = new FeatureValues($module->features, []);
+        $this->repository()->save($module, $values);
     }
 
     private function repository(): ModuleManifestRepository

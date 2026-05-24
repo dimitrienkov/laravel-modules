@@ -6,6 +6,11 @@ namespace DimitrienkoV\LaravelModules\Manifest;
 
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
+use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
+use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
+use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
+use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
+use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 
 final readonly class ManifestValidator implements ManifestValidatorInterface
 {
@@ -27,14 +32,14 @@ final readonly class ManifestValidator implements ManifestValidatorInterface
     {
         $this->assertTopLevelKeys($manifest, $manifestPath);
 
-        $metaRaw = $this->requiredObject($manifest, 'meta', $manifestPath);
+        $metaRaw = ManifestFieldReader::requiredObject($manifest, 'meta', $manifestPath);
         $meta = ManifestMeta::fromArray($metaRaw, $manifestPath);
 
-        $state = $this->requiredObject($manifest, 'state', $manifestPath);
+        $state = ManifestFieldReader::requiredObject($manifest, 'state', $manifestPath);
         ManifestState::fromArray($state, $manifestPath);
 
-        $settings = $this->requiredObject($manifest, 'settings', $manifestPath);
-        $this->assertSettingsKeys($settings, $manifestPath);
+        $settings = ManifestFieldReader::requiredObject($manifest, 'settings', $manifestPath);
+        ManifestFieldReader::assertAllowedKeys($settings, self::ALLOWED_SETTINGS_KEYS, 'settings', $manifestPath);
 
         $schemaRaw = $settings['schema'] ?? [];
         if (! \is_array($schemaRaw)) {
@@ -61,45 +66,14 @@ final readonly class ManifestValidator implements ManifestValidatorInterface
             if ($key === 'autoload') {
                 throw InvalidManifestException::forPath(
                     $manifestPath,
-                    'autoload section is not supported; loaders use ModuleLayout conventions.'
+                    'autoload section is not supported; loaders use ModuleLayout conventions.',
                 );
             }
 
             if (! isset(self::ALLOWED_TOP_LEVEL_KEYS[$key])) {
                 throw InvalidManifestException::forPath(
                     $manifestPath,
-                    "manifest contains unknown top-level key [{$key}]."
-                );
-            }
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     *
-     * @return array<string, mixed>
-     */
-    private function requiredObject(array $data, string $key, string $manifestPath): array
-    {
-        $value = $data[$key] ?? null;
-
-        if (! \is_array($value) || ($value !== [] && array_is_list($value))) {
-            throw InvalidManifestException::forPath($manifestPath, "{$key} must be an object.");
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param array<string, mixed> $settings
-     */
-    private function assertSettingsKeys(array $settings, string $manifestPath): void
-    {
-        foreach (array_keys($settings) as $key) {
-            if (! isset(self::ALLOWED_SETTINGS_KEYS[$key])) {
-                throw InvalidManifestException::forPath(
-                    $manifestPath,
-                    "settings contains unknown key [{$key}]."
+                    "manifest contains unknown top-level key [{$key}].",
                 );
             }
         }

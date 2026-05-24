@@ -18,6 +18,7 @@ final class LoadersTest extends TestCase
         $files = Finder::create()
             ->files()
             ->in(__DIR__ . '/../../src/Loaders')
+            ->depth(0)
             ->name('*.php');
 
         foreach ($files as $file) {

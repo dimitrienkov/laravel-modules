@@ -9,6 +9,9 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
+use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
+use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
+use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use JsonException;
@@ -43,27 +46,39 @@ final readonly class ModuleManifestRepository implements ModuleManifestRepositor
         );
     }
 
-    public function save(Module $module): void
+    public function readValues(Module $module): FeatureValues
     {
         $manifestPath = $this->layout->manifestFile($module);
-        $manifest = $module->toManifestArray();
+        $manifest = $this->readManifest($manifestPath);
+
+        $valuesRaw = $manifest['settings']['values'] ?? [];
+        if (! \is_array($valuesRaw)) {
+            throw InvalidManifestException::forPath($manifestPath, 'settings.values must be an object.');
+        }
+
+        /** @var array<string, mixed> $valuesRaw */
+        return FeatureValues::fromArray($valuesRaw, $module->features, $module->name, $manifestPath);
+    }
+
+    public function save(Module $module, FeatureValues $values): void
+    {
+        $manifestPath = $this->layout->manifestFile($module);
+        $manifest = $module->toManifestArray($values);
 
         $this->validator->validate($manifest, $manifestPath);
         $this->writer->write($manifestPath, $manifest);
     }
 
-    public function updateFeatureValues(Module $module, FeatureValues $values): Module
+    public function updateFeatureValues(Module $module, FeatureValues $values): void
     {
-        $updated = $module->withFeatureValues($values);
-        $this->save($updated);
-
-        return $updated;
+        $this->save($module, $values);
     }
 
     public function updateState(Module $module, ManifestState $state): Module
     {
         $updated = $module->withState($state);
-        $this->save($updated);
+        $currentValues = $this->readValues($module);
+        $this->save($updated, $currentValues);
 
         return $updated;
     }

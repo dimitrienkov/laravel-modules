@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace DimitrienkoV\LaravelModules\Manifest;
+namespace DimitrienkoV\LaravelModules\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\FeatureNotFoundException;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
+use DimitrienkoV\LaravelModules\Manifest\Parsing\FeatureDefinitionFactory;
 
 final readonly class FeatureSchema
 {
@@ -40,7 +41,7 @@ final readonly class FeatureSchema
             }
 
             /** @var array<string, mixed> $definition */
-            $definitions[$key] = FeatureDefinition::fromArray($key, $definition, $manifestPath);
+            $definitions[$key] = FeatureDefinitionFactory::fromArray($key, $definition, $manifestPath);
         }
 
         ksort($definitions);

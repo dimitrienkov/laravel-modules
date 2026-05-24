@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Providers;
 
-use DimitrienkoV\LaravelModules\Console\Commands\ModulesOptimizeClearCommand;
-use DimitrienkoV\LaravelModules\Console\Commands\ModulesOptimizeCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeClearCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeCommand;
 use DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
+use DimitrienkoV\LaravelModules\Loaders\Pipeline\ModuleLoaderPipeline;
 use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\MoonShine\MoonShineModuleAutoloader;
+use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -23,6 +27,7 @@ use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\ServiceProvider;
+use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
 
 final class ModuleLoaderServiceProvider extends ServiceProvider
 {
@@ -41,15 +46,13 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
 
     private const string MOONSHINE_CORE_CONTRACT = 'MoonShine\\Contracts\\Core\\DependencyInjection\\CoreContract';
 
-    private const string MOONSHINE_LOADER = 'DimitrienkoV\\LaravelModules\\Loaders\\MoonShineLoader';
-
     public function register(): void
     {
         $this->mergeConfigFrom($this->packageConfigPath(), 'modules');
 
         $this->registerCoreBindings();
         $this->registerDefaultLoaders();
-        $this->registerMoonShineLoaderWhenAvailable();
+        $this->registerMoonShineIntegration();
     }
 
     public function boot(): void
@@ -70,7 +73,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             );
         }
 
-        $this->bootModules();
+        $this->pipeline()->boot();
     }
 
     private function registerCoreBindings(): void
@@ -105,15 +108,29 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             fn (): ModuleManifestRepository => $this->app->make(ModuleManifestRepository::class),
         );
 
-        $this->app->singleton(ModuleRegistry::class, function (): ModuleRegistry {
-            return new ModuleRegistry(
+        $this->app->singleton(ModuleDirectoryScanner::class, function (): ModuleDirectoryScanner {
+            return new ModuleDirectoryScanner(
                 config: $this->app->make(Repository::class),
                 filesystem: $this->app->make(Filesystem::class),
-                manifests: $this->app->make(ModuleManifestRepositoryInterface::class),
-                validator: $this->app->make(ManifestValidatorInterface::class),
-                sorter: $this->app->make(TopologicalSorter::class),
                 layout: $this->app->make(ModuleLayout::class),
                 basePath: $this->app->basePath(),
+            );
+        });
+
+        $this->app->singleton(ModuleRegistryCache::class, function (): ModuleRegistryCache {
+            return new ModuleRegistryCache(
+                validator: $this->app->make(ManifestValidatorInterface::class),
+                layout: $this->app->make(ModuleLayout::class),
+                basePath: $this->app->basePath(),
+            );
+        });
+
+        $this->app->singleton(ModuleRegistry::class, function (): ModuleRegistry {
+            return new ModuleRegistry(
+                manifests: $this->app->make(ModuleManifestRepositoryInterface::class),
+                sorter: $this->app->make(TopologicalSorter::class),
+                scanner: $this->app->make(ModuleDirectoryScanner::class),
+                cache: $this->app->make(ModuleRegistryCache::class),
             );
         });
         $this->app->singleton(
@@ -142,56 +159,36 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         }
     }
 
-    private function registerMoonShineLoaderWhenAvailable(): void
+    private function registerMoonShineIntegration(): void
     {
-        if (
-            ! interface_exists(self::MOONSHINE_CORE_CONTRACT)
-            || ! class_exists(self::MOONSHINE_LOADER)
-            || ! $this->app->bound(self::MOONSHINE_CORE_CONTRACT)
-        ) {
+        if (! interface_exists(self::MOONSHINE_CORE_CONTRACT)) {
             return;
         }
 
-        $this->app->singleton(self::MOONSHINE_LOADER);
-        $this->app->tag([self::MOONSHINE_LOADER], self::LOADER_TAG);
+        $this->app->singleton(MoonShineModuleAutoloader::class);
+
+        $this->app->afterResolving(
+            self::MOONSHINE_CORE_CONTRACT,
+            function (object $core): void {
+                /** @var CoreContract $core */
+                $this->app->make(MoonShineModuleAutoloader::class)->autoload($core);
+            },
+        );
     }
 
-    private function bootModules(): void
-    {
-        $registry = $this->app->make(ModuleRegistryInterface::class);
-        $loaders = $this->loaders();
-        $modules = $registry->loadOrder();
-
-        foreach ($loaders as $loader) {
-            foreach ($modules as $module) {
-                if (! $module->isEnabled()) {
-                    continue;
-                }
-
-                $loader->load($module);
-            }
-        }
-    }
-
-    /**
-     * @return array<int, LoaderInterface>
-     */
-    private function loaders(): array
+    private function pipeline(): ModuleLoaderPipeline
     {
         $loaders = [];
-
-        foreach ($this->app->tagged(self::LOADER_TAG) as $loader) {
-            if ($loader instanceof LoaderInterface) {
-                $loaders[] = $loader;
+        foreach ($this->app->tagged(self::LOADER_TAG) as $tagged) {
+            if ($tagged instanceof LoaderInterface) {
+                $loaders[] = $tagged;
             }
         }
 
-        usort(
-            $loaders,
-            static fn (LoaderInterface $left, LoaderInterface $right): int => $left->priority() <=> $right->priority(),
+        return new ModuleLoaderPipeline(
+            registry: $this->app->make(ModuleRegistryInterface::class),
+            loaders: $loaders,
         );
-
-        return $loaders;
     }
 
     private function packageConfigPath(): string

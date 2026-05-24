@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Contracts;
 
-use DimitrienkoV\LaravelModules\Manifest\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 
 interface ModuleRegistryInterface
 {

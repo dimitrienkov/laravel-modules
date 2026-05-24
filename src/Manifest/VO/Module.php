@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DimitrienkoV\LaravelModules\Manifest;
+namespace DimitrienkoV\LaravelModules\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
+use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 
 final readonly class Module
 {
@@ -16,7 +17,6 @@ final readonly class Module
         public ManifestMeta $meta,
         public ManifestState $state,
         public FeatureSchema $features,
-        public FeatureValues $values,
     ) {
     }
 
@@ -29,15 +29,8 @@ final readonly class Module
         array $manifest,
         string $manifestPath,
     ): self {
-        $metaRaw = $manifest['meta'] ?? null;
-        if (! \is_array($metaRaw)) {
-            throw InvalidManifestException::forPath($manifestPath, 'meta must be an object.');
-        }
-
-        $stateRaw = $manifest['state'] ?? null;
-        if (! \is_array($stateRaw)) {
-            throw InvalidManifestException::forPath($manifestPath, 'state must be an object.');
-        }
+        $metaRaw = ManifestFieldReader::requiredObject($manifest, 'meta', $manifestPath);
+        $stateRaw = ManifestFieldReader::requiredObject($manifest, 'state', $manifestPath);
 
         $settingsRaw = $manifest['settings'] ?? null;
         if (! \is_array($settingsRaw)) {
@@ -49,19 +42,12 @@ final readonly class Module
             throw InvalidManifestException::forPath($manifestPath, 'settings.schema must be an object.');
         }
 
-        $valuesRaw = $settingsRaw['values'] ?? [];
-        if (! \is_array($valuesRaw)) {
-            throw InvalidManifestException::forPath($manifestPath, 'settings.values must be an object.');
-        }
-
         /** @var array<string, mixed> $metaRaw */
         $meta = ManifestMeta::fromArray($metaRaw, $manifestPath);
         /** @var array<string, mixed> $stateRaw */
         $state = ManifestState::fromArray($stateRaw, $manifestPath);
         /** @var array<string, mixed> $schemaRaw */
         $features = FeatureSchema::fromArray($schemaRaw, $manifestPath);
-        /** @var array<string, mixed> $valuesRaw */
-        $values = FeatureValues::fromArray($valuesRaw, $features, $meta->name, $manifestPath);
 
         return new self(
             name: $meta->name,
@@ -71,7 +57,6 @@ final readonly class Module
             meta: $meta,
             state: $state,
             features: $features,
-            values: $values,
         );
     }
 
@@ -95,35 +80,34 @@ final readonly class Module
             meta: $this->meta,
             state: $state,
             features: $this->features,
-            values: $this->values,
-        );
-    }
-
-    public function withFeatureValues(FeatureValues $values): self
-    {
-        return new self(
-            name: $this->name,
-            displayName: $this->displayName,
-            namespace: $this->namespace,
-            path: $this->path,
-            meta: $this->meta,
-            state: $this->state,
-            features: $this->features,
-            values: $values,
         );
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function toManifestArray(): array
+    public function toDescriptorArray(): array
     {
         return [
             'meta' => $this->meta->toArray(),
             'state' => $this->state->toArray(),
             'settings' => [
                 'schema' => $this->features->toArray(),
-                'values' => $this->values->toArray(),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toManifestArray(FeatureValues $values): array
+    {
+        return [
+            'meta' => $this->meta->toArray(),
+            'state' => $this->state->toArray(),
+            'settings' => [
+                'schema' => $this->features->toArray(),
+                'values' => $values->toArray(),
             ],
         ];
     }

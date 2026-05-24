@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace DimitrienkoV\LaravelModules\Console\Commands;
+namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use Illuminate\Console\Command;
-use Illuminate\Filesystem\Filesystem;
 
 final class ModulesOptimizeClearCommand extends Command
 {
@@ -14,13 +14,14 @@ final class ModulesOptimizeClearCommand extends Command
     protected $description = 'Remove the cached module registry';
 
     public function handle(
+        ModuleRegistryCache $cache,
         ModuleRegistry $registry,
-        Filesystem $filesystem,
     ): int {
         $this->components->info('Clearing cached module registry...');
 
-        if ($filesystem->exists($registry->cachePath())) {
-            $filesystem->delete($registry->cachePath());
+        if ($cache->exists()) {
+            $cache->forget();
+            $registry->reset();
             $this->components->info('Module registry cache cleared.');
         } else {
             $this->components->info('No cache to clear.');

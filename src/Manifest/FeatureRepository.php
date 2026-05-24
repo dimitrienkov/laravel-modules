@@ -8,6 +8,7 @@ use DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\FeatureTypeMismatchException;
+use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 
 final class FeatureRepository implements FeatureRepositoryInterface
 {
@@ -66,9 +67,8 @@ final class FeatureRepository implements FeatureRepositoryInterface
             return $this->values[$moduleName];
         }
 
-        $registeredModule = $this->registry->find($moduleName);
-        $freshModule = $this->manifests->load($registeredModule->path);
-        $this->values[$moduleName] = $freshModule->values;
+        $module = $this->registry->find($moduleName);
+        $this->values[$moduleName] = $this->manifests->readValues($module);
 
         return $this->values[$moduleName];
     }

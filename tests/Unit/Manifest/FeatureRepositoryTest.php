@@ -7,10 +7,12 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
 use DimitrienkoV\LaravelModules\Exceptions\FeatureNotFoundException;
 use DimitrienkoV\LaravelModules\Exceptions\FeatureTypeMismatchException;
 use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
-use DimitrienkoV\LaravelModules\Manifest\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
+use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -99,21 +101,28 @@ final class FeatureRepositoryTest extends TestCase
     {
         $layout = new ModuleLayout();
         $validator = new ManifestValidator();
+        $config = new Repository([
+            'modules' => [
+                'paths' => [
+                    'directories' => ['app/Modules'],
+                ],
+            ],
+        ]);
 
         return new ModuleRegistry(
-            config: new Repository([
-                'modules' => [
-                    'paths' => [
-                        'directories' => ['app/Modules'],
-                    ],
-                ],
-            ]),
-            filesystem: new Filesystem(),
             manifests: $this->manifestRepository(),
-            validator: $validator,
             sorter: new TopologicalSorter(),
-            layout: $layout,
-            basePath: $this->tempDir,
+            scanner: new ModuleDirectoryScanner(
+                config: $config,
+                filesystem: new Filesystem(),
+                layout: $layout,
+                basePath: $this->tempDir,
+            ),
+            cache: new ModuleRegistryCache(
+                validator: $validator,
+                layout: $layout,
+                basePath: $this->tempDir,
+            ),
         );
     }
 

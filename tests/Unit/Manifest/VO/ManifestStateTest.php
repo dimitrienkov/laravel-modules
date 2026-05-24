@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
+namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
-use DimitrienkoV\LaravelModules\Manifest\ManifestState;
+use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

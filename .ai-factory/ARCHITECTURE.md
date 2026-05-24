@@ -69,19 +69,30 @@ src/
 │   ├── MiddlewareLoader.php
 │   ├── BroadcastLoader.php
 │   ├── ServiceProviderLoader.php
-│   └── MoonShineLoader.php
+│   └── Pipeline/
+│       └── ModuleLoaderPipeline.php # оркестрация лоадеров (НЕ LoaderInterface)
 ├── Manifest/
-│   ├── Module.php                  # value object
-│   ├── ManifestMeta.php            # readonly DTO
-│   ├── ManifestState.php           # readonly DTO
-│   ├── ModuleDependencies.php      # readonly VO (list<string>)
-│   ├── FeatureSchema.php           # readonly DTO + FeatureDefinition[]
-│   ├── FeatureDefinition.php       # readonly DTO
-│   ├── FeatureValues.php           # readonly VO
+│   ├── VO/
+│   │   ├── Module.php              # value object
+│   │   ├── ManifestMeta.php        # readonly DTO
+│   │   ├── ManifestState.php       # readonly DTO
+│   │   ├── ModuleDependencies.php  # readonly VO
+│   │   ├── FeatureSchema.php       # readonly DTO + FeatureDefinition[]
+│   │   ├── FeatureDefinition.php   # readonly DTO
+│   │   └── FeatureValues.php       # readonly VO
+│   ├── Enums/
+│   │   └── FeatureType.php
+│   ├── Parsing/
+│   │   ├── FeatureDefinitionFactory.php
+│   │   ├── FeatureValueNormalizer.php
+│   │   └── ManifestFieldReader.php
 │   ├── ModuleManifestRepository.php
 │   ├── ModuleRegistry.php
 │   ├── FeatureRepository.php       # Octane-safe runtime reader
 │   └── ManifestValidator.php
+├── Registry/
+│   ├── ModuleDirectoryScanner.php
+│   └── ModuleRegistryCache.php
 ├── Application/
 │   └── UseCases/
 │       ├── InstallModuleUseCase.php
@@ -91,6 +102,7 @@ src/
 │       ├── DisableModuleUseCase.php
 │       └── ScaffoldModuleUseCase.php
 ├── MoonShine/
+│   ├── MoonShineModuleAutoloader.php  # autoload namespace через CoreContract
 │   ├── Resources/
 │   │   └── ModulesResource.php     # CRUD по модулям
 │   └── Pages/

@@ -20,19 +20,34 @@
 ```
 .
 ├── src/                          # код пакета
-│   ├── Console/Commands/         # Artisan-команды пакета (make:module, modules:*, make:* --module)
+│   ├── Console/Commands/
+│   │   └── Modules/              # lifecycle-команды (modules:optimize, modules:optimize-clear)
 │   ├── Contracts/                # публичные интерфейсы (LoaderInterface и т.п.)
 │   ├── Loaders/                  # реализации LoaderInterface (Route, Migration, ...)
-│   ├── Manifest/                 # Module, ManifestMeta, FeatureSchema, ManifestRepository
-│   ├── Application/              # use cases жизненного цикла
+│   │   └── Pipeline/             # ModuleLoaderPipeline (оркестрация, НЕ LoaderInterface)
+│   ├── Manifest/                 # сервисы (FeatureRepository, ManifestValidator, ModuleRegistry, ...)
+│   │   ├── VO/                   # value objects (Module, ManifestMeta, FeatureValues, ...)
+│   │   ├── Enums/                # FeatureType
+│   │   └── Parsing/              # FeatureDefinitionFactory, FeatureValueNormalizer, ManifestFieldReader
+│   ├── MoonShine/                # MoonShineModuleAutoloader (опциональная интеграция)
+│   ├── Registry/                 # ModuleDirectoryScanner, ModuleRegistryCache
 │   ├── Providers/                # ModuleLoaderServiceProvider
-│   └── Support/                  # утилиты (atomic JSON, PSR-4 resolver)
+│   └── Support/                  # утилиты (AtomicJsonWriter, ModuleLayout, TopologicalSorter, ...)
 ├── config/
 │   └── modules.php               # дефолтная конфигурация пакета
 ├── tests/
-│   ├── ArchitectureTest.php      # архитектурные инварианты
-│   ├── TestCase.php              # базовый TestCase с Mockery
-│   └── Unit/                     # юнит-тесты лоадеров
+│   ├── Architecture/             # архитектурные инварианты (Pest + PHPUnit)
+│   ├── Feature/                  # feature-тесты команд и провайдера
+│   ├── Unit/
+│   │   ├── Manifest/             # тесты сервисов манифеста
+│   │   │   ├── VO/              # тесты value objects
+│   │   │   └── Parsing/         # тесты парсинга
+│   │   ├── MoonShine/           # тесты MoonShine-интеграции
+│   │   ├── Loaders/             # тесты лоадеров
+│   │   │   └── Pipeline/        # тесты пайплайна
+│   │   ├── Registry/            # тесты реестра
+│   │   └── Support/             # тесты утилит
+│   └── Support/                  # вспомогательные классы (ModuleFactory)
 ├── .ai-factory/                  # AI Factory контекст
 │   ├── DESCRIPTION.md            # видение продукта
 │   ├── ARCHITECTURE.md           # архитектурные решения

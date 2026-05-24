@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace DimitrienkoV\LaravelModules\Manifest;
+namespace DimitrienkoV\LaravelModules\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
+use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 
 final readonly class ModuleDependencies
 {
@@ -28,11 +29,15 @@ final readonly class ModuleDependencies
                 if (! \is_string($dependencyName) || trim($dependencyName) === '') {
                     throw InvalidManifestException::forPath(
                         $manifestPath,
-                        'meta.dependencies list entries must be non-empty module names.'
+                        'meta.dependencies list entries must be non-empty module names.',
                     );
                 }
 
-                self::assertValidModuleName($dependencyName, $manifestPath, "meta.dependencies.{$dependencyName}");
+                ManifestFieldReader::assertModuleName(
+                    $dependencyName,
+                    "meta.dependencies.{$dependencyName}",
+                    $manifestPath,
+                );
 
                 $normalized[$dependencyName] = '*';
             }
@@ -41,16 +46,20 @@ final readonly class ModuleDependencies
                 if (! \is_string($dependencyName) || trim($dependencyName) === '') {
                     throw InvalidManifestException::forPath(
                         $manifestPath,
-                        'meta.dependencies object keys must be non-empty module names.'
+                        'meta.dependencies object keys must be non-empty module names.',
                     );
                 }
 
-                self::assertValidModuleName($dependencyName, $manifestPath, "meta.dependencies.{$dependencyName}");
+                ManifestFieldReader::assertModuleName(
+                    $dependencyName,
+                    "meta.dependencies.{$dependencyName}",
+                    $manifestPath,
+                );
 
                 if (! \is_string($constraint) || trim($constraint) === '') {
                     throw InvalidManifestException::forPath(
                         $manifestPath,
-                        "meta.dependencies.{$dependencyName} must be a non-empty Composer constraint."
+                        "meta.dependencies.{$dependencyName} must be a non-empty Composer constraint.",
                     );
                 }
 
@@ -95,15 +104,5 @@ final readonly class ModuleDependencies
     public function toArray(): array
     {
         return $this->constraints;
-    }
-
-    private static function assertValidModuleName(string $name, string $path, string $field): void
-    {
-        if (! preg_match('/^[a-z][a-z0-9_]*$/', $name)) {
-            throw InvalidManifestException::forPath(
-                $path,
-                "{$field} must be lowercase snake_case (a-z, 0-9, underscore, starting with a letter)."
-            );
-        }
     }
 }

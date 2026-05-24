@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace DimitrienkoV\LaravelModules\Console\Commands;
+namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use Illuminate\Console\Command;

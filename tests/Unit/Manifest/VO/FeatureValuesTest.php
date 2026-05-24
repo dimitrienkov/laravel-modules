@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
+namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
-use DimitrienkoV\LaravelModules\Manifest\FeatureSchema;
-use DimitrienkoV\LaravelModules\Manifest\FeatureValues;
+use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
+use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 

@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Feature;
 
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
-use DimitrienkoV\LaravelModules\Loaders\MoonShineLoader;
-use DimitrienkoV\LaravelModules\Manifest\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Providers\ModuleLoaderServiceProvider;
+use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Foundation\Application;
 use Mockery;
+use Mockery\Expectation;
 use Mockery\MockInterface;
 use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
 use Orchestra\Testbench\TestCase;
@@ -33,33 +34,47 @@ final class OptionalMoonShineBootTest extends TestCase
 
         $provider->boot();
 
-        $loaderClasses = $this->loaderClasses();
-
-        self::assertNotContains(MoonShineLoader::class, $loaderClasses);
+        $this->expectNotToPerformAssertions();
     }
 
     #[Test]
-    public function provider_registers_moonshine_loader_when_core_is_bound(): void
+    public function moonshine_autoloads_modules_when_core_resolves(): void
     {
         /** @var CoreContract&MockInterface $core */
         $core = Mockery::mock(CoreContract::class);
-        $this->application()->instance(CoreContract::class, $core);
-        $provider = $this->provider();
+        /** @var Expectation $expectation */
+        $expectation = $core->shouldReceive('autoload');
+        $expectation->once()
+            ->with('App\\Modules\\Blog')
+            ->andReturn($core);
 
+        $app = $this->application();
+        $provider = $this->provider();
         $provider->register();
 
-        self::assertContains(MoonShineLoader::class, $this->loaderClasses());
+        $app->instance(ModuleRegistryInterface::class, new MoonShineFakeRegistry([
+            ModuleFactory::make(name: 'blog', namespace: 'App\\Modules\\Blog'),
+            ModuleFactory::make(name: 'disabled', enabled: false),
+        ]));
+
+        $app->singleton(CoreContract::class, static fn () => $core);
+        $app->make(CoreContract::class);
     }
 
-    /**
-     * @return array<int, class-string>
-     */
-    private function loaderClasses(): array
+    #[Test]
+    public function moonshine_loader_is_not_in_tagged_pipeline(): void
     {
-        return array_map(
+        $provider = $this->provider();
+        $provider->register();
+        $this->application()->instance(ModuleRegistryInterface::class, new MoonShineFakeRegistry());
+        $provider->boot();
+
+        $loaderClasses = array_map(
             static fn (object $loader): string => $loader::class,
             iterator_to_array($this->application()->tagged(ModuleLoaderServiceProvider::LOADER_TAG)),
         );
+
+        self::assertNotContains('DimitrienkoV\\LaravelModules\\Loaders\\MoonShineLoader', $loaderClasses);
     }
 
     private function provider(): ModuleLoaderServiceProvider
@@ -79,9 +94,17 @@ final class OptionalMoonShineBootTest extends TestCase
 
 final readonly class MoonShineFakeRegistry implements ModuleRegistryInterface
 {
+    /**
+     * @param array<int, Module> $modules
+     */
+    public function __construct(
+        private array $modules = [],
+    ) {
+    }
+
     public function all(): array
     {
-        return [];
+        return $this->modules;
     }
 
     public function find(string $name): Module
@@ -91,6 +114,6 @@ final readonly class MoonShineFakeRegistry implements ModuleRegistryInterface
 
     public function loadOrder(): array
     {
-        return [];
+        return $this->modules;
     }
 }

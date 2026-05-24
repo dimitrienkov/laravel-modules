@@ -8,6 +8,8 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -119,26 +121,33 @@ final class ModuleRegistryTest extends TestCase
     {
         $layout = new ModuleLayout();
         $validator = new ManifestValidator();
+        $config = new Repository([
+            'modules' => [
+                'paths' => [
+                    'directories' => ['app/Modules'],
+                ],
+            ],
+        ]);
 
         return new ModuleRegistry(
-            config: new Repository([
-                'modules' => [
-                    'paths' => [
-                        'directories' => ['app/Modules'],
-                    ],
-                ],
-            ]),
-            filesystem: new Filesystem(),
             manifests: new ModuleManifestRepository(
                 layout: $layout,
                 writer: new AtomicJsonWriter(),
                 validator: $validator,
                 namespaceResolver: new ComposerNamespaceResolver($this->tempDir),
             ),
-            validator: $validator,
             sorter: new TopologicalSorter(),
-            layout: $layout,
-            basePath: $this->tempDir,
+            scanner: new ModuleDirectoryScanner(
+                config: $config,
+                filesystem: new Filesystem(),
+                layout: $layout,
+                basePath: $this->tempDir,
+            ),
+            cache: new ModuleRegistryCache(
+                validator: $validator,
+                layout: $layout,
+                basePath: $this->tempDir,
+            ),
         );
     }
 
