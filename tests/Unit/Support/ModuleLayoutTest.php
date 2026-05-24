@@ -1,0 +1,37 @@
+<?php
+
+declare(strict_types=1);
+
+namespace DimitrienkoV\LaravelModules\Tests\Unit\Support;
+
+use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+
+final class ModuleLayoutTest extends TestCase
+{
+    #[Test]
+    public function it_resolves_module_subpaths_from_module_path(): void
+    {
+        $module = ModuleFactory::make(path: '/app/Modules/Blog');
+        $layout = new ModuleLayout();
+
+        self::assertSame('/app/Modules/Blog/module.json', $layout->manifestFile($module));
+        self::assertSame('/app/Modules/Blog/Config', $layout->configDir($module));
+        self::assertSame('/app/Modules/Blog/Routes', $layout->routesDir($module));
+        self::assertSame('/app/Modules/Blog/Routes/web.php', $layout->routeFile($module, 'web'));
+        self::assertSame('/app/Modules/Blog/Database/Migrations', $layout->migrationsDir($module));
+        self::assertSame('/app/Modules/Blog/Database/Factories', $layout->factoriesDir($module));
+        self::assertSame('/app/Modules/Blog/Providers', $layout->providersDir($module));
+        self::assertSame('/app/Modules/Blog/Lang', $layout->langDir($module));
+        self::assertSame('/app/Modules/Blog/Resources/views', $layout->viewsDir($module));
+        self::assertSame('/app/Modules/Blog/View/Components', $layout->bladeComponentsDir($module));
+        self::assertSame('/app/Modules/Blog/Console/Commands', $layout->commandsDir($module));
+        self::assertSame('/app/Modules/Blog/Routes/console.php', $layout->consoleRoutesFile($module));
+        self::assertSame('/app/Modules/Blog/Routes/channels.php', $layout->channelsFile($module));
+        self::assertSame('/app/Modules/Blog/Domain/Observers', $layout->observersDir($module));
+        self::assertSame('/app/Modules/Blog/Domain/Policies', $layout->policiesDir($module));
+        self::assertSame('/app/Modules/Blog/Http/Middleware', $layout->middlewareDir($module));
+    }
+}

@@ -1,0 +1,17 @@
+{
+    "meta": {
+        "name": "blog",
+        "version": "1.0.0",
+        "dependencies": []
+    },
+    "state": {
+        "enabled": true
+    },
+    "settings": {
+        "schema": {},
+        "values": {}
+    },
+    "autoload": {
+        "routes": true
+    }
+}

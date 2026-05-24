@@ -10,13 +10,6 @@ return [
             'app/Integrations',
             'app/Subsystems',
         ],
-        'database' => 'Database',
-        'migrations' => 'Migrations',
-        'config' => 'Config',
-        'routes' => 'Routes',
-        'providers' => 'Providers',
-        'factories' => 'Factories',
-        'models' => 'Models',
     ],
     'routing' => [
         'types' => [

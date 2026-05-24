@@ -1,0 +1,41 @@
+{
+    "meta": {
+        "name": "blog",
+        "display_name": "Blog",
+        "version": "1.0.0",
+        "author": "Acme",
+        "description": "Blog module",
+        "dependencies": [
+            "users"
+        ]
+    },
+    "state": {
+        "enabled": true,
+        "installed_at": "2026-05-24T00:00:00+00:00"
+    },
+    "settings": {
+        "schema": {
+            "comments_enabled": {
+                "type": "bool",
+                "default": true
+            },
+            "posts_per_page": {
+                "type": "int",
+                "default": 10,
+                "min": 1,
+                "max": 50
+            },
+            "theme": {
+                "type": "enum",
+                "default": "light",
+                "options": [
+                    "light",
+                    "dark"
+                ]
+            }
+        },
+        "values": {
+            "posts_per_page": 20
+        }
+    }
+}

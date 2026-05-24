@@ -1,13 +1,18 @@
 includes:
-    - vendor/nunomaduro/larastan/extension.neon
+    - vendor/larastan/larastan/extension.neon
 
 parameters:
     paths:
         - src
-    level: 5
+        - tests
+    level: 8
     reportUnmatchedIgnoredErrors: false
     treatPhpDocTypesAsCertain: false
-    ignoreErrors:
+    parallel:
+        maximumNumberOfProcesses: 1
+    ignoreErrors: []
     excludePaths:
         - vendor/*
         - tests/*/vendor/*
+        - tests/*/Fixtures/*
+        - tests/Architecture/*

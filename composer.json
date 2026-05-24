@@ -1,5 +1,7 @@
 {
   "name": "dimitrienkov0/laravel-modules",
+  "description": "Manifest-driven Laravel module loader and lifecycle toolkit.",
+  "license": "MIT",
   "autoload": {
     "psr-4": {
       "DimitrienkoV\\LaravelModules\\": "src/",
@@ -14,20 +16,29 @@
   ],
   "require": {
     "php": ">=8.3",
-    "laravel/framework": "^11|^12|^13",
-    "inertiajs/inertia-laravel": "^2",
-    "moonshine/contracts": "^4.0",
-    "moonshine/core": "^4.0"
+    "composer/semver": "^3.4",
+    "ext-mbstring": "*",
+    "laravel/framework": "^12|^13"
   },
   "require-dev": {
     "phpunit/phpunit": "^11|^12",
+    "inertiajs/inertia-laravel": "^2",
     "mockery/mockery": "^1.2",
-    "rector/rector": "^1.2",
+    "moonshine/contracts": "^4.0",
+    "moonshine/core": "^4.0",
+    "rector/rector": "^2",
     "friendsofphp/php-cs-fixer": "^3.65",
-    "driftingly/rector-laravel": "^1.2",
-    "phpstan/phpstan": "^1.12",
-    "nunomaduro/larastan": "^2.9",
-    "orchestra/testbench": "^9.12|^10|^11"
+    "driftingly/rector-laravel": "^2",
+    "phpstan/phpstan": "^2",
+    "larastan/larastan": "^3",
+    "orchestra/testbench": "^10|^11",
+    "pestphp/pest": "^3",
+    "pestphp/pest-plugin-arch": "^3"
+  },
+  "suggest": {
+    "inertiajs/inertia-laravel": "Required only for loading module Routes/inertia.php files in Inertia host applications.",
+    "moonshine/core": "Required only for MoonShine admin UI integration.",
+    "moonshine/contracts": "Required only for MoonShine admin UI integration."
   },
   "extra": {
     "laravel": {
@@ -36,13 +47,31 @@
       ]
     }
   },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "pestphp/pest-plugin": true,
+      "phpstan/extension-installer": true
+    }
+  },
   "scripts": {
-    "test": "vendor/bin/phpunit --colors=always",
+    "test:arch": "vendor/bin/pest --testsuite=Architecture",
+    "test:unit": "vendor/bin/phpunit --testsuite=Unit",
+    "test:feature": "vendor/bin/phpunit --testsuite=Feature",
+    "test": [
+      "@test:arch",
+      "@test:unit",
+      "@test:feature"
+    ],
     "test:bail": "vendor/bin/pest --bail",
-    "rector": "vendor/bin/rector process --clear-cache",
-    "rector:dry": "vendor/bin/rector process --clear-cache --dry-run",
-    "format": "vendor/bin/php-cs-fixer fix --allow-risky=yes",
-    "phpstan": "vendor/bin/phpstan analyse --memory-limit=512M",
-    "phpstan:clear": "vendor/bin/phpstan clear-result-cache && vendor/bin/phpstan analyse --memory-limit=512M"
+    "rector": "vendor/bin/rector process --clear-cache --debug",
+    "rector:dry": "vendor/bin/rector process --clear-cache --dry-run --debug",
+    "format": "vendor/bin/php-cs-fixer fix --allow-risky=yes --sequential",
+    "format:dry": "vendor/bin/php-cs-fixer fix --allow-risky=yes --dry-run --diff --sequential",
+    "phpstan": "vendor/bin/phpstan analyse --memory-limit=512M --debug",
+    "phpstan:clear": [
+      "vendor/bin/phpstan clear-result-cache",
+      "vendor/bin/phpstan analyse --memory-limit=512M --debug"
+    ]
   }
 }
