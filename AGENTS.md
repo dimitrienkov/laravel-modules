@@ -9,7 +9,7 @@
 ## Технологический стек
 
 - **Язык:** PHP 8.3+
-- **Фреймворк:** Laravel 11 / 12 / 13
+- **Фреймворк:** Laravel 12 / 13
 - **Admin-UI (опционально):** MoonShine 4
 - **Тесты:** PHPUnit 11/12 + Orchestra Testbench + Mockery
 - **Качество:** PHPStan (larastan), Rector, PHP-CS-Fixer
@@ -20,12 +20,12 @@
 ```
 .
 ├── src/                          # код пакета
-│   ├── Console/Commands/         # Artisan-команды пакета (modules:*, make:module-*)
+│   ├── Console/Commands/         # Artisan-команды пакета (make:module, modules:*, make:* --module)
 │   ├── Contracts/                # публичные интерфейсы (LoaderInterface и т.п.)
 │   ├── Loaders/                  # реализации LoaderInterface (Route, Migration, ...)
 │   ├── Manifest/                 # Module, ManifestMeta, FeatureSchema, ManifestRepository
+│   ├── Application/              # use cases жизненного цикла
 │   ├── Providers/                # ModuleLoaderServiceProvider
-│   ├── Services/                 # устаревшие сервисы, постепенно вытесняются
 │   └── Support/                  # утилиты (atomic JSON, PSR-4 resolver)
 ├── config/
 │   └── modules.php               # дефолтная конфигурация пакета

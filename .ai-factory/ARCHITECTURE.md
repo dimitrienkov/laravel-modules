@@ -1,6 +1,6 @@
-# Архитектура `dimitrienkov0/laravel-modules` v2.0
+# Архитектура `dimitrienkov0/laravel-modules`
 
-> Идеальная архитектура с нуля, без обратной совместимости с 1.x. Дорожная карта — в `.ai-factory/ROADMAP.md`.
+> Целевая архитектура пакета: модульный Laravel runtime с manifest-based управлением, loader-pipeline, feature toggles и опциональными UI-интеграциями.
 
 ## 1. Архитектурный паттерн
 
@@ -15,8 +15,10 @@
 - **Один сканнер, много лоадеров** — `ModuleRegistry` сканирует FS один раз, передаёт `Module[]` каждому лоадеру.
 - **Pure convention over configuration** — соглашение о папках задаёт поведение; манифест нужен только для метаданных и фичетоглов. Никакого `autoload`-whitelist'а.
 - **JSON как источник правды** — состояние и значения фичетоглов хранятся в `module.json` модуля, без БД.
+- **Опциональный `composer.json` модуля** — модуль не обязан иметь свой Composer-манифест; если он есть, пакет использует его только как дополнительную метаинформацию/диагностику/packing hint, а не как обязательный механизм runtime-загрузки.
 - **Идемпотентность** — повторный вызов `load()` ничего не ломает; все Loader'ы детектируют свой «уже загружено» через состояние Laravel или ранний return при отсутствии файлов.
 - **Опциональная MoonShine** — пакет работает без неё; интеграция включается на `afterResolving(CoreContract::class)`.
+- **Опциональные UI-интеграции** — MoonShine и Inertia не входят в обязательные runtime-зависимости пакета; они живут в `suggest`/`require-dev` и активируются только при наличии классов в host-приложении.
 - **Octane-safe by default** — никаких статических полей, никакого in-memory mutable-state на singleton; runtime-сервисы — scoped.
 - **DTO/VO на границах** — публичные API оперируют типизированными объектами, не `array`.
 - **`declare(strict_types=1);`** в каждом `.php`-файле `src/`, `tests/`, `stubs/`.
@@ -37,27 +39,13 @@ src/
 │       │   ├── ModulesRemoveCommand.php
 │       │   ├── ModulesOptimizeCommand.php
 │       │   └── ModulesOptimizeClearCommand.php
-│       └── Make/                   # make:module-* генераторы
-│           ├── MakeModuleControllerCommand.php
-│           ├── MakeModuleModelCommand.php
-│           ├── MakeModuleUseCaseCommand.php
-│           ├── MakeModuleActionCommand.php
-│           ├── MakeModuleQueryCommand.php
-│           ├── MakeModuleDtoCommand.php
-│           ├── MakeModuleEnumCommand.php
-│           ├── MakeModuleEventCommand.php
-│           ├── MakeModuleListenerCommand.php
-│           ├── MakeModuleObserverCommand.php
-│           ├── MakeModulePolicyCommand.php
-│           ├── MakeModuleMiddlewareCommand.php
-│           ├── MakeModuleRequestCommand.php
-│           ├── MakeModuleResourceCommand.php
-│           ├── MakeModuleMigrationCommand.php
-│           ├── MakeModuleFactoryCommand.php
-│           ├── MakeModuleSeederCommand.php
-│           ├── MakeModuleCommandCommand.php
-│           ├── MakeModuleMoonShineResourceCommand.php
-│           └── MakeModuleMoonShinePageCommand.php
+│       └── Make/                   # Laravel-style generators with --module
+│           ├── ModuleGeneratorContext.php
+│           ├── ModuleAwareGenerator.php
+│           ├── MakeUseCaseCommand.php
+│           ├── MakeActionCommand.php
+│           ├── MakeQueryCommand.php
+│           └── MakeDtoCommand.php
 ├── Contracts/
 │   ├── LoaderInterface.php
 │   ├── ModuleRegistryInterface.php
@@ -121,7 +109,7 @@ src/
 │   ├── ModuleDependencyMissingException.php
 │   ├── CyclicDependencyException.php
 │   └── ManifestWriteException.php
-└── stubs/                          # шаблоны для make:module-*
+└── stubs/                          # шаблоны для make:* --module
     ├── module.json.stub
     ├── ServiceProvider.stub
     ├── usecase.stub
@@ -371,7 +359,7 @@ interface FeatureRepositoryInterface
 
 ```json
 {
-  "$schema": "https://schemas.dimitrienkov0.dev/laravel-modules/manifest-v2.json",
+  "$schema": "https://schemas.dimitrienkov0.dev/laravel-modules/manifest.json",
   "meta": {
     "name":         "blog",
     "display_name": "Blog",
@@ -379,7 +367,10 @@ interface FeatureRepositoryInterface
     "version":      "1.0.0",
     "author":       "Acme Studio",
     "license":      "proprietary",
-    "dependencies": ["users", "media"]
+    "dependencies": {
+      "users": "^1.5",
+      "media": ">=1.4 <3.0"
+    }
   },
   "state": {
     "enabled":      true,
@@ -423,7 +414,9 @@ interface FeatureRepositoryInterface
 - `meta`, `settings.schema` — read-only после установки модуля; меняются только через `modules:update`.
 - `state`, `settings.values` — mutable через `ModuleManifestRepository`.
 - `ManifestValidator` валидирует тип/min/max/options для `values` против `schema` при каждой записи.
+- `meta.dependencies` — map `moduleName => versionConstraint` в формате Composer SemVer; короткая форма `["users"]` допустима только как sugar и нормализуется в `{"users": "*"}`.
 - Никакой секции `autoload` — наличие папок/файлов в модуле и есть конфигурация.
+- Свой `composer.json` внутри модуля опционален. Если он есть, `modules:doctor`/`modules:pack`/`modules:install` могут использовать его для диагностики PHP-зависимостей и сборки архива, но runtime namespace всё равно резолвится из корневого PSR-4 host-приложения.
 
 ## 5. Bootstrap pipeline
 
@@ -546,7 +539,7 @@ final readonly class RouteLoader implements LoaderInterface
         $routeTypes = $this->config->get('modules.routing.types', []);
 
         foreach ($routeTypes as $type => $cfg) {
-            // Routes/api/v1.php, Routes/api/v2.php → prefixed api/v1, api/v2
+            // Routes/api/{version}.php → prefixed api/{version}
             foreach ($this->files->glob("{$routesDir}/{$type}/*.php") ?: [] as $file) {
                 $version = pathinfo($file, PATHINFO_FILENAME);
                 $this->registerGroup($cfg, $version, $file);
@@ -616,7 +609,7 @@ final readonly class ConsoleRouteLoader implements LoaderInterface
 }
 ```
 
-Файл модуля `Routes/console.php` (Laravel 11+ стиль):
+Файл модуля `Routes/console.php` в актуальном Laravel-стиле:
 
 ```php
 <?php
@@ -725,7 +718,7 @@ final class FeatureRepository implements FeatureRepositoryInterface
 
 `scoped`-биндинг гарантирует, что инстанс `$cache` живёт ровно один request — никаких stale-данных между запросами под Octane.
 
-## 7. Структура модуля (скелет `modules:make`)
+## 7. Структура модуля (скелет `make:module`)
 
 ```
 Modules/Blog/
@@ -754,7 +747,7 @@ Modules/Blog/
 │   ├── Factories/PostFactory.php
 │   └── Seeders/PostSeeder.php
 ├── Routes/
-│   ├── api/v1.php
+│   ├── api/{version}.php
 │   ├── web.php
 │   ├── inertia.php
 │   ├── console.php
@@ -770,7 +763,33 @@ Modules/Blog/
 └── module.json
 ```
 
-## 8. Namespace-резолюция
+## 8. Генераторы
+
+Основной UX генераторов повторяет стандартный Laravel CLI: артефакт создаётся обычной `make:*` командой, а принадлежность к модулю задаётся опцией `--module`.
+
+Примеры:
+
+```bash
+php artisan make:module Blog
+php artisan make:model Post --module=Blog -mfs
+php artisan make:controller PostController --module=Blog
+php artisan make:request StorePostRequest --module=Blog
+php artisan make:resource PostResource --module=Blog
+php artisan make:command SyncPostsCommand --module=Blog
+php artisan make:action PublishPost --module=Blog
+php artisan make:use-case PublishPost --module=Blog
+php artisan make:query PostsIndex --module=Blog
+php artisan make:dto PostData --module=Blog
+```
+
+Правила:
+- `make:module Blog` создаёт skeleton модуля.
+- Стандартные Laravel-артефакты (`model`, `controller`, `request`, `resource`, `migration`, `factory`, `seeder`, `command`, `event`, `listener`, `observer`, `policy`, `middleware`, `enum`) получают module-aware поведение через `--module`.
+- Архитектурные артефакты пакета используют тот же стиль: `make:action`, `make:use-case`, `make:query`, `make:dto` + обязательный `--module`.
+- MoonShine-артефакты создаются средствами MoonShine; пакет не дублирует его генераторы.
+- Все генераторы используют `ComposerNamespaceResolver` и `ModuleLayout`; хардкод `App\\Modules` запрещён.
+
+## 9. Namespace-резолюция
 
 `ComposerNamespaceResolver` читает `composer.json` хост-приложения, строит таблицу `path-prefix → namespace`:
 
@@ -792,7 +811,7 @@ $resolver->resolve('modules/Shop')       // → 'Modules\\Shop'
 
 Если PSR-4 не покрывает путь — исключение `InvalidManifestException`. Никакого хардкода `App\\`.
 
-## 9. MoonShine UI
+## 10. MoonShine UI
 
 Когда MoonShine разрешён в контейнере:
 
@@ -824,16 +843,21 @@ public function index(): View
 }
 ```
 
-## 10. Жизненный цикл модуля
+Публичный API фичетоглов разделён по слоям:
+- Ядро: typed runtime-reader `FeatureRepositoryInterface` (`get`, `bool`, `int`, `string`) через DI.
+- Presentation-интеграции: Blade directive `@feature('blog.enable_comments')` и маленький helper-like bridge только в интеграционном слое, не внутри `src/` ядра.
+- Gate/Policy bridge не входит в ядро: фичетоглы — это product configuration, а не authorization. Если понадобится, он оформляется отдельной optional-интеграцией.
+
+## 11. Жизненный цикл модуля
 
 ### `modules:install <source>`
 
 ```
 1. ZipExtractor распаковывает в tmp.
 2. ManifestValidator проверяет module.json (наличие, JSON Schema, type/min/max).
-3. ModuleRegistry проверяет dependencies — все ли установлены и enabled.
+3. ModuleRegistry проверяет dependencies — все ли установлены, enabled и удовлетворяют version constraints.
 4. Файлы переносятся в target dir (modules/<Name>).
-5. composer dump-autoload (если есть свой psr-4, иначе пропускаем — namespace уже в корневом composer.json).
+5. Проверка optional `composer.json` модуля: если файл есть, валидируем заявленные PHP/package constraints и даём понятную ошибку при несовместимости; `composer dump-autoload` не является обязательной частью install, потому что namespace модуля резолвится из корневого PSR-4.
 6. InstallHook::handle($module) — опциональный класс модуля Application\InstallHook (php artisan migrate выполняется внутри).
 7. ManifestRepository::updateState(state: enabled=true, installed_at=now()).
 8. Cache::clear() для modules:optimize.
@@ -845,9 +869,9 @@ public function index(): View
 1. ManifestRepository::load(current) — снять backup settings.values.
 2. ZipExtractor распаковывает новый source.
 3. ManifestValidator проверяет новый module.json.
-4. Diff dependencies — если требования усилились и условие не выполнено → ошибка с откатом.
-5. Файлы переносятся (старая папка → backup/, новая → target/).
-6. ManifestRepository::save с merged settings.values (старые значения, кроме исчезнувших из схемы).
+4. Diff dependencies и optional `composer.json` — если требования усилились и условие не выполнено → ошибка с откатом.
+5. Файлы переносятся (текущая папка → backup/, новая → target/).
+6. ManifestRepository::save с merged settings.values (текущие значения, кроме исчезнувших из схемы).
 7. UpdateHook::handle($oldModule, $newModule) — миграции, очистка.
 8. Если ошибка — rollback из backup/.
 ```
@@ -861,7 +885,7 @@ public function index(): View
 4. Cache::clear().
 ```
 
-## 11. Кеширование
+## 12. Кеширование
 
 `modules:optimize` создаёт `bootstrap/cache/modules.php`:
 
@@ -894,7 +918,7 @@ return [
 
 MoonShine'овский `OptimizerCollection` имеет собственный кеш — он не дублируется нашим, просто прогревается отдельной командой `moonshine:optimize` (если установлен).
 
-## 12. Octane-совместимость
+## 13. Octane-совместимость
 
 Целевые рантаймы: Swoole, RoadRunner, FrankenPHP. Контракты безопасности:
 
@@ -936,7 +960,7 @@ arch('feature repository is scoped, not singleton')
     ->not->toBeReadonly();
 ```
 
-## 13. Тестирование
+## 14. Тестирование
 
 - **Pest 3 + `pestphp/pest-plugin-arch`** — `tests/Architecture/`:
   - `final readonly` для всех VO в `Manifest/`.
@@ -974,9 +998,9 @@ arch('feature repository is scoped, not singleton')
 }
 ```
 
-Качественные гейты выполняются локально через `composer phpstan`, `composer rector:dry`, `composer format:dry`, `composer test`. CI workflow отложен (см. `ROADMAP.md`, Фаза 0): репозиторий пока не публикуется на GitHub, возврат к CI — отдельная задача при публикации пакета.
+Качественные гейты выполняются локально через `composer phpstan`, `composer rector:dry`, `composer format:dry`, `composer test`. CI workflow добавляется отдельно при публикации пакета.
 
-## 14. Правила зависимостей между слоями
+## 15. Правила зависимостей между слоями
 
 ```
 Console ──┐                              Domain не зависит ни от чего из Laravel
@@ -992,15 +1016,3 @@ MoonShine ┘                                    │
 - `Presentation` (Http/Console/MoonShine) — только вызовы UseCase через DI.
 
 PHPStan кастомное правило: запрет импорта `Illuminate\Database\Eloquent\Model` в `Application/UseCases/*`.
-
-## 15. Что выкидываем из 1.x
-
-- `MoonShineLoaderService` с classmap-обходом → заменён родным `$core->autoload($namespace)`.
-- `ServiceProviderLoaderService::discoverProviders` с обходом classmap → теперь convention `Providers/*ServiceProvider.php`.
-- Дублирующий вызов `ConfigLoaderService::autoload()` в `register()` и `boot()` — фикс архитектурой: только в `boot()` после `ModuleRegistry`.
-- Хардкод `App\\` → `ComposerNamespaceResolver`.
-- Суффикс `Service` для всего → заменён на `UseCase`/`Action`/`Query`/`Loader`/`Repository`.
-- Whitelist-секция `autoload` в `module.json` → pure convention; `key()` на лоадерах → удалён.
-- `Console/Schedule.php` (closure-возвращающий файл) → `Routes/console.php` в стиле Laravel 11+.
-- Хардкоженые пути типа `$module->path . '/Routes'` в каждом лоадере → `ModuleLayout`.
-- `array $values` в публичных API → `FeatureValues` VO.

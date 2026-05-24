@@ -1,0 +1,94 @@
+<?php
+
+declare(strict_types=1);
+
+namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
+
+use DimitrienkoV\LaravelModules\Loaders\ConfigLoader;
+use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use Illuminate\Config\Repository;
+use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\TestCase;
+
+final class ConfigLoaderTest extends TestCase
+{
+    private string $tempDir;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->tempDir = sys_get_temp_dir() . '/laravel-modules-config-loader-' . bin2hex(random_bytes(6));
+        mkdir($this->tempDir, 0755, true);
+    }
+
+    protected function tearDown(): void
+    {
+        $this->deleteDirectory($this->tempDir);
+
+        parent::tearDown();
+    }
+
+    #[Test]
+    public function it_merges_module_config_files(): void
+    {
+        $modulePath = $this->tempDir . '/Blog';
+        mkdir($modulePath . '/Config', 0755, true);
+        file_put_contents($modulePath . '/Config/blog.php', '<?php return ["enabled" => true, "nested" => ["new" => true]];');
+        $config = new Repository([
+            'blog' => [
+                'nested' => [
+                    'old' => true,
+                ],
+            ],
+        ]);
+
+        (new ConfigLoader($config, new Filesystem(), new ModuleLayout()))
+            ->load(ModuleFactory::make(path: $modulePath));
+
+        self::assertSame([
+            'nested' => [
+                'old' => true,
+                'new' => true,
+            ],
+            'enabled' => true,
+        ], $config->get('blog'));
+    }
+
+    #[Test]
+    public function it_returns_early_when_config_directory_is_missing(): void
+    {
+        $config = new Repository();
+
+        (new ConfigLoader($config, new Filesystem(), new ModuleLayout()))
+            ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
+
+        self::assertNull($config->get('blog'));
+    }
+
+    private function deleteDirectory(string $directory): void
+    {
+        if (! is_dir($directory)) {
+            return;
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+
+        foreach ($iterator as $fileInfo) {
+            if ($fileInfo->isDir()) {
+                rmdir($fileInfo->getPathname());
+
+                continue;
+            }
+
+            unlink($fileInfo->getPathname());
+        }
+
+        rmdir($directory);
+    }
+}

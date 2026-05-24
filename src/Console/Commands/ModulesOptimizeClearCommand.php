@@ -4,21 +4,24 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands;
 
-use DimitrienkoV\LaravelModules\Services\ServiceProviderLoaderService;
+use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use Illuminate\Console\Command;
+use Illuminate\Filesystem\Filesystem;
 
 class ModulesOptimizeClearCommand extends Command
 {
     protected $signature = 'modules:optimize-clear';
-    protected $description = 'Remove the cached module service providers';
+    protected $description = 'Remove the cached module registry';
 
     public function handle(
-        ServiceProviderLoaderService $providerLoader,
+        ModuleRegistry $registry,
+        Filesystem $filesystem,
     ): int {
-        $this->components->info('Clearing cached module providers...');
+        $this->components->info('Clearing cached module registry...');
 
-        if ($providerLoader->clearCache()) {
-            $this->components->info('Module providers cache cleared.');
+        if ($filesystem->exists($registry->cachePath())) {
+            $filesystem->delete($registry->cachePath());
+            $this->components->info('Module registry cache cleared.');
         } else {
             $this->components->info('No cache to clear.');
         }

@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "skills": {
+    "dandy-code-ai-code-review": {
+      "source": "TheDragonCode/dandy-code-skill",
+      "sourceType": "github",
+      "skillPath": "skills/dandy-code-ai-code-review/SKILL.md",
+      "computedHash": "67208f8f3418ec736ec0960dad7c527788c2a9285ec956fcc351a969d34528be"
+    },
+    "dandy-code-component-extraction": {
+      "source": "TheDragonCode/dandy-code-skill",
+      "sourceType": "github",
+      "skillPath": "skills/dandy-code-component-extraction/SKILL.md",
+      "computedHash": "340cf4ad4ce306437517cf0d2d6cb7cc47fb505da493219fcafb6f8017d0fdd1"
+    },
+    "dandy-code-error-observability": {
+      "source": "TheDragonCode/dandy-code-skill",
+      "sourceType": "github",
+      "skillPath": "skills/dandy-code-error-observability/SKILL.md",
+      "computedHash": "e485387c03ad495d7e22034fbb9296e8f1759e03347bc038a04b9abe909ab296"
+    },
+    "dandy-code-flow-simplifier": {
+      "source": "TheDragonCode/dandy-code-skill",
+      "sourceType": "github",
+      "skillPath": "skills/dandy-code-flow-simplifier/SKILL.md",
+      "computedHash": "0665f698288a73ea4d851de74e319e3ac1549ce9323feee82d8c45429b284d80"
+    },
+    "dandy-code-framework-fit": {
+      "source": "TheDragonCode/dandy-code-skill",
+      "sourceType": "github",
+      "skillPath": "skills/dandy-code-framework-fit/SKILL.md",
+      "computedHash": "962b28858925a7bf1312a6c2cdd199e76967359add5de49de4351bd6aff687ed"
+    },
+    "dandy-code-naming-review": {
+      "source": "TheDragonCode/dandy-code-skill",
+      "sourceType": "github",
+      "skillPath": "skills/dandy-code-naming-review/SKILL.md",
+      "computedHash": "d7e74a670d790b4212b01661d67772cebd0ff0da5cac4732e6352824368a54c2"
+    },
+    "dandy-code-readability-pass": {
+      "source": "TheDragonCode/dandy-code-skill",
+      "sourceType": "github",
+      "skillPath": "skills/dandy-code-readability-pass/SKILL.md",
+      "computedHash": "a233bd6de16aba532175226084c24a979e620e3ef770158612ef5470384b27bb"
+    },
+    "dandy-code-readme-onboarding": {
+      "source": "TheDragonCode/dandy-code-skill",
+      "sourceType": "github",
+      "skillPath": "skills/dandy-code-readme-onboarding/SKILL.md",
+      "computedHash": "a1584bcea85c37d5a5fe0b834446b9926ce89719d262e2ba51980980ff1df3d9"
+    },
+    "dandy-code-test-design": {
+      "source": "TheDragonCode/dandy-code-skill",
+      "sourceType": "github",
+      "skillPath": "skills/dandy-code-test-design/SKILL.md",
+      "computedHash": "f9fbe87c8d4aeada71dc496eb2b7f3122b9af4faa7b06f9dbfdb70c62a66aaa8"
+    },
+    "dandy-code-value-object-refactor": {
+      "source": "TheDragonCode/dandy-code-skill",
+      "sourceType": "github",
+      "skillPath": "skills/dandy-code-value-object-refactor/SKILL.md",
+      "computedHash": "2fa244cf8591ad61d5852fc38022af18591922de27901aca7acdaa00e8cc3fdd"
+    }
+  }
+}

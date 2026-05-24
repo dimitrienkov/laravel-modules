@@ -4,9 +4,7 @@
 
 `dimitrienkov0/laravel-modules` — пакет для построения модульных Laravel-приложений, ориентированный на сценарий **коммерческой поставки модулей заказчикам**. Каждый модуль — самостоятельная единица с собственным манифестом (`module.json`), фичетоглами, миграциями, роутами, командами, расписанием, переводами, представлениями, MoonShine-ресурсами и опциональными зависимостями от других модулей.
 
-Пакет не подменяет архитектуру приложения и не требует от модуля собственного `composer.json` — namespaces резолвятся из корневого PSR-4. MoonShine интегрируется как опциональный admin-UI для управления модулями и фичетоглами.
-
-Версия `2.0` — мажорный рефакторинг без обратной совместимости с `1.x`.
+Пакет не подменяет архитектуру приложения и не требует от модуля собственного `composer.json` — namespaces резолвятся из корневого PSR-4. Собственный `composer.json` модуля допускается как опциональная метаинформация для диагностики, упаковки и проверки PHP-зависимостей, но не является обязательным runtime-механизмом. MoonShine интегрируется как опциональный admin-UI для управления модулями и фичетоглами.
 
 ## Целевые сценарии
 
@@ -15,6 +13,7 @@
 - Внутри модуля есть фичетоглы и настройки, которые заказчик меняет через MoonShine.
 - Модули доставляются как zip-архивы или подкладкой в директорию модулей; устанавливаются командой `modules:install`.
 - Часть приложений использует MoonShine, часть — нет; пакет работает в обоих сценариях.
+- Часть приложений использует Inertia, часть — нет; `Routes/inertia.php` загружается только как optional-интеграция при наличии нужных классов/middleware в host-приложении.
 - Хост-приложение может работать как под классическим `php-fpm`, так и под `laravel/octane` (Swoole/RoadRunner/FrankenPHP) — пакет не должен порождать утечек памяти и state-leak между запросами.
 
 ## Ключевые возможности
@@ -25,18 +24,18 @@
 - Нет секции `autoload`: какие аспекты грузить — определяется наличием соответствующих директорий и файлов в модуле (convention over configuration).
 - `ModuleRegistry` — единая точка доступа к списку модулей, их состоянию и метаданным.
 - `ModuleManifestRepository` — атомарная запись JSON с валидацией схемы.
-- Топологическая сортировка модулей по `meta.dependencies`; модуль с отключённой зависимостью не загружается.
+- Топологическая сортировка модулей по `meta.dependencies`; зависимости поддерживают Composer SemVer constraints (`{"users": "^1.5"}`), короткая форма `["users"]` нормализуется в `{"users": "*"}`. Модуль с отключённой или несовместимой зависимостью не загружается.
 
 ### Loader-pipeline
 Один проход по `ModuleRegistry`, каждый Loader получает `Module`-объект и сам решает, есть ли у него работа (проверяет наличие своей директории/файла через `ModuleLayout`). Никаких whitelist-флагов в манифесте, никакого `key()`-метода. Список лоадеров:
-- `RouteLoader` — `Routes/api/v1.php`, `Routes/api/v2.php`, `Routes/web.php`, `Routes/inertia.php`. Версии API через подпапки автоматически дают префикс `api/v1`, `api/v2`.
+- `RouteLoader` — `Routes/api/{version}.php`, `Routes/web.php`, `Routes/inertia.php`. Версии API через подпапки автоматически дают префикс `api/{version}`.
 - `MigrationLoader` — `Database/Migrations/`.
 - `FactoryLoader` — резолв `Database/Factories/` по соглашению Eloquent.
 - `ConfigLoader` — `Config/*.php` с merge в Laravel-конфиг.
 - `LangLoader` — `Lang/{locale}/*.php` через `loadTranslationsFrom`, namespace = `Str::snake($module->name)`.
 - `ViewLoader` — `Resources/views/` через `loadViewsFrom`, namespace = тот же.
 - `CommandLoader` — class-based Artisan-команды из `Console/Commands/`.
-- `ConsoleRouteLoader` — `Routes/console.php` (Artisan-closures и `Schedule::command(...)` в стиле Laravel 11+).
+- `ConsoleRouteLoader` — `Routes/console.php` (Artisan-closures и `Schedule::command(...)` в актуальном Laravel-стиле).
 - `EventLoader` — связки событий и слушателей из `Providers/EventServiceProvider.php` или auto-discovery по соглашению.
 - `ObserverLoader` — `Domain/Observers/` по соглашению `Model → ModelObserver`.
 - `PolicyLoader` — `Domain/Policies/` по соглашению `Model → ModelPolicy`.
@@ -50,7 +49,7 @@
 
 ### Управление жизненным циклом модуля
 Artisan-команды:
-- `modules:make <Name>` — генерация полного скелета.
+- `make:module <Name>` — генерация полного скелета.
 - `modules:install <zip|path>` — распаковка, проверка зависимостей, install hook, миграции.
 - `modules:update <Name> <zip|path>` — бэкап `settings.values`, обновление кода, миграции, восстановление values.
 - `modules:remove <Name>` — `migrate:rollback` модуля, удаление папки.
@@ -58,8 +57,11 @@ Artisan-команды:
 - `modules:list` — таблица модулей: имя, версия, статус, зависимости.
 - `modules:optimize` / `modules:optimize-clear` — кеш обнаружения для prod.
 
-Команды `make:module-*`:
-- `make:module-controller`, `make:module-model` (с `-mfsr`), `make:module-migration`, `make:module-factory`, `make:module-seeder`, `make:module-usecase`, `make:module-action`, `make:module-query`, `make:module-dto`, `make:module-enum`, `make:module-event`, `make:module-listener`, `make:module-observer`, `make:module-policy`, `make:module-middleware`, `make:module-request`, `make:module-command`, `make:module-resource` (Http), `make:module-moonshine-resource`, `make:module-moonshine-page`.
+Генераторы:
+- `make:module <Name>` создаёт skeleton модуля.
+- Стандартные Laravel-команды получают module-aware режим через `--module`: `make:model Post --module=Blog -mfs`, `make:controller PostController --module=Blog`, `make:migration create_posts_table --module=Blog`, `make:factory PostFactory --module=Blog`, `make:seeder PostSeeder --module=Blog`, `make:request StorePostRequest --module=Blog`, `make:resource PostResource --module=Blog`, `make:command SyncPostsCommand --module=Blog`, `make:event PostPublished --module=Blog`, `make:listener SendPostNotification --module=Blog`, `make:observer PostObserver --module=Blog`, `make:policy PostPolicy --module=Blog`, `make:middleware EnsureBlogEnabled --module=Blog`, `make:enum PostStatus --module=Blog`.
+- Архитектурные команды пакета используют тот же стиль: `make:use-case PublishPost --module=Blog`, `make:action CreatePost --module=Blog`, `make:query ListPosts --module=Blog`, `make:dto PostData --module=Blog`.
+- MoonShine-артефакты создаются средствами MoonShine; пакет не дублирует его генераторы.
 
 ### MoonShine admin-UI (опционально)
 При наличии MoonShine пакет регистрирует:
@@ -67,8 +69,14 @@ Artisan-команды:
 - `ModuleSettingsPage` — динамическая форма по `settings.schema` каждого модуля для редактирования `settings.values`.
 - Источник правды — `module.json`. UI пишет туда через `ModuleManifestRepository`, передавая `FeatureValues`-VO (никаких сырых array на границе).
 
+### Feature toggles
+- Ядро: DI-first API через `FeatureRepositoryInterface`: `get`, `bool`, `int`, `string`.
+- Presentation-интеграции: Blade directive `@feature('blog.enable_comments')` и optional bridge для UI/Blade-слоя.
+- Gate/Policy bridge не входит в ядро: авторизация и product configuration не смешиваются.
+- `FeatureRepository` читает актуальный `module.json`, а не production cache, чтобы изменения из MoonShine применялись со следующего request'а без `modules:optimize-clear`.
+
 ### Архитектура модуля
-Скелет, генерируемый `modules:make`:
+Скелет, генерируемый `make:module`:
 ```
 Modules/Blog/
 ├── Application/
@@ -96,10 +104,10 @@ Modules/Blog/
 │   ├── Factories/
 │   └── Seeders/
 ├── Routes/
-│   ├── api/v1.php
+│   ├── api/{version}.php
 │   ├── web.php
 │   ├── inertia.php
-│   ├── console.php           # Artisan-closures + Schedule (Laravel 11+ style)
+│   ├── console.php           # Artisan-closures + Schedule
 │   └── channels.php
 ├── Config/
 ├── Lang/{en,ru}/
@@ -116,13 +124,14 @@ Modules/Blog/
 ## Технологический стек
 
 - **PHP:** 8.3+
-- **Laravel:** 11 / 12 / 13
+- **Laravel:** 12 / 13
 - **Octane:** Swoole / RoadRunner / FrankenPHP — поддерживается first-class
 - **PHP-стандарт:** `declare(strict_types=1);` обязателен во всех `.php`-файлах пакета; `final` по умолчанию, `readonly` где применимо
 - **Подходы:** UseCase + Action + Query, всё через DI, без хелперов и фасадов внутри пакета
 - **Передача данных между слоями:** только DTO/VO (final readonly), `array` — внутри метода, на границе — никогда
 - **PHPDoc:** только когда даёт информацию, недоступную из типов (generics, причины workaround'а); пишется на английском
 - **Admin-UI:** MoonShine 4 (опционально, через `afterResolving(CoreContract::class)`)
+- **Optional integrations:** MoonShine 4 и Inertia 2 не входят в обязательные runtime-зависимости; они должны быть в `suggest`/`require-dev` и активироваться через `class_exists`/container checks.
 - **Pretty-print/normalize:** `json_encode` с `JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE`
 - **Тесты:**
   - Pest 3 + `pestphp/pest-plugin-arch` — архитектурные тесты (`tests/Architecture/`)
@@ -140,18 +149,17 @@ Modules/Blog/
 3. **Атомарная запись** — `ModuleManifestRepository::save()` пишет через temp file + rename + file lock.
 4. **Convention over configuration** — структура папок диктует поведение; манифест нужен только для метаданных и фичетоглов. Никакого whitelist-конфига загрузки.
 5. **Тонкие контракты** — `LoaderInterface` имеет только `load(Module)` и `priority()`; ни ключей, ни регистрационной магии.
-6. **MoonShine — опционален** — пакет полностью работает без MoonShine; интеграция включается, когда `CoreContract` резолвится в контейнере.
+6. **MoonShine и Inertia — опциональны** — пакет полностью работает без MoonShine/Inertia; интеграции включаются только при наличии соответствующих классов в host-приложении.
 7. **Namespace из composer.json** — никакого хардкода `App\\`, читаем PSR-4 хост-приложения.
 8. **Кеш для prod** — `modules:optimize` сохраняет `bootstrap/cache/modules.php` с готовым registry; `ModuleRegistry` читает оттуда без сканирования диска.
 9. **Octane-safe** — никакой статики, никакого in-memory mutable-state на singleton-сервисах; runtime-чтение фичетоглов — через `FeatureRepository` со scoped-биндингом и mtime-инвалидацией.
-10. **Никакой обратной совместимости с 1.x** — `MIGRATION.md` опишет ручную миграцию.
 
 ## Нефункциональные требования
 
 - **Производительность:** при включённом кеше — ноль операций FS на bootstrap; без кеша — один проход `glob` по корневым директориям модулей.
 - **Безопасность установки:** `modules:install` валидирует структуру архива и манифест по JSON-схеме до распаковки.
 - **Атомарность:** запись `module.json` через `tmp + rename`; миграции и установка в транзакции, где возможно.
-- **Совместимость:** Laravel 11/12/13, PHP 8.3+, MoonShine 4+. Зависимость от MoonShine — soft (`suggest`, проверка через `class_exists(CoreContract::class)`).
+- **Совместимость:** Laravel 12/13, PHP 8.3+. MoonShine 4+ и Inertia 2 — soft-зависимости (`suggest`, проверка через `class_exists`/container checks).
 - **Octane-совместимость:**
   - Сервисы пакета — singleton при отсутствии mutable-state, scoped (`$this->app->scoped()`) для runtime-сервисов с per-request кешем (`FeatureRepository`).
   - Никаких статических полей, никакого глобального состояния.

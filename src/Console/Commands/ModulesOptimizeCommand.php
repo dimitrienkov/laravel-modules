@@ -4,30 +4,30 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands;
 
-use DimitrienkoV\LaravelModules\Services\ServiceProviderLoaderService;
+use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use Illuminate\Console\Command;
+use Illuminate\Filesystem\Filesystem;
 
 class ModulesOptimizeCommand extends Command
 {
     protected $signature = 'modules:optimize';
-    protected $description = 'Cache module service providers for production';
+    protected $description = 'Cache module registry for production';
 
     public function handle(
-        ServiceProviderLoaderService $providerLoader,
+        ModuleRegistry $registry,
+        Filesystem $filesystem,
     ): int {
-        $this->components->info('Caching module service providers...');
+        $this->components->info('Caching module registry...');
 
-        $providers = $providerLoader->discover();
-        $providerLoader->cache($providers);
+        $payload = $registry->buildCachePayload();
+        $cachePath = $registry->cachePath();
 
-        $this->components->twoColumnDetail('Providers cached', \count($providers));
+        $filesystem->ensureDirectoryExists(\dirname($cachePath));
+        $filesystem->put($cachePath, '<?php return ' . var_export($payload, true) . ';' . PHP_EOL);
 
-        foreach ($providers as $provider) {
-            $this->line("  ✓ {$provider}");
-        }
-
-        $this->newLine();
-        $this->components->info('Module providers cached successfully.');
+        $this->components->twoColumnDetail('Cache path', $cachePath);
+        $this->components->twoColumnDetail('Modules cached', (string) \count($payload['modules']));
+        $this->components->info('Module registry cached successfully.');
 
         return self::SUCCESS;
     }
