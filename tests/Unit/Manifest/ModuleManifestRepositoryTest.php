@@ -115,6 +115,7 @@ final class ModuleManifestRepositoryTest extends TestCase
         $values = FeatureValues::fromArray(
             ['comments_enabled' => false, 'posts_per_page' => 30],
             $module->features,
+            $module->name,
             $module->manifestPath(),
         );
 
@@ -134,7 +135,7 @@ final class ModuleManifestRepositoryTest extends TestCase
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('less than or equal to 50');
 
-        FeatureValues::fromArray(['posts_per_page' => 100], $module->features, $module->manifestPath());
+        FeatureValues::fromArray(['posts_per_page' => 100], $module->features, $module->name, $module->manifestPath());
     }
 
     #[Test]

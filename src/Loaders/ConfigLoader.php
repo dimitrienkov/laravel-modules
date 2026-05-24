@@ -35,7 +35,7 @@ final readonly class ConfigLoader implements LoaderInterface
                 continue;
             }
 
-            $this->mergeConfig($file);
+            $this->mergeConfig($module, $file);
         }
     }
 
@@ -44,18 +44,20 @@ final readonly class ConfigLoader implements LoaderInterface
         return 10;
     }
 
-    private function mergeConfig(string $file): void
+    private function mergeConfig(Module $module, string $file): void
     {
-        $key = basename($file, '.php');
+        $configKey = basename($file, '.php');
+        $scopedKey = $module->name . '.' . $configKey;
+
         $data = require $file;
-        $existing = $this->config->get($key);
+        $existing = $this->config->get($scopedKey);
 
         if (\is_array($existing) && \is_array($data)) {
-            $this->config->set($key, array_replace_recursive($existing, $data));
+            $this->config->set($scopedKey, array_replace_recursive($existing, $data));
 
             return;
         }
 
-        $this->config->set($key, $data);
+        $this->config->set($scopedKey, $data);
     }
 }

@@ -354,7 +354,7 @@ final readonly class FeatureDefinition
             );
         }
 
-        $length = \strlen($value);
+        $length = mb_strlen($value, 'UTF-8');
         if ($min !== null && $length < $min) {
             throw InvalidManifestException::forPath(
                 $manifestPath,

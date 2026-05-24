@@ -8,7 +8,7 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 
-class ModulesOptimizeClearCommand extends Command
+final class ModulesOptimizeClearCommand extends Command
 {
     protected $signature = 'modules:optimize-clear';
     protected $description = 'Remove the cached module registry';

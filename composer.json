@@ -17,6 +17,7 @@
   "require": {
     "php": ">=8.3",
     "composer/semver": "^3.4",
+    "ext-mbstring": "*",
     "laravel/framework": "^12|^13"
   },
   "require-dev": {

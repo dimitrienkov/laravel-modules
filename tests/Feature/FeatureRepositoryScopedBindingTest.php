@@ -106,7 +106,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $module = $repository->load($this->modulePath);
         $repository->updateFeatureValues(
             $module,
-            FeatureValues::fromArray($values, $module->features, $module->manifestPath()),
+            FeatureValues::fromArray($values, $module->features, $module->name, $module->manifestPath()),
         );
     }
 

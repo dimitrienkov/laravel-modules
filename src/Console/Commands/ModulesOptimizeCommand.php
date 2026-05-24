@@ -8,7 +8,7 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 
-class ModulesOptimizeCommand extends Command
+final class ModulesOptimizeCommand extends Command
 {
     protected $signature = 'modules:optimize';
     protected $description = 'Cache module registry for production';

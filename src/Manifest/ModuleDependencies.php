@@ -32,6 +32,8 @@ final readonly class ModuleDependencies
                     );
                 }
 
+                self::assertValidModuleName($dependencyName, $manifestPath, "meta.dependencies.{$dependencyName}");
+
                 $normalized[$dependencyName] = '*';
             }
         } else {
@@ -42,6 +44,8 @@ final readonly class ModuleDependencies
                         'meta.dependencies object keys must be non-empty module names.'
                     );
                 }
+
+                self::assertValidModuleName($dependencyName, $manifestPath, "meta.dependencies.{$dependencyName}");
 
                 if (! \is_string($constraint) || trim($constraint) === '') {
                     throw InvalidManifestException::forPath(
@@ -91,5 +95,15 @@ final readonly class ModuleDependencies
     public function toArray(): array
     {
         return $this->constraints;
+    }
+
+    private static function assertValidModuleName(string $name, string $path, string $field): void
+    {
+        if (! preg_match('/^[a-z][a-z0-9_]*$/', $name)) {
+            throw InvalidManifestException::forPath(
+                $path,
+                "{$field} must be lowercase snake_case (a-z, 0-9, underscore, starting with a letter)."
+            );
+        }
     }
 }

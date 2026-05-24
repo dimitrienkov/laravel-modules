@@ -61,7 +61,7 @@ final readonly class Module
         /** @var array<string, mixed> $schemaRaw */
         $features = FeatureSchema::fromArray($schemaRaw, $manifestPath);
         /** @var array<string, mixed> $valuesRaw */
-        $values = FeatureValues::fromArray($valuesRaw, $features, $manifestPath);
+        $values = FeatureValues::fromArray($valuesRaw, $features, $meta->name, $manifestPath);
 
         return new self(
             name: $meta->name,

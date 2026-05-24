@@ -64,6 +64,34 @@ final class ComposerNamespaceResolverTest extends TestCase
     }
 
     #[Test]
+    public function it_caches_psr4_roots_across_calls(): void
+    {
+        $this->writeComposer([
+            'autoload' => [
+                'psr-4' => [
+                    'App\\' => 'app/',
+                ],
+            ],
+        ]);
+
+        $resolver = new ComposerNamespaceResolver($this->tempDir);
+        $first = $resolver->resolve($this->tempDir . '/app/Modules/Blog');
+
+        $this->writeComposer([
+            'autoload' => [
+                'psr-4' => [
+                    'Changed\\' => 'app/',
+                ],
+            ],
+        ]);
+
+        $second = $resolver->resolve($this->tempDir . '/app/Modules/Blog');
+
+        self::assertSame($first, $second);
+        self::assertSame('App\\Modules\\Blog', $second);
+    }
+
+    #[Test]
     public function it_throws_when_composer_json_is_missing(): void
     {
         $this->expectException(NamespaceResolutionException::class);

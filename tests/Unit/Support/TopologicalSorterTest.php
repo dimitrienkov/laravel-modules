@@ -75,4 +75,60 @@ final class TopologicalSorterTest extends TestCase
             ModuleFactory::make(name: 'users', dependencies: ['blog' => '*']),
         ]);
     }
+
+    #[Test]
+    public function disabled_module_with_missing_dependency_does_not_throw(): void
+    {
+        $sorted = (new TopologicalSorter())->sort([
+            ModuleFactory::make(name: 'blog', enabled: false, dependencies: ['users' => '^1.0']),
+        ]);
+
+        self::assertSame(['blog'], array_map(
+            static fn ($module): string => $module->name,
+            $sorted,
+        ));
+    }
+
+    #[Test]
+    public function disabled_module_with_disabled_dependency_does_not_throw(): void
+    {
+        $sorted = (new TopologicalSorter())->sort([
+            ModuleFactory::make(name: 'blog', enabled: false, dependencies: ['users' => '^1.0']),
+            ModuleFactory::make(name: 'users', enabled: false, version: '1.2.0'),
+        ]);
+
+        self::assertCount(2, $sorted);
+    }
+
+    #[Test]
+    public function disabled_module_with_incompatible_dependency_does_not_throw(): void
+    {
+        $sorted = (new TopologicalSorter())->sort([
+            ModuleFactory::make(name: 'blog', enabled: false, dependencies: ['users' => '^1.0']),
+            ModuleFactory::make(name: 'users', version: '2.0.0'),
+        ]);
+
+        self::assertCount(2, $sorted);
+    }
+
+    #[Test]
+    public function enabled_module_with_missing_dependency_still_throws(): void
+    {
+        $this->expectException(ModuleDependencyMissingException::class);
+
+        (new TopologicalSorter())->sort([
+            ModuleFactory::make(name: 'blog', enabled: true, dependencies: ['users' => '^1.0']),
+        ]);
+    }
+
+    #[Test]
+    public function disabled_modules_with_cycle_still_throws(): void
+    {
+        $this->expectException(CyclicDependencyException::class);
+
+        (new TopologicalSorter())->sort([
+            ModuleFactory::make(name: 'blog', enabled: false, dependencies: ['users' => '*']),
+            ModuleFactory::make(name: 'users', enabled: false, dependencies: ['blog' => '*']),
+        ]);
+    }
 }

@@ -11,9 +11,7 @@ final readonly class ManifestState
     private const array ALLOWED_KEYS = [
         'enabled' => true,
         'installed_at' => true,
-        'installedAt' => true,
         'updated_at' => true,
-        'updatedAt' => true,
     ];
 
     public function __construct(
@@ -38,12 +36,12 @@ final readonly class ManifestState
             throw InvalidManifestException::forPath($manifestPath, 'state.enabled must be a boolean.');
         }
 
-        $installedAt = $state['installed_at'] ?? $state['installedAt'] ?? null;
+        $installedAt = $state['installed_at'] ?? null;
         if ($installedAt !== null && ! \is_string($installedAt)) {
             throw InvalidManifestException::forPath($manifestPath, 'state.installed_at must be a string or null.');
         }
 
-        $updatedAt = $state['updated_at'] ?? $state['updatedAt'] ?? null;
+        $updatedAt = $state['updated_at'] ?? null;
         if ($updatedAt !== null && ! \is_string($updatedAt)) {
             throw InvalidManifestException::forPath($manifestPath, 'state.updated_at must be a string or null.');
         }

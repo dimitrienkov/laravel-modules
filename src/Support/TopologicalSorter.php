@@ -93,24 +93,28 @@ final readonly class TopologicalSorter
         foreach ($module->meta->dependencies->all() as $dependencyName => $constraint) {
             $dependency = $moduleMap[$dependencyName] ?? null;
 
-            if ($dependency === null) {
-                throw ModuleDependencyMissingException::forDependency($module->name, $dependencyName);
+            if ($module->isEnabled()) {
+                if ($dependency === null) {
+                    throw ModuleDependencyMissingException::forDependency($module->name, $dependencyName);
+                }
+
+                if (! $dependency->isEnabled()) {
+                    throw ModuleDependencyDisabledException::forDependency($module->name, $dependencyName);
+                }
+
+                if (! Semver::satisfies($dependency->meta->version, $constraint)) {
+                    throw ModuleDependencyIncompatibleException::forDependency(
+                        $module->name,
+                        $dependencyName,
+                        $constraint,
+                        $dependency->meta->version,
+                    );
+                }
             }
 
-            if (! $dependency->isEnabled()) {
-                throw ModuleDependencyDisabledException::forDependency($module->name, $dependencyName);
+            if ($dependency !== null) {
+                $this->visit($dependencyName, $moduleMap, $sorted, $visiting, $visited, $stack);
             }
-
-            if (! Semver::satisfies($dependency->meta->version, $constraint)) {
-                throw ModuleDependencyIncompatibleException::forDependency(
-                    $module->name,
-                    $dependencyName,
-                    $constraint,
-                    $dependency->meta->version,
-                );
-            }
-
-            $this->visit($dependencyName, $moduleMap, $sorted, $visiting, $visited, $stack);
         }
 
         array_pop($stack);

@@ -11,7 +11,6 @@ final readonly class ManifestMeta
     private const array ALLOWED_KEYS = [
         'name' => true,
         'display_name' => true,
-        'displayName' => true,
         'version' => true,
         'author' => true,
         'description' => true,
@@ -38,10 +37,16 @@ final readonly class ManifestMeta
         self::assertKnownKeys($meta, $manifestPath);
 
         $name = self::requiredString($meta, 'name', $manifestPath);
+
+        if (! preg_match('/^[a-z][a-z0-9_]*$/', $name)) {
+            throw InvalidManifestException::forPath(
+                $manifestPath,
+                'meta.name must be lowercase snake_case (a-z, 0-9, underscore, starting with a letter).'
+            );
+        }
+
         $version = self::requiredString($meta, 'version', $manifestPath);
-        $displayName = self::optionalString($meta, 'display_name', $manifestPath)
-            ?? self::optionalString($meta, 'displayName', $manifestPath)
-            ?? $name;
+        $displayName = self::optionalString($meta, 'display_name', $manifestPath) ?? $name;
         $author = self::optionalString($meta, 'author', $manifestPath);
         $description = self::optionalString($meta, 'description', $manifestPath);
         $license = self::optionalString($meta, 'license', $manifestPath);

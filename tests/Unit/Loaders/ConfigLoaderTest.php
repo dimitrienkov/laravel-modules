@@ -32,21 +32,23 @@ final class ConfigLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_merges_module_config_files(): void
+    public function it_merges_module_config_files_under_scoped_key(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath . '/Config', 0755, true);
-        file_put_contents($modulePath . '/Config/blog.php', '<?php return ["enabled" => true, "nested" => ["new" => true]];');
+        file_put_contents($modulePath . '/Config/settings.php', '<?php return ["enabled" => true, "nested" => ["new" => true]];');
         $config = new Repository([
             'blog' => [
-                'nested' => [
-                    'old' => true,
+                'settings' => [
+                    'nested' => [
+                        'old' => true,
+                    ],
                 ],
             ],
         ]);
 
         (new ConfigLoader($config, new Filesystem(), new ModuleLayout()))
-            ->load(ModuleFactory::make(path: $modulePath));
+            ->load(ModuleFactory::make(name: 'blog', path: $modulePath));
 
         self::assertSame([
             'nested' => [
@@ -54,7 +56,22 @@ final class ConfigLoaderTest extends TestCase
                 'new' => true,
             ],
             'enabled' => true,
-        ], $config->get('blog'));
+        ], $config->get('blog.settings'));
+    }
+
+    #[Test]
+    public function it_does_not_pollute_global_config_key(): void
+    {
+        $modulePath = $this->tempDir . '/Blog';
+        mkdir($modulePath . '/Config', 0755, true);
+        file_put_contents($modulePath . '/Config/cache.php', '<?php return ["driver" => "redis"];');
+        $config = new Repository(['cache' => ['driver' => 'file']]);
+
+        (new ConfigLoader($config, new Filesystem(), new ModuleLayout()))
+            ->load(ModuleFactory::make(name: 'blog', path: $modulePath));
+
+        self::assertSame('file', $config->get('cache.driver'));
+        self::assertSame('redis', $config->get('blog.cache.driver'));
     }
 
     #[Test]

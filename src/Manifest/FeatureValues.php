@@ -21,8 +21,12 @@ final readonly class FeatureValues
     /**
      * @param array<string, mixed> $values
      */
-    public static function fromArray(array $values, FeatureSchema $schema, string $manifestPath): self
-    {
+    public static function fromArray(
+        array $values,
+        FeatureSchema $schema,
+        string $moduleName,
+        string $manifestPath,
+    ): self {
         $normalized = [];
 
         foreach ($values as $key => $value) {
@@ -36,11 +40,11 @@ final readonly class FeatureValues
             if (! $schema->has($key)) {
                 throw InvalidManifestException::forPath(
                     $manifestPath,
-                    "settings.values.{$key} is not defined in settings.schema."
+                    "settings.values.{$key} is not defined in settings.schema for module [{$moduleName}]."
                 );
             }
 
-            $normalized[$key] = $schema->definition('manifest', $key)->normalize($value, $manifestPath);
+            $normalized[$key] = $schema->definition($moduleName, $key)->normalize($value, $manifestPath);
         }
 
         ksort($normalized);

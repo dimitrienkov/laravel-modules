@@ -27,8 +27,8 @@ final readonly class ManifestValidator implements ManifestValidatorInterface
     {
         $this->assertTopLevelKeys($manifest, $manifestPath);
 
-        $meta = $this->requiredObject($manifest, 'meta', $manifestPath);
-        ManifestMeta::fromArray($meta, $manifestPath);
+        $metaRaw = $this->requiredObject($manifest, 'meta', $manifestPath);
+        $meta = ManifestMeta::fromArray($metaRaw, $manifestPath);
 
         $state = $this->requiredObject($manifest, 'state', $manifestPath);
         ManifestState::fromArray($state, $manifestPath);
@@ -49,7 +49,7 @@ final readonly class ManifestValidator implements ManifestValidatorInterface
         /** @var array<string, mixed> $schemaRaw */
         $schema = FeatureSchema::fromArray($schemaRaw, $manifestPath);
         /** @var array<string, mixed> $valuesRaw */
-        FeatureValues::fromArray($valuesRaw, $schema, $manifestPath);
+        FeatureValues::fromArray($valuesRaw, $schema, $meta->name, $manifestPath);
     }
 
     /**

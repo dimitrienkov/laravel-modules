@@ -8,23 +8,22 @@ use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Exceptions\NamespaceResolutionException;
 use JsonException;
 
-final readonly class ComposerNamespaceResolver implements NamespaceResolverInterface
+final class ComposerNamespaceResolver implements NamespaceResolverInterface
 {
+    /** @var array<int, array{namespace: string, path: string}>|null */
+    private ?array $cachedRoots = null;
+
     public function __construct(
-        private string $basePath,
+        private readonly string $basePath,
     ) {
     }
 
     public function resolve(string $modulePath): string
     {
-        $composerPath = $this->basePath . '/composer.json';
-        $roots = $this->psr4Roots($composerPath);
-        $normalizedModulePath = $this->normalizePath($modulePath);
-
-        usort(
-            $roots,
-            static fn (array $left, array $right): int => \strlen($right['path']) <=> \strlen($left['path'])
+        $roots = $this->cachedRoots ??= $this->sortedPsr4Roots(
+            $this->basePath . '/composer.json'
         );
+        $normalizedModulePath = $this->normalizePath($modulePath);
 
         foreach ($roots as $root) {
             if (! $this->isWithin($normalizedModulePath, $root['path'])) {
@@ -39,7 +38,22 @@ final readonly class ComposerNamespaceResolver implements NamespaceResolverInter
             return rtrim($root['namespace'], '\\') . $relativeNamespace;
         }
 
-        throw NamespaceResolutionException::unresolvedPath($modulePath, $composerPath);
+        throw NamespaceResolutionException::unresolvedPath($modulePath, $this->basePath . '/composer.json');
+    }
+
+    /**
+     * @return array<int, array{namespace: string, path: string}>
+     */
+    private function sortedPsr4Roots(string $composerPath): array
+    {
+        $roots = $this->psr4Roots($composerPath);
+
+        usort(
+            $roots,
+            static fn (array $left, array $right): int => \strlen($right['path']) <=> \strlen($left['path'])
+        );
+
+        return $roots;
     }
 
     /**
