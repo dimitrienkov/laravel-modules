@@ -88,6 +88,40 @@ final class ModuleLoaderServiceProviderTest extends TestCase
     }
 
     #[Test]
+    public function it_registers_all_default_loaders_as_tagged_services(): void
+    {
+        $this->provider()->register();
+        $app = $this->application();
+
+        $loaderClasses = array_map(
+            static fn (object $loader): string => $loader::class,
+            iterator_to_array($app->tagged(ModuleLoaderServiceProvider::LOADER_TAG)),
+        );
+
+        $expected = [
+            'DimitrienkoV\\LaravelModules\\Loaders\\ConfigLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\ServiceProviderLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\MigrationLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\FactoryLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\LangLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\ViewLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\BladeComponentLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\EventLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\ObserverLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\PolicyLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\CommandLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\MiddlewareLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\RouteLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\ConsoleRouteLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\BroadcastLoader',
+        ];
+
+        sort($expected);
+        sort($loaderClasses);
+        self::assertSame($expected, $loaderClasses);
+    }
+
+    #[Test]
     public function it_boots_without_moonshine_loader_class(): void
     {
         $provider = $this->provider();

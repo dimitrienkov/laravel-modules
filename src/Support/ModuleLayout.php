@@ -43,6 +43,11 @@ final readonly class ModuleLayout
         return $module->path . '/Lang';
     }
 
+    public function listenersDir(Module $module): string
+    {
+        return $module->path . '/Domain/Listeners';
+    }
+
     public function manifestFile(Module $module): string
     {
         return $this->manifestFilePath($module->path);

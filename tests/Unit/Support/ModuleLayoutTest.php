@@ -33,5 +33,6 @@ final class ModuleLayoutTest extends TestCase
         self::assertSame('/app/Modules/Blog/Domain/Observers', $layout->observersDir($module));
         self::assertSame('/app/Modules/Blog/Domain/Policies', $layout->policiesDir($module));
         self::assertSame('/app/Modules/Blog/Http/Middleware', $layout->middlewareDir($module));
+        self::assertSame('/app/Modules/Blog/Domain/Listeners', $layout->listenersDir($module));
     }
 }

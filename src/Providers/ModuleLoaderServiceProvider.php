@@ -41,7 +41,17 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         'DimitrienkoV\\LaravelModules\\Loaders\\ServiceProviderLoader',
         'DimitrienkoV\\LaravelModules\\Loaders\\MigrationLoader',
         'DimitrienkoV\\LaravelModules\\Loaders\\FactoryLoader',
+        'DimitrienkoV\\LaravelModules\\Loaders\\LangLoader',
+        'DimitrienkoV\\LaravelModules\\Loaders\\ViewLoader',
+        'DimitrienkoV\\LaravelModules\\Loaders\\BladeComponentLoader',
+        'DimitrienkoV\\LaravelModules\\Loaders\\EventLoader',
+        'DimitrienkoV\\LaravelModules\\Loaders\\ObserverLoader',
+        'DimitrienkoV\\LaravelModules\\Loaders\\PolicyLoader',
+        'DimitrienkoV\\LaravelModules\\Loaders\\CommandLoader',
+        'DimitrienkoV\\LaravelModules\\Loaders\\MiddlewareLoader',
         'DimitrienkoV\\LaravelModules\\Loaders\\RouteLoader',
+        'DimitrienkoV\\LaravelModules\\Loaders\\ConsoleRouteLoader',
+        'DimitrienkoV\\LaravelModules\\Loaders\\BroadcastLoader',
     ];
 
     private const string MOONSHINE_CORE_CONTRACT = 'MoonShine\\Contracts\\Core\\DependencyInjection\\CoreContract';
