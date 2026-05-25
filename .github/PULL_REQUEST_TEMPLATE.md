@@ -22,10 +22,6 @@
 - [ ] Documentation — только документация
 - [ ] Chore — зависимости, CI, тулинг
 
-## Связанные issues
-
-<!-- Closes #123, Fixes #456, Relates to #789 -->
-
 ## Чеклист
 
 - [ ] `composer test` проходит (Pest 3 arch + PHPUnit unit/feature)
