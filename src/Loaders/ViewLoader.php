@@ -6,14 +6,15 @@ namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
-use Illuminate\Contracts\View\Factory;
+use Illuminate\Contracts\View\Factory as ViewFactory;
 use Illuminate\Filesystem\Filesystem;
 
 final readonly class ViewLoader implements LoaderInterface
 {
     public function __construct(
-        private Factory $viewFactory,
+        private ContainerLifecycleHooks $hooks,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
     ) {
@@ -27,7 +28,12 @@ final readonly class ViewLoader implements LoaderInterface
             return;
         }
 
-        $this->viewFactory->addNamespace($module->name, $viewsDir);
+        $this->hooks->callAfterResolving(
+            'view',
+            static function (ViewFactory $view) use ($module, $viewsDir): void {
+                $view->addNamespace($module->name, $viewsDir);
+            },
+        );
     }
 
     public function priority(): int

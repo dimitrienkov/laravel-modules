@@ -25,7 +25,7 @@
 - `ModuleManifestRepository` как единственная точка чтения/валидации/атомарной записи `module.json`.
 - `ModuleDirectoryScanner`, `ModuleRegistry`, `ModuleRegistryCache`, `TopologicalSorter`.
 - Loader pipeline с 15 реализованными лоадерами: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`.
-- `FeatureRepositoryInterface` с методами `get`, `bool`, `int`, `string`; реализация биндится как scoped.
+- `FeatureRepositoryInterface` с методами `get`, `getBool`, `getInt`, `getString`; реализация биндится как scoped.
 - Команды `modules:optimize` и `modules:optimize-clear`, интегрированные с Laravel optimizer hooks.
 - Optional MoonShine bridge через `MoonShineModuleAutoloader`.
 - Optional Inertia routes: `Routes/inertia.php` загружается только при наличии Inertia.
@@ -108,7 +108,7 @@
 Правила:
 
 - `meta.name` — canonical module name; `display_name` опционален и fallback'ается на `name`.
-- `meta.dependencies` принимает объект `moduleName => Composer constraint`; короткая list-форма нормализуется в `moduleName => "*"`.
+- `meta.dependencies` принимает только объект `moduleName => Composer constraint`; wildcard constraint записывается явно как `"*"`.
 - `state.enabled` обязателен; `installed_at` и `updated_at` опциональны.
 - `settings.schema` поддерживает типы `bool`, `int`, `string`, `enum`.
 - `settings.values` хранит только явные override-значения; defaults остаются в schema и не записываются как values.
@@ -136,7 +136,7 @@
 | `ConsoleRouteLoader` | 51 | `Routes/console.php` через `addCommandRoutePaths()` (deferred) |
 | `BroadcastLoader` | 52 | `Routes/channels.php` broadcast channels (deferred до boot) |
 
-MoonShine autoload не является `LoaderInterface`: это отдельный optional bridge, который регистрируется через `afterResolving(CoreContract::class)` и вызывает `$core->autoload($module->namespace)` для enabled-модулей.
+MoonShine autoload не является `LoaderInterface`: это отдельный optional bridge, который регистрируется через package-style `callAfterResolving(CoreContract::class)` и вызывает `$core->autoload($module->namespace)` для enabled-модулей.
 
 ## Routing
 
@@ -165,9 +165,9 @@ Route loading управляется `config/modules.php`:
 Публичный API:
 
 - `FeatureRepositoryInterface::get(string $moduleName, string $key): bool|int|string`
-- `bool(...)`
-- `int(...)`
-- `string(...)`
+- `getBool(...)`
+- `getInt(...)`
+- `getString(...)`
 
 `FeatureRepository` биндится через `$this->app->scoped()`. В пределах одного request он кеширует `FeatureValues` по имени модуля, но при новом request перечитывает values из `module.json` через `ModuleManifestRepository::readValues()`. Production registry cache не используется для feature values, поэтому изменения settings применяются без `modules:optimize-clear`.
 
@@ -177,31 +177,45 @@ Route loading управляется `config/modules.php`:
 
 ```
 app/Modules/Blog/
+├── Console/
+│   └── Commands/
 ├── Config/
 │   └── blog.php
 ├── Database/
 │   ├── Factories/
 │   └── Migrations/
 ├── Domain/
-│   └── Models/
+│   ├── Listeners/
+│   ├── Models/
+│   ├── Observers/
+│   └── Policies/
+├── Http/
+│   └── Middleware/
+├── Lang/
 ├── Providers/
 │   └── BlogServiceProvider.php
+├── Resources/
+│   └── views/
 ├── Routes/
 │   ├── api.php
 │   ├── api/
 │   │   ├── v1.php
 │   │   └── v2.php
+│   ├── channels.php
+│   ├── console.php
 │   ├── web.php
 │   └── inertia.php
+├── View/
+│   └── Components/
 └── module.json
 ```
 
-`ModuleLayout` уже содержит методы для будущих module subpaths (`Lang`, `Resources/views`, `View/Components`, `Console/Commands`, `Routes/console.php`, `Routes/channels.php`, observers, policies, middleware), но пока нет соответствующих runtime loaders в текущем core.
+`ModuleLayout` формирует все runtime-пути, а loader applicability остаётся convention-based: loader делает ранний return, если нужного файла или директории нет.
 
 ## Нефункциональные требования
 
 - **Octane safety:** runtime-сервисы с per-request cache должны быть scoped; singleton-сервисы не должны накапливать mutable runtime state между request.
-- **Атомарность:** запись `module.json` идёт через `AtomicJsonWriter` с lock, temp file, `rename`.
+- **Атомарность:** запись `module.json` идёт через `AtomicJsonWriter` с lock, temp file, `rename`; production cache пишется через lock/temp/flush/atomic rename.
 - **Детерминированность:** manifest schema, dependencies, feature definitions и cache payload сортируются там, где это важно для стабильного результата.
 - **Безопасность manifest:** неизвестные ключи запрещены; `autoload` запрещён как legacy-механика.
 - **Расширяемость:** новые loaders добавляются через `LoaderInterface` и service container tag `ModuleLoaderServiceProvider::LOADER_TAG`.

@@ -92,9 +92,9 @@ $this->app->tag([TranslationLoader::class], ModuleLoaderServiceProvider::LOADER_
 
 `ModuleRegistry` сначала проверяет `bootstrap/cache/modules.php`.
 
-Если cache существует, registry загружает его через `require`. Если cache нет, registry сканирует configured directories, читает manifests, резолвит namespaces и сортирует modules.
+Если cache существует, registry загружает его через `require` и заворачивает повреждённый PHP cache в `InvalidModuleCacheException`. Если cache нет, registry сканирует configured directories, читает manifests, резолвит namespaces и сортирует modules.
 
-`modules:optimize` пишет cache payload. `modules:optimize-clear` удаляет его и сбрасывает in-memory registry.
+`modules:optimize` пишет cache payload атомарно через temp file, flush и rename. `modules:optimize-clear` удаляет его и сбрасывает in-memory registry.
 
 ## Feature runtime
 
@@ -106,7 +106,7 @@ Feature values читаются из `module.json`, а не из production regi
 
 MoonShine autoload не является pipeline loader. `ModuleLoaderServiceProvider` регистрирует `MoonShineModuleAutoloader` только когда существует `MoonShine\Contracts\Core\DependencyInjection\CoreContract`.
 
-После resolve MoonShine core bridge вызывает `$core->autoload($module->namespace)` для каждого enabled-модуля.
+Bridge ставит package-style `callAfterResolving()` hook, поэтому работает и когда MoonShine core уже resolved. После resolve MoonShine core bridge вызывает `$core->autoload($module->namespace)` для каждого enabled-модуля.
 
 ## Dependency rules
 

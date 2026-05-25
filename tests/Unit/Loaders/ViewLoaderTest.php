@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\ViewLoader;
+use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\Application;
 use Illuminate\View\Engines\EngineResolver;
 use Illuminate\View\Factory as ViewFactory;
 use Illuminate\View\FileViewFinder;
@@ -43,8 +45,34 @@ final class ViewLoaderTest extends TestCase
         file_put_contents($viewsDir . '/index.blade.php', '<h1>Blog</h1>');
         $finder = new FileViewFinder(new Filesystem(), []);
         $factory = new ViewFactory(new EngineResolver(), $finder, new Dispatcher());
+        $app = new Application($this->tempDir);
+        $app->singleton('view', static fn (): ViewFactory => $factory);
 
-        (new ViewLoader($factory, new Filesystem(), new ModuleLayout()))
+        $this->loader($app)
+            ->load(ModuleFactory::make(name: 'blog', path: $modulePath));
+
+        self::assertFalse($app->resolved('view'));
+
+        $app->make('view');
+
+        $hints = $finder->getHints();
+        self::assertArrayHasKey('blog', $hints);
+        self::assertSame([$viewsDir], $hints['blog']);
+    }
+
+    #[Test]
+    public function it_registers_view_namespace_when_view_factory_was_already_resolved(): void
+    {
+        $modulePath = $this->tempDir . '/Blog';
+        $viewsDir = $modulePath . '/Resources/views';
+        mkdir($viewsDir, 0755, true);
+        $finder = new FileViewFinder(new Filesystem(), []);
+        $factory = new ViewFactory(new EngineResolver(), $finder, new Dispatcher());
+        $app = new Application($this->tempDir);
+        $app->instance('view', $factory);
+        $app->make('view');
+
+        $this->loader($app)
             ->load(ModuleFactory::make(name: 'blog', path: $modulePath));
 
         $hints = $finder->getHints();
@@ -57,11 +85,20 @@ final class ViewLoaderTest extends TestCase
     {
         $finder = new FileViewFinder(new Filesystem(), []);
         $factory = new ViewFactory(new EngineResolver(), $finder, new Dispatcher());
+        $app = new Application($this->tempDir);
+        $app->singleton('view', static fn (): ViewFactory => $factory);
 
-        (new ViewLoader($factory, new Filesystem(), new ModuleLayout()))
+        $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
 
+        $app->make('view');
+
         self::assertSame([], $finder->getHints());
+    }
+
+    private function loader(Application $app): ViewLoader
+    {
+        return new ViewLoader(new ContainerLifecycleHooks($app), new Filesystem(), new ModuleLayout());
     }
 
     private function deleteDirectory(string $directory): void

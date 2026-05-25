@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders\Pipeline;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleLoaderException;
 use DimitrienkoV\LaravelModules\Loaders\Pipeline\ModuleLoaderPipeline;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
@@ -118,14 +119,23 @@ final class ModuleLoaderPipelineTest extends TestCase
 
         /** @var ExceptionHandler&Mockery\MockInterface $handler */
         $handler = Mockery::mock(ExceptionHandler::class);
-        $handler->shouldReceive('report')->once()->with($exception);
+        $handler->shouldReceive('report')
+            ->once()
+            ->with(Mockery::on(
+                static fn (object $reported): bool => $reported instanceof ModuleLoaderException
+                    && $reported->loaderClass === PipelineConditionallyThrowingLoader::class
+                    && $reported->moduleName === 'blog'
+                    && $reported->modulePath !== ''
+                    && $reported->getPrevious() === $exception,
+            ));
 
         $pipeline = new ModuleLoaderPipeline(
             registry: new PipelineFakeRegistry([
                 ModuleFactory::make(name: 'blog'),
+                ModuleFactory::make(name: 'users'),
             ]),
             loaders: [
-                new PipelineThrowingLoader($exception, 10),
+                new PipelineConditionallyThrowingLoader($calls, $exception, 10, 'blog'),
                 new PipelineRecordingLoader($calls, 20, 'after'),
             ],
             exceptionHandler: $handler,
@@ -133,7 +143,11 @@ final class ModuleLoaderPipelineTest extends TestCase
 
         $pipeline->boot();
 
-        self::assertSame([['after', 'blog']], $calls->getArrayCopy());
+        self::assertSame([
+            ['throwing', 'users'],
+            ['after', 'blog'],
+            ['after', 'users'],
+        ], $calls->getArrayCopy());
     }
 
     private function fakeExceptionHandler(): ExceptionHandler
@@ -169,17 +183,26 @@ final class PipelineRecordingLoader implements LoaderInterface
     }
 }
 
-final readonly class PipelineThrowingLoader implements LoaderInterface
+final readonly class PipelineConditionallyThrowingLoader implements LoaderInterface
 {
+    /**
+     * @param \ArrayObject<int, array{0: string, 1: string}> $calls
+     */
     public function __construct(
+        private \ArrayObject $calls,
         private \Throwable $exception,
         private int $priority,
+        private string $moduleName,
     ) {
     }
 
     public function load(Module $module): void
     {
-        throw $this->exception;
+        if ($module->name === $this->moduleName) {
+            throw $this->exception;
+        }
+
+        $this->calls->append(['throwing', $module->name]);
     }
 
     public function priority(): int

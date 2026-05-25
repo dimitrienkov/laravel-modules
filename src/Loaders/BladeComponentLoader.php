@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\View\Compilers\BladeCompiler;
@@ -13,7 +14,7 @@ use Illuminate\View\Compilers\BladeCompiler;
 final readonly class BladeComponentLoader implements LoaderInterface
 {
     public function __construct(
-        private BladeCompiler $blade,
+        private ContainerLifecycleHooks $hooks,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
     ) {
@@ -27,9 +28,14 @@ final readonly class BladeComponentLoader implements LoaderInterface
             return;
         }
 
-        $this->blade->componentNamespace(
-            $module->namespace . '\\View\\Components',
-            $module->name,
+        $this->hooks->callAfterResolving(
+            BladeCompiler::class,
+            static function (BladeCompiler $blade) use ($module): void {
+                $blade->componentNamespace(
+                    $module->namespace . '\\View\\Components',
+                    $module->name,
+                );
+            },
         );
     }
 

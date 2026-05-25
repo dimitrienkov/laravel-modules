@@ -12,6 +12,7 @@ use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
+use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use DimitrienkoV\LaravelModules\Loaders\BladeComponentLoader;
 use DimitrienkoV\LaravelModules\Loaders\BroadcastLoader;
 use DimitrienkoV\LaravelModules\Loaders\CommandLoader;
@@ -39,6 +40,7 @@ use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\ApplicationNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use Illuminate\Contracts\Config\Repository;
@@ -80,10 +82,9 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
 
         $this->registerManifestBindings();
         $this->registerRegistryBindings();
-        $this->registerRuntimeBindings();
         $this->registerFeatureBindings();
         $this->registerDefaultLoaders();
-        $this->registerMoonShineIntegration();
+        $this->registerMoonShineBindings();
     }
 
     public function boot(): void
@@ -104,6 +105,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             );
         }
 
+        $this->bootMoonShineIntegration();
         $this->pipeline()->boot();
     }
 
@@ -111,6 +113,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     {
         $this->app->singleton(ModuleLayout::class);
         $this->app->singleton(AtomicJsonWriter::class);
+        $this->app->singleton(ContainerLifecycleHooks::class);
         $this->app->singleton(ManifestDocumentReader::class);
         $this->app->singleton(ManifestSettingsValidator::class);
         $this->app->singleton(ManifestValidator::class);
@@ -176,10 +179,6 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         );
     }
 
-    private function registerRuntimeBindings(): void
-    {
-    }
-
     private function registerFeatureBindings(): void
     {
         $this->app->scoped(FeatureRepositoryInterface::class, FeatureRepository::class);
@@ -194,18 +193,28 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->app->tag(self::DEFAULT_LOADERS, self::LOADER_TAG);
     }
 
-    private function registerMoonShineIntegration(): void
+    private function registerMoonShineBindings(): void
     {
         if (! interface_exists(self::MOONSHINE_CORE_CONTRACT)) {
             return;
         }
 
         $this->app->singleton(MoonShineModuleAutoloader::class);
+    }
 
-        $this->app->afterResolving(
+    private function bootMoonShineIntegration(): void
+    {
+        if (! interface_exists(self::MOONSHINE_CORE_CONTRACT)) {
+            return;
+        }
+
+        $this->app->make(ContainerLifecycleHooks::class)->callAfterResolving(
             self::MOONSHINE_CORE_CONTRACT,
             function (object $core): void {
-                /** @var CoreContract $core */
+                if (! $core instanceof CoreContract) {
+                    return;
+                }
+
                 $this->app->make(MoonShineModuleAutoloader::class)->autoload($core);
             },
         );
@@ -218,9 +227,18 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     {
         $loaders = [];
         foreach ($this->app->tagged(self::LOADER_TAG) as $tagged) {
-            if ($tagged instanceof LoaderInterface) {
-                $loaders[] = $tagged;
+            if (! $tagged instanceof LoaderInterface) {
+                throw InvalidConfigurationException::forKey(
+                    self::LOADER_TAG,
+                    \sprintf(
+                        'tagged service [%s] must implement [%s].',
+                        get_debug_type($tagged),
+                        LoaderInterface::class,
+                    ),
+                );
             }
+
+            $loaders[] = $tagged;
         }
 
         return $loaders;

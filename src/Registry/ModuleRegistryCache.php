@@ -10,6 +10,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleCacheWriteException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Registry\VO\ModuleRegistryCachePayload;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use Throwable;
 
 final readonly class ModuleRegistryCache
 {
@@ -46,7 +47,16 @@ final readonly class ModuleRegistryCache
     public function load(): array
     {
         $cachePath = $this->cachePath();
-        $raw = require $cachePath;
+
+        try {
+            $raw = require $cachePath;
+        } catch (Throwable $exception) {
+            throw InvalidModuleCacheException::forPath(
+                $cachePath,
+                'cache file could not be loaded: ' . $exception->getMessage(),
+                $exception,
+            );
+        }
 
         if (! \is_array($raw)) {
             throw InvalidModuleCacheException::forPath($cachePath, 'module cache must return an array.');
@@ -91,11 +101,7 @@ final readonly class ModuleRegistryCache
         }
 
         $content = '<?php return ' . var_export($payload->toArray(), true) . ';' . PHP_EOL;
-        $bytesWritten = file_put_contents($cachePath, $content);
-
-        if ($bytesWritten === false) {
-            throw ModuleCacheWriteException::forPath($cachePath, 'cache file could not be written.');
-        }
+        $this->writeAtomically($cachePath, $content);
 
         return $cachePath;
     }
@@ -109,6 +115,96 @@ final readonly class ModuleRegistryCache
 
         if (! unlink($path)) {
             throw ModuleCacheWriteException::forPath($path, 'cache file could not be deleted.');
+        }
+    }
+
+    private function writeAtomically(string $cachePath, string $contents): void
+    {
+        $directory = \dirname($cachePath);
+        $lock = $this->openLock($cachePath);
+        $temporaryPath = null;
+
+        try {
+            if (! flock($lock, LOCK_EX)) {
+                throw ModuleCacheWriteException::forPath($cachePath, 'exclusive file lock could not be acquired.');
+            }
+
+            $temporaryPath = $this->temporaryPath($directory, $cachePath);
+            $this->writeTemporaryFile($temporaryPath, $contents, $cachePath);
+
+            if (is_file($cachePath)) {
+                $permissions = fileperms($cachePath);
+                if ($permissions !== false) {
+                    chmod($temporaryPath, $permissions & 0777);
+                }
+            }
+
+            if (is_dir($cachePath) || ! rename($temporaryPath, $cachePath)) {
+                throw ModuleCacheWriteException::forPath(
+                    $cachePath,
+                    'temporary cache file could not be renamed atomically.',
+                );
+            }
+
+            $temporaryPath = null;
+        } catch (ModuleCacheWriteException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            throw ModuleCacheWriteException::forPath($cachePath, $exception->getMessage(), $exception);
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+
+            if ($temporaryPath !== null && is_file($temporaryPath)) {
+                unlink($temporaryPath);
+            }
+        }
+    }
+
+    /**
+     * @return resource
+     */
+    private function openLock(string $cachePath)
+    {
+        $lock = fopen($cachePath . '.lock', 'c');
+
+        if ($lock === false) {
+            throw ModuleCacheWriteException::forPath($cachePath, 'lock file could not be opened.');
+        }
+
+        return $lock;
+    }
+
+    private function temporaryPath(string $directory, string $cachePath): string
+    {
+        $temporaryPath = tempnam($directory, basename($cachePath) . '.tmp.');
+
+        if ($temporaryPath === false) {
+            throw ModuleCacheWriteException::forPath($cachePath, 'temporary cache file could not be created.');
+        }
+
+        return $temporaryPath;
+    }
+
+    private function writeTemporaryFile(string $temporaryPath, string $contents, string $cachePath): void
+    {
+        $handle = fopen($temporaryPath, 'wb');
+
+        if ($handle === false) {
+            throw ModuleCacheWriteException::forPath($cachePath, 'temporary cache file could not be opened.');
+        }
+
+        try {
+            $bytesWritten = fwrite($handle, $contents);
+            if ($bytesWritten === false || $bytesWritten !== \strlen($contents)) {
+                throw ModuleCacheWriteException::forPath($cachePath, 'temporary cache file write was incomplete.');
+            }
+
+            if (! fflush($handle)) {
+                throw ModuleCacheWriteException::forPath($cachePath, 'temporary cache file could not be flushed.');
+            }
+        } finally {
+            fclose($handle);
         }
     }
 }

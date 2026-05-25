@@ -38,7 +38,33 @@ final class OptionalMoonShineBootTest extends TestCase
     }
 
     #[Test]
-    public function moonshine_autoloads_modules_when_core_resolves(): void
+    public function moonshine_autoloads_modules_when_core_resolves_after_provider_boot(): void
+    {
+        /** @var CoreContract&MockInterface $core */
+        $core = Mockery::mock(CoreContract::class);
+        /** @var Expectation $expectation */
+        $expectation = $core->shouldReceive('autoload');
+        $expectation->once()
+            ->with('App\\Modules\\Blog')
+            ->andReturn($core);
+
+        $app = $this->application();
+        $provider = $this->provider();
+        $provider->register();
+
+        $app->instance(ModuleRegistryInterface::class, new MoonShineFakeRegistry([
+            ModuleFactory::make(name: 'blog', namespace: 'App\\Modules\\Blog'),
+            ModuleFactory::make(name: 'disabled', enabled: false),
+        ]));
+
+        $app->singleton(CoreContract::class, static fn () => $core);
+        $provider->boot();
+
+        $app->make(CoreContract::class);
+    }
+
+    #[Test]
+    public function moonshine_autoloads_modules_when_core_was_resolved_before_provider_boot(): void
     {
         /** @var CoreContract&MockInterface $core */
         $core = Mockery::mock(CoreContract::class);
@@ -59,6 +85,8 @@ final class OptionalMoonShineBootTest extends TestCase
 
         $app->singleton(CoreContract::class, static fn () => $core);
         $app->make(CoreContract::class);
+
+        $provider->boot();
     }
 
     #[Test]

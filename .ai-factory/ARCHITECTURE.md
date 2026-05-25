@@ -34,11 +34,21 @@ src/
 ├── Exceptions/
 │   └── *Exception.php
 ├── Loaders/
+│   ├── BladeComponentLoader.php
+│   ├── BroadcastLoader.php
+│   ├── CommandLoader.php
 │   ├── ConfigLoader.php
+│   ├── ConsoleRouteLoader.php
+│   ├── EventLoader.php
 │   ├── FactoryLoader.php
+│   ├── LangLoader.php
+│   ├── MiddlewareLoader.php
 │   ├── MigrationLoader.php
-│   ├── RouteLoader.php
+│   ├── ObserverLoader.php
+│   ├── PolicyLoader.php
 │   ├── ServiceProviderLoader.php
+│   ├── RouteLoader.php
+│   ├── ViewLoader.php
 │   └── Pipeline/
 │       └── ModuleLoaderPipeline.php
 ├── Manifest/
@@ -55,8 +65,11 @@ src/
 │   │   ├── ManifestMeta.php
 │   │   ├── ManifestState.php
 │   │   ├── Module.php
-│   │   └── ModuleDependencies.php
+│   │   ├── ModuleDependencies.php
+│   │   └── ModuleDependency.php
 │   ├── FeatureRepository.php
+│   ├── ManifestDocumentReader.php
+│   ├── ManifestSettingsValidator.php
 │   ├── ManifestValidator.php
 │   ├── ModuleManifestRepository.php
 │   └── ModuleRegistry.php
@@ -66,10 +79,14 @@ src/
 │   └── ModuleLoaderServiceProvider.php
 ├── Registry/
 │   ├── ModuleDirectoryScanner.php
-│   └── ModuleRegistryCache.php
+│   ├── ModuleRegistryCache.php
+│   └── VO/
+│       ├── CachedModuleDescriptor.php
+│       └── ModuleRegistryCachePayload.php
 └── Support/
+    ├── ApplicationNamespaceResolver.php
     ├── AtomicJsonWriter.php
-    ├── ComposerNamespaceResolver.php
+    ├── ContainerLifecycleHooks.php
     ├── ModuleLayout.php
     └── TopologicalSorter.php
 ```
@@ -80,7 +97,7 @@ src/
 - `Loaders` зависят от `Contracts`, `Manifest\VO\Module`, `Support\ModuleLayout` и Laravel services.
 - `Manifest` отвечает за parsing, validation, VO hydration, repository, registry orchestration и runtime feature API.
 - `Registry` отвечает только за directory scan и production cache format.
-- `Support` содержит инфраструктурные утилиты без знания о service provider boot flow.
+- `Support` содержит инфраструктурные утилиты: path layout, atomic writes, namespace resolution, topological sort и container lifecycle hooks.
 - `MoonShine` — optional bridge; core runtime не должен требовать MoonShine классы без guard.
 - `Contracts` не зависят от реализаций.
 - В `src/` запрещены Laravel facades, debug/termination calls и mutable static properties.
@@ -91,12 +108,12 @@ src/
 - `Loaders -> Contracts + Manifest\VO + Support + Laravel abstractions`
 - `Manifest -> Contracts + Registry + Manifest\VO/Parsing/Enums + Support`
 - `Registry -> Manifest\VO + Contracts + Support`
-- `Support -> Manifest\VO` только там, где утилита работает с typed module path объектом
+- `Support -> Manifest\VO` только там, где утилита работает с typed module path объектом; `Support -> Laravel abstractions` допустим для namespace resolution и container lifecycle hooks.
 
 Запрещённые направления:
 
 - `Manifest` не должен зависеть от конкретных loaders.
-- `Support` не должен вызывать service provider, artisan commands или container.
+- `Support` не должен вызывать service provider или artisan commands. Единственное исключение для container lifecycle — `ContainerLifecycleHooks`, повторяющий package-style `ServiceProvider::callAfterResolving()` без привязки к конкретному provider.
 - `Contracts` не должны импортировать реализации.
 - Optional integrations не должны становиться обязательными runtime dependencies.
 
@@ -104,13 +121,14 @@ src/
 
 1. `ModuleLoaderServiceProvider::register()` делает `mergeConfigFrom(config/modules.php, 'modules')`.
 2. Provider регистрирует core bindings:
-   - singleton: `ModuleLayout`, `AtomicJsonWriter`, `TopologicalSorter`, validator, manifest repository, scanner, cache, registry.
+   - singleton: `ModuleLayout`, `AtomicJsonWriter`, `ContainerLifecycleHooks`, `TopologicalSorter`, validator, manifest repository, scanner, cache, registry.
    - scoped: `FeatureRepositoryInterface`.
 3. Provider регистрирует default loaders и тегирует их `ModuleLoaderServiceProvider::LOADER_TAG`.
-4. Provider регистрирует MoonShine bridge только если существует `MoonShine\Contracts\Core\DependencyInjection\CoreContract`.
+4. Provider регистрирует `MoonShineModuleAutoloader` binding только если существует `MoonShine\Contracts\Core\DependencyInjection\CoreContract`.
 5. `boot()` публикует config, регистрирует console commands и Laravel optimizer hooks.
-6. `boot()` создаёт `ModuleLoaderPipeline` из tagged loaders и вызывает `boot()`.
-7. Pipeline сортирует loaders по `priority()` и применяет их к enabled-модулям в `ModuleRegistryInterface::loadOrder()`.
+6. `boot()` ставит MoonShine `callAfterResolving()` hook, если MoonShine доступен.
+7. `boot()` создаёт `ModuleLoaderPipeline` из tagged loaders и вызывает `boot()`.
+8. Pipeline сортирует loaders по `priority()` и применяет их к enabled-модулям в `ModuleRegistryInterface::loadOrder()`.
 
 ```php
 <?php
@@ -195,11 +213,9 @@ interface ModuleManifestRepositoryInterface
 
     public function readValues(Module $module): FeatureValues;
 
-    public function save(Module $module, FeatureValues $values): void;
+    public function saveValues(Module $module, FeatureValues $values): void;
 
     public function updateState(Module $module, ManifestState $state): Module;
-
-    public function updateFeatureValues(Module $module, FeatureValues $values): void;
 }
 ```
 
@@ -218,11 +234,11 @@ interface FeatureRepositoryInterface
 {
     public function get(string $moduleName, string $key): bool|int|string;
 
-    public function bool(string $moduleName, string $key): bool;
+    public function getBool(string $moduleName, string $key): bool;
 
-    public function int(string $moduleName, string $key): int;
+    public function getInt(string $moduleName, string $key): int;
 
-    public function string(string $moduleName, string $key): string;
+    public function getString(string $moduleName, string $key): string;
 }
 ```
 
@@ -351,7 +367,7 @@ $this->app->tag([MyCustomLoader::class], ModuleLoaderServiceProvider::LOADER_TAG
 
 MoonShine integration реализована как optional bridge, а не как обязательный loader.
 
-`ModuleLoaderServiceProvider` проверяет наличие `MoonShine\Contracts\Core\DependencyInjection\CoreContract`. Если контракт доступен, provider регистрирует `MoonShineModuleAutoloader` и `afterResolving()` callback. Callback вызывает:
+`ModuleLoaderServiceProvider` проверяет наличие `MoonShine\Contracts\Core\DependencyInjection\CoreContract`. Если контракт доступен, provider регистрирует `MoonShineModuleAutoloader`, а в `boot()` ставит package-style `callAfterResolving()` hook. Hook срабатывает и для уже resolved core и вызывает:
 
 ```php
 $core->autoload($module->namespace);

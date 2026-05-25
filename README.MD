@@ -113,7 +113,7 @@ final readonly class PostController
 
     public function index(): void
     {
-        $commentsEnabled = $this->features->bool('blog', 'enable_comments');
+        $commentsEnabled = $this->features->getBool('blog', 'enable_comments');
     }
 }
 ```

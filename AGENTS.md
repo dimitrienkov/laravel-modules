@@ -114,6 +114,6 @@
 - **Никаких фасадов и хелперов в `src/`.** Только DI; архитектурные тесты запрещают `Illuminate\Support\Facades`.
 - **Никаких `dd()`/`dump()`/`var_dump()`/`print_r()`/`exit()`/`die()` в `src/`.** Архитектурный тест поломается.
 - **`declare(strict_types=1);` обязателен** в каждом новом `.php`-файле под `src/`, `tests/` и `stubs/`, если `stubs/` существует.
-- **Пиши `module.json` только через `ModuleManifestRepository::save()` или его публичные методы.** Не используй прямой `file_put_contents` для manifest writes.
+- **Пиши `module.json` только через `ModuleManifestRepository::saveValues()` или `updateState()`.** Не используй прямой `file_put_contents` для manifest writes.
 - **Перед PR/коммитом запускай проверки отдельно:** `composer format`, `composer phpstan`, `composer test`. Для review также полезны `composer format:dry` и `composer rector:dry`.
 - **PR title — на английском в Conventional Commits формате.** Остальные секции PR-шаблона ведутся на русском.

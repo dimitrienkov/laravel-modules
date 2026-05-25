@@ -56,9 +56,9 @@ final readonly class PostController
 
     public function index(): void
     {
-        $commentsEnabled = $this->features->bool('blog', 'enable_comments');
-        $perPage = $this->features->int('blog', 'max_posts_per_page');
-        $mode = $this->features->string('blog', 'moderation_mode');
+        $commentsEnabled = $this->features->getBool('blog', 'enable_comments');
+        $perPage = $this->features->getInt('blog', 'max_posts_per_page');
+        $mode = $this->features->getString('blog', 'moderation_mode');
     }
 }
 ```
@@ -68,9 +68,9 @@ final readonly class PostController
 | Method | Return type | Behavior |
 |--------|-------------|----------|
 | `get(string $moduleName, string $key)` | `bool\|int\|string` | Возвращает resolved value |
-| `bool(string $moduleName, string $key)` | `bool` | Требует boolean value |
-| `int(string $moduleName, string $key)` | `int` | Требует integer value |
-| `string(string $moduleName, string $key)` | `string` | Требует string value |
+| `getBool(string $moduleName, string $key)` | `bool` | Требует boolean value |
+| `getInt(string $moduleName, string $key)` | `int` | Требует integer value |
+| `getString(string $moduleName, string $key)` | `string` | Требует string value |
 
 Typed methods бросают `FeatureTypeMismatchException`, если resolved value type не совпадает с requested type.
 
@@ -82,7 +82,7 @@ Typed methods бросают `FeatureTypeMismatchException`, если resolved v
 
 ## Write boundary
 
-Записывайте feature values через `ModuleManifestRepository::save()` или `updateFeatureValues()`. Эти методы валидируют manifest и используют `AtomicJsonWriter`.
+Записывайте feature values через `ModuleManifestRepository::saveValues()`. Метод валидирует manifest и использует `AtomicJsonWriter`.
 
 Не пишите `module.json` напрямую из application code.
 

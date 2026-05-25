@@ -57,7 +57,21 @@ final class ModuleRegistryCacheTest extends TestCase
         $cachePath = $cache->write([$module]);
 
         self::assertFileExists($cachePath);
+        self::assertFileExists($cachePath . '.lock');
         self::assertTrue($cache->exists());
+    }
+
+    #[Test]
+    public function it_preserves_existing_cache_file_permissions_on_atomic_write(): void
+    {
+        $cache = $this->cache();
+        $cachePath = $cache->cachePath();
+        file_put_contents($cachePath, '<?php return [];');
+        chmod($cachePath, 0640);
+
+        $cache->write([ModuleFactory::make(name: 'blog')]);
+
+        self::assertSame(0640, fileperms($cachePath) & 0777);
     }
 
     #[Test]
@@ -105,6 +119,18 @@ final class ModuleRegistryCacheTest extends TestCase
 
         $this->expectException(InvalidModuleCacheException::class);
         $this->expectExceptionMessage('version is not supported');
+
+        $cache->load();
+    }
+
+    #[Test]
+    public function it_wraps_cache_require_failures(): void
+    {
+        $cache = $this->cache();
+        file_put_contents($cache->cachePath(), '<?php throw new RuntimeException("broken cache");');
+
+        $this->expectException(InvalidModuleCacheException::class);
+        $this->expectExceptionMessage('cache file could not be loaded: broken cache');
 
         $cache->load();
     }

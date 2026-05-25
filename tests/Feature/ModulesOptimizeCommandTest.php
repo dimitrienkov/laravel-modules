@@ -84,6 +84,31 @@ final class ModulesOptimizeCommandTest extends TestCase
         self::assertFileExists($this->tempDir . '/bootstrap/cache/modules-providers.php');
     }
 
+    #[Test]
+    public function optimize_clear_resets_in_memory_registry_in_same_process(): void
+    {
+        /** @var ModuleRegistry $registry */
+        $registry = $this->application()->make(ModuleRegistry::class);
+
+        self::assertSame(['blog'], array_map(
+            static fn (object $module): string => $module->name,
+            $registry->loadOrder(),
+        ));
+
+        $usersPath = $this->tempDir . '/app/Modules/Users';
+        mkdir($usersPath, 0755, true);
+        $this->writeManifest($usersPath, 'users', 'Users');
+        mkdir($this->tempDir . '/bootstrap/cache', 0755, true);
+        file_put_contents($this->tempDir . '/bootstrap/cache/modules.php', '<?php return [];');
+
+        $this->artisanCommand('modules:optimize-clear')->assertSuccessful();
+
+        self::assertSame(['blog', 'users'], array_map(
+            static fn (object $module): string => $module->name,
+            $registry->loadOrder(),
+        ));
+    }
+
     private function registryCache(): ModuleRegistryCache
     {
         return new ModuleRegistryCache(
@@ -149,14 +174,19 @@ final class ModulesOptimizeCommandTest extends TestCase
         return $pendingCommand;
     }
 
-    private function writeManifest(): void
-    {
+    private function writeManifest(
+        ?string $modulePath = null,
+        string $name = 'blog',
+        string $displayName = 'Blog',
+    ): void {
+        $modulePath ??= $this->modulePath;
+
         file_put_contents(
-            $this->modulePath . '/module.json',
+            $modulePath . '/module.json',
             json_encode([
                 'meta' => [
-                    'name' => 'blog',
-                    'display_name' => 'Blog',
+                    'name' => $name,
+                    'display_name' => $displayName,
                     'version' => '1.0.0',
                     'dependencies' => [],
                 ],

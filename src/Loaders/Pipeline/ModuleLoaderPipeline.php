@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Loaders\Pipeline;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleLoaderException;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Throwable;
 
@@ -35,7 +36,9 @@ final readonly class ModuleLoaderPipeline
                 try {
                     $loader->load($module);
                 } catch (Throwable $exception) {
-                    $this->exceptionHandler->report($exception);
+                    $this->exceptionHandler->report(
+                        ModuleLoaderException::forLoaderFailure($loader, $module, $exception),
+                    );
                 }
             }
         }

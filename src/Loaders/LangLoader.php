@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Translation\Translator;
@@ -13,7 +14,7 @@ use Illuminate\Translation\Translator;
 final readonly class LangLoader implements LoaderInterface
 {
     public function __construct(
-        private Translator $translator,
+        private ContainerLifecycleHooks $hooks,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
     ) {
@@ -27,7 +28,12 @@ final readonly class LangLoader implements LoaderInterface
             return;
         }
 
-        $this->translator->addNamespace($module->name, $langDir);
+        $this->hooks->callAfterResolving(
+            'translator',
+            static function (Translator $translator) use ($module, $langDir): void {
+                $translator->addNamespace($module->name, $langDir);
+            },
+        );
     }
 
     public function priority(): int

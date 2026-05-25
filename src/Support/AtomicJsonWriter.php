@@ -30,7 +30,7 @@ final readonly class AtomicJsonWriter
             }
 
             $temporaryPath = $this->temporaryPath($directory, $path);
-            $this->writeTemporaryFile($temporaryPath, $this->encode($data));
+            $this->writeTemporaryFile($temporaryPath, $this->encode($data, $path));
 
             if (is_file($path)) {
                 $permissions = fileperms($path);
@@ -75,7 +75,7 @@ final readonly class AtomicJsonWriter
     /**
      * @param array<string, mixed> $data
      */
-    private function encode(array $data): string
+    private function encode(array $data, string $path): string
     {
         try {
             return json_encode(
@@ -83,7 +83,7 @@ final readonly class AtomicJsonWriter
                 JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
             ) . PHP_EOL;
         } catch (JsonException $exception) {
-            throw ManifestWriteException::forPath('json', $exception->getMessage(), $exception);
+            throw ManifestWriteException::forPath($path, $exception->getMessage(), $exception);
         }
     }
 
