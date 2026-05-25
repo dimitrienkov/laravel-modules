@@ -115,7 +115,9 @@ final readonly class ModuleRegistryCache
             return;
         }
 
-        if (! unlink($path)) {
+        @unlink($path);
+
+        if (is_file($path)) {
             throw ModuleCacheWriteException::forPath($path, 'cache file could not be deleted.');
         }
     }

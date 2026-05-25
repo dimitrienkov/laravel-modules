@@ -6,24 +6,24 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\AtomicWriteException;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
+use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 final class AtomicFileWriterTest extends TestCase
 {
-    private string $tempDir;
+    use UsesTempDirectory;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->tempDir = sys_get_temp_dir() . '/laravel-modules-atomic-' . bin2hex(random_bytes(6));
-        mkdir($this->tempDir, 0755, true);
+        $this->createTempDirectory('atomic');
     }
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->tempDir);
+        $this->deleteTempDirectory();
 
         parent::tearDown();
     }
@@ -36,7 +36,7 @@ final class AtomicFileWriterTest extends TestCase
         (new AtomicFileWriter())->write($path, "hello world\n");
 
         self::assertSame("hello world\n", file_get_contents($path));
-        self::assertFileExists($path . '.lock');
+        self::assertFileDoesNotExist($path . '.lock');
     }
 
     #[Test]
@@ -91,29 +91,5 @@ final class AtomicFileWriterTest extends TestCase
         (new AtomicFileWriter())->write($path, $content);
 
         self::assertSame($content, file_get_contents($path));
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
     }
 }

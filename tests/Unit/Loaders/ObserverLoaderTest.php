@@ -127,6 +127,51 @@ final class ObserverLoaderTest extends TestCase
         self::assertFalse($dispatcher->hasListeners('eloquent.creating: *'));
     }
 
+    #[Test]
+    public function it_registers_observers_from_two_modules_without_duplication(): void
+    {
+        $blogPath = $this->tempDir . '/Blog';
+        $blogObserversDir = $blogPath . '/Domain/Observers';
+        $blogModelsDir = $blogPath . '/Domain/Models';
+        mkdir($blogObserversDir, 0755, true);
+        mkdir($blogModelsDir, 0755, true);
+        file_put_contents(
+            $blogModelsDir . '/Post.php',
+            '<?php namespace App\\Modules\\Blog\\Domain\\Models; class Post extends \\Illuminate\\Database\\Eloquent\\Model { protected $guarded = []; }',
+        );
+        file_put_contents(
+            $blogObserversDir . '/PostObserver.php',
+            '<?php namespace App\\Modules\\Blog\\Domain\\Observers; class PostObserver { public function creating($model): void {} }',
+        );
+        $this->registerAutoloader($blogModelsDir . '/Post.php', 'App\\Modules\\Blog\\Domain\\Models\\Post');
+        $this->registerAutoloader($blogObserversDir . '/PostObserver.php', 'App\\Modules\\Blog\\Domain\\Observers\\PostObserver');
+
+        $shopPath = $this->tempDir . '/Shop';
+        $shopObserversDir = $shopPath . '/Domain/Observers';
+        $shopModelsDir = $shopPath . '/Domain/Models';
+        mkdir($shopObserversDir, 0755, true);
+        mkdir($shopModelsDir, 0755, true);
+        file_put_contents(
+            $shopModelsDir . '/Order.php',
+            '<?php namespace App\\Modules\\Shop\\Domain\\Models; class Order extends \\Illuminate\\Database\\Eloquent\\Model { protected $guarded = []; }',
+        );
+        file_put_contents(
+            $shopObserversDir . '/OrderObserver.php',
+            '<?php namespace App\\Modules\\Shop\\Domain\\Observers; class OrderObserver { public function creating($model): void {} }',
+        );
+        $this->registerAutoloader($shopModelsDir . '/Order.php', 'App\\Modules\\Shop\\Domain\\Models\\Order');
+        $this->registerAutoloader($shopObserversDir . '/OrderObserver.php', 'App\\Modules\\Shop\\Domain\\Observers\\OrderObserver');
+
+        $loader = new ObserverLoader(new Filesystem(), new ModuleLayout());
+        $loader->load(ModuleFactory::make(name: 'blog', path: $blogPath, namespace: 'App\\Modules\\Blog'));
+        $loader->load(ModuleFactory::make(name: 'shop', path: $shopPath, namespace: 'App\\Modules\\Shop'));
+
+        /** @var Dispatcher $dispatcher */
+        $dispatcher = Model::getEventDispatcher();
+        self::assertTrue($dispatcher->hasListeners('eloquent.creating: App\\Modules\\Blog\\Domain\\Models\\Post'));
+        self::assertTrue($dispatcher->hasListeners('eloquent.creating: App\\Modules\\Shop\\Domain\\Models\\Order'));
+    }
+
     private function registerAutoloader(string $file, string $class): void
     {
         $autoloader = static function (string $requested) use ($file, $class): void {

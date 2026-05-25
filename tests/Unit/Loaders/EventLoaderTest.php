@@ -7,6 +7,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 use DimitrienkoV\LaravelModules\Loaders\EventLoader;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -14,14 +15,13 @@ use PHPUnit\Framework\TestCase;
 
 final class EventLoaderTest extends TestCase
 {
-    private string $tempDir;
+    use UsesTempDirectory;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->tempDir = sys_get_temp_dir() . '/laravel-modules-event-loader-' . bin2hex(random_bytes(6));
-        mkdir($this->tempDir, 0755, true);
+        $this->createTempDirectory('event-loader');
     }
 
     protected function tearDown(): void
@@ -29,7 +29,7 @@ final class EventLoaderTest extends TestCase
         $reflection = new \ReflectionProperty(EventServiceProvider::class, 'eventDiscoveryPaths');
         $reflection->setValue(null, null);
 
-        $this->deleteDirectory($this->tempDir);
+        $this->deleteTempDirectory();
 
         parent::tearDown();
     }
@@ -62,29 +62,5 @@ final class EventLoaderTest extends TestCase
         $paths = $reflection->getValue(null);
 
         self::assertNull($paths);
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
     }
 }

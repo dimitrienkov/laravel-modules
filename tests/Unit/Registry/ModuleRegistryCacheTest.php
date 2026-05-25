@@ -57,7 +57,7 @@ final class ModuleRegistryCacheTest extends TestCase
         $cachePath = $cache->write([$module]);
 
         self::assertFileExists($cachePath);
-        self::assertFileExists($cachePath . '.lock');
+        self::assertFileDoesNotExist($cachePath . '.lock');
         self::assertTrue($cache->exists());
     }
 

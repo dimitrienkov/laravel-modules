@@ -28,13 +28,12 @@ final readonly class BladeComponentLoader implements LoaderInterface
             return;
         }
 
+        $componentNamespace = $this->layout->bladeComponentNamespace($module);
+
         $this->hooks->callAfterResolving(
             BladeCompiler::class,
-            static function (BladeCompiler $blade) use ($module): void {
-                $blade->componentNamespace(
-                    $module->namespace . '\\View\\Components',
-                    $module->name,
-                );
+            static function (BladeCompiler $blade) use ($module, $componentNamespace): void {
+                $blade->componentNamespace($componentNamespace, $module->name);
             },
         );
     }

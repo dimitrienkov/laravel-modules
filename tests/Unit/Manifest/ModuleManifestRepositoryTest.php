@@ -104,7 +104,7 @@ final class ModuleManifestRepositoryTest extends TestCase
 
         self::assertSame(['posts_per_page' => 20], $stored['settings']['values']);
         self::assertSame(['users' => '^1.0'], $stored['meta']['dependencies']);
-        self::assertFileExists($this->modulePath . '/module.json.lock');
+        self::assertFileDoesNotExist($this->modulePath . '/module.json.lock');
     }
 
     #[Test]

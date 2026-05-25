@@ -47,6 +47,7 @@ final readonly class AtomicFileWriter
         } finally {
             flock($lock, LOCK_UN);
             fclose($lock);
+            @unlink($path . '.lock');
 
             if ($temporaryPath !== null && is_file($temporaryPath)) {
                 unlink($temporaryPath);

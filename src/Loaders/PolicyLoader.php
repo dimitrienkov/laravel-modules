@@ -48,9 +48,9 @@ final readonly class PolicyLoader implements LoaderInterface
     private function registerPolicy(Module $module, string $file): void
     {
         $basename = basename($file, '.php');
-        $policyFqcn = $module->namespace . '\\Domain\\Policies\\' . $basename;
+        $policyFqcn = $this->layout->policyNamespace($module) . '\\' . $basename;
         $modelName = substr($basename, 0, -\strlen('Policy'));
-        $modelFqcn = $module->namespace . '\\Domain\\Models\\' . $modelName;
+        $modelFqcn = $this->layout->modelNamespace($module) . '\\' . $modelName;
 
         if (! class_exists($policyFqcn) || ! class_exists($modelFqcn)) {
             return;

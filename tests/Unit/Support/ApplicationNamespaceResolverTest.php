@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\NamespaceResolutionException;
 use DimitrienkoV\LaravelModules\Support\ApplicationNamespaceResolver;
+use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Contracts\Foundation\Application;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
@@ -15,20 +16,19 @@ use PHPUnit\Framework\TestCase;
 final class ApplicationNamespaceResolverTest extends TestCase
 {
     use MockeryPHPUnitIntegration;
-
-    private string $tempDir;
+    use UsesTempDirectory;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->tempDir = sys_get_temp_dir() . '/laravel-modules-resolver-' . bin2hex(random_bytes(6));
+        $this->createTempDirectory('resolver');
         mkdir($this->tempDir . '/app/Modules/Blog', 0755, true);
     }
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->tempDir);
+        $this->deleteTempDirectory();
 
         parent::tearDown();
     }
@@ -110,29 +110,5 @@ final class ApplicationNamespaceResolverTest extends TestCase
         $app->shouldReceive('getNamespace')->andReturn($namespace);
 
         return $app;
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
     }
 }

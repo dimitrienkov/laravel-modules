@@ -6,14 +6,15 @@ namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
-use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Filesystem\Filesystem;
 
 final readonly class BroadcastLoader implements LoaderInterface
 {
     public function __construct(
-        private Application $app,
+        private ContainerLifecycleHooks $hooks,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
     ) {
@@ -27,9 +28,12 @@ final readonly class BroadcastLoader implements LoaderInterface
             return;
         }
 
-        $this->app->booted(static function () use ($channelsFile): void {
-            require $channelsFile;
-        });
+        $this->hooks->callAfterResolving(
+            BroadcastManager::class,
+            static function () use ($channelsFile): void {
+                require $channelsFile;
+            },
+        );
     }
 
     public function priority(): int

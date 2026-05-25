@@ -39,8 +39,8 @@ final class FactoryLoader implements LoaderInterface
             return;
         }
 
-        $this->factoryNamespacesByModelNamespace[$module->namespace . '\\Domain\\Models\\'] =
-            $module->namespace . '\\Database\\Factories\\';
+        $this->factoryNamespacesByModelNamespace[$this->layout->modelNamespace($module) . '\\'] =
+            $this->layout->factoryNamespace($module) . '\\';
 
         if ($this->registered) {
             return;
@@ -92,9 +92,13 @@ final class FactoryLoader implements LoaderInterface
 
     private function currentFactoryNameResolver(): mixed
     {
-        $property = new \ReflectionProperty(Factory::class, 'factoryNameResolver');
+        try {
+            $property = new \ReflectionProperty(Factory::class, 'factoryNameResolver');
 
-        return $property->getValue();
+            return $property->getValue();
+        } catch (\ReflectionException) {
+            return null;
+        }
     }
 
     private function defaultFactoryClassFor(string $modelClass): string

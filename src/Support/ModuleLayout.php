@@ -8,6 +8,11 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 
 final readonly class ModuleLayout
 {
+    public function bladeComponentNamespace(Module $module): string
+    {
+        return $module->namespace . '\\View\\Components';
+    }
+
     public function bladeComponentsDir(Module $module): string
     {
         return $module->path . '/View/Components';
@@ -38,6 +43,11 @@ final readonly class ModuleLayout
         return $module->path . '/Database/Factories';
     }
 
+    public function factoryNamespace(Module $module): string
+    {
+        return $module->namespace . '\\Database\\Factories';
+    }
+
     public function langDir(Module $module): string
     {
         return $module->path . '/Lang';
@@ -63,9 +73,24 @@ final readonly class ModuleLayout
         return $module->path . '/Http/Middleware';
     }
 
+    public function middlewareNamespace(Module $module): string
+    {
+        return $module->namespace . '\\Http\\Middleware';
+    }
+
     public function migrationsDir(Module $module): string
     {
         return $module->path . '/Database/Migrations';
+    }
+
+    public function modelNamespace(Module $module): string
+    {
+        return $module->namespace . '\\Domain\\Models';
+    }
+
+    public function observerNamespace(Module $module): string
+    {
+        return $module->namespace . '\\Domain\\Observers';
     }
 
     public function observersDir(Module $module): string
@@ -76,6 +101,11 @@ final readonly class ModuleLayout
     public function policiesDir(Module $module): string
     {
         return $module->path . '/Domain/Policies';
+    }
+
+    public function policyNamespace(Module $module): string
+    {
+        return $module->namespace . '\\Domain\\Policies';
     }
 
     public function providersDir(Module $module): string

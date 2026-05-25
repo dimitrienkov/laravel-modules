@@ -35,4 +35,18 @@ final class ModuleLayoutTest extends TestCase
         self::assertSame('/app/Modules/Blog/Http/Middleware', $layout->middlewareDir($module));
         self::assertSame('/app/Modules/Blog/Domain/Listeners', $layout->listenersDir($module));
     }
+
+    #[Test]
+    public function it_resolves_namespace_segments_from_module(): void
+    {
+        $module = ModuleFactory::make(path: '/app/Modules/Blog', namespace: 'App\\Modules\\Blog');
+        $layout = new ModuleLayout();
+
+        self::assertSame('App\\Modules\\Blog\\View\\Components', $layout->bladeComponentNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Database\\Factories', $layout->factoryNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Http\\Middleware', $layout->middlewareNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Domain\\Models', $layout->modelNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Domain\\Observers', $layout->observerNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Domain\\Policies', $layout->policyNamespace($module));
+    }
 }

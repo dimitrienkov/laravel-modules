@@ -8,6 +8,7 @@ use DimitrienkoV\LaravelModules\Loaders\ViewLoader;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
@@ -19,19 +20,18 @@ use PHPUnit\Framework\TestCase;
 
 final class ViewLoaderTest extends TestCase
 {
-    private string $tempDir;
+    use UsesTempDirectory;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->tempDir = sys_get_temp_dir() . '/laravel-modules-view-loader-' . bin2hex(random_bytes(6));
-        mkdir($this->tempDir, 0755, true);
+        $this->createTempDirectory('view-loader');
     }
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->tempDir);
+        $this->deleteTempDirectory();
 
         parent::tearDown();
     }
@@ -96,32 +96,37 @@ final class ViewLoaderTest extends TestCase
         self::assertSame([], $finder->getHints());
     }
 
+    #[Test]
+    public function it_registers_view_namespaces_for_two_modules_without_collision(): void
+    {
+        $blogPath = $this->tempDir . '/Blog';
+        $blogViewsDir = $blogPath . '/Resources/views';
+        mkdir($blogViewsDir, 0755, true);
+
+        $shopPath = $this->tempDir . '/Shop';
+        $shopViewsDir = $shopPath . '/Resources/views';
+        mkdir($shopViewsDir, 0755, true);
+
+        $finder = new FileViewFinder(new Filesystem(), []);
+        $factory = new ViewFactory(new EngineResolver(), $finder, new Dispatcher());
+        $app = new Application($this->tempDir);
+        $app->singleton('view', static fn (): ViewFactory => $factory);
+
+        $loader = $this->loader($app);
+        $loader->load(ModuleFactory::make(name: 'blog', path: $blogPath));
+        $loader->load(ModuleFactory::make(name: 'shop', path: $shopPath));
+
+        $app->make('view');
+
+        $hints = $finder->getHints();
+        self::assertArrayHasKey('blog', $hints);
+        self::assertSame([$blogViewsDir], $hints['blog']);
+        self::assertArrayHasKey('shop', $hints);
+        self::assertSame([$shopViewsDir], $hints['shop']);
+    }
+
     private function loader(Application $app): ViewLoader
     {
         return new ViewLoader(new ContainerLifecycleHooks($app), new Filesystem(), new ModuleLayout());
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
     }
 }

@@ -47,7 +47,7 @@ final class AtomicJsonWriterTest extends TestCase
                 'name' => 'blog',
             ],
         ], json_decode($contents, true, flags: JSON_THROW_ON_ERROR));
-        self::assertFileExists($path . '.lock');
+        self::assertFileDoesNotExist($path . '.lock');
     }
 
     #[Test]

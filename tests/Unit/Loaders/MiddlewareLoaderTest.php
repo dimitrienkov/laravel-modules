@@ -87,6 +87,40 @@ final class MiddlewareLoaderTest extends TestCase
         self::assertSame([], $router->getMiddleware());
     }
 
+    #[Test]
+    public function it_registers_middleware_from_two_modules_without_alias_collision(): void
+    {
+        $blogPath = $this->tempDir . '/Blog';
+        $blogMiddlewareDir = $blogPath . '/Http/Middleware';
+        mkdir($blogMiddlewareDir, 0755, true);
+        file_put_contents(
+            $blogMiddlewareDir . '/Throttle.php',
+            '<?php namespace App\\Modules\\Blog\\Http\\Middleware; class Throttle { public function handle($request, $next) { return $next($request); } }',
+        );
+        $this->registerAutoloader($blogMiddlewareDir . '/Throttle.php', 'App\\Modules\\Blog\\Http\\Middleware\\Throttle');
+
+        $shopPath = $this->tempDir . '/Shop';
+        $shopMiddlewareDir = $shopPath . '/Http/Middleware';
+        mkdir($shopMiddlewareDir, 0755, true);
+        file_put_contents(
+            $shopMiddlewareDir . '/Throttle.php',
+            '<?php namespace App\\Modules\\Shop\\Http\\Middleware; class Throttle { public function handle($request, $next) { return $next($request); } }',
+        );
+        $this->registerAutoloader($shopMiddlewareDir . '/Throttle.php', 'App\\Modules\\Shop\\Http\\Middleware\\Throttle');
+
+        $router = new Router(new Dispatcher());
+        $loader = new MiddlewareLoader($router, new Filesystem(), new ModuleLayout());
+
+        $loader->load(ModuleFactory::make(name: 'blog', path: $blogPath, namespace: 'App\\Modules\\Blog'));
+        $loader->load(ModuleFactory::make(name: 'shop', path: $shopPath, namespace: 'App\\Modules\\Shop'));
+
+        $middleware = $router->getMiddleware();
+        self::assertArrayHasKey('blog.throttle', $middleware);
+        self::assertSame('App\\Modules\\Blog\\Http\\Middleware\\Throttle', $middleware['blog.throttle']);
+        self::assertArrayHasKey('shop.throttle', $middleware);
+        self::assertSame('App\\Modules\\Shop\\Http\\Middleware\\Throttle', $middleware['shop.throttle']);
+    }
+
     private function registerAutoloader(string $file, string $class): void
     {
         $autoloader = static function (string $requested) use ($file, $class): void {

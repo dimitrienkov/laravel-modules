@@ -48,7 +48,7 @@ final readonly class MiddlewareLoader implements LoaderInterface
     private function registerMiddleware(Module $module, string $file): void
     {
         $className = basename($file, '.php');
-        $fqcn = $module->namespace . '\\Http\\Middleware\\' . $className;
+        $fqcn = $this->layout->middlewareNamespace($module) . '\\' . $className;
 
         if (! class_exists($fqcn)) {
             return;
