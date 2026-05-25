@@ -11,11 +11,14 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Contracts\Console\Kernel;
@@ -26,6 +29,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 final class ModulesListCommandTest extends TestCase
 {
+    use CreatesModuleFiles;
     private string $tempDir;
 
     protected function setUp(): void
@@ -99,6 +103,12 @@ final class ModulesListCommandTest extends TestCase
             'modules' => ['paths' => ['directories' => ['app/Modules']]],
         ]);
 
+        $statePaths = new ModuleStatePaths(config: $config, basePath: $this->tempDir);
+        $stateRepository = new ModuleStateRepository(
+            paths: $statePaths,
+            writer: new AtomicJsonWriter(),
+        );
+
         $registry = new ModuleRegistry(
             manifests: new ModuleManifestRepository(
                 layout: $layout,
@@ -106,6 +116,7 @@ final class ModulesListCommandTest extends TestCase
                 validator: $validator,
                 namespaceResolver: new FakeNamespaceResolver($this->tempDir),
                 documentReader: new ManifestDocumentReader(),
+                stateRepository: $stateRepository,
             ),
             sorter: new TopologicalSorter(),
             scanner: new ModuleDirectoryScanner(
@@ -115,7 +126,12 @@ final class ModulesListCommandTest extends TestCase
                 basePath: $this->tempDir,
                 appPath: $this->tempDir . '/app',
             ),
-            cache: new ModuleRegistryCache($validator, $layout, $this->tempDir),
+            cache: new ModuleRegistryCache(
+                validator: $validator,
+                layout: $layout,
+                stateRepository: $stateRepository,
+                basePath: $this->tempDir,
+            ),
         );
 
         $app->instance(ModuleRegistryInterface::class, $registry);
@@ -125,19 +141,8 @@ final class ModulesListCommandTest extends TestCase
 
     private function writeManifest(string $name, bool $enabled = true): void
     {
-        $studlyName = ucfirst($name);
-        $path = $this->tempDir . '/app/Modules/' . $studlyName;
-        mkdir($path, 0755, true);
-
-        file_put_contents($path . '/module.json', json_encode([
-            'meta' => [
-                'name' => $name,
-                'display_name' => $studlyName,
-                'version' => '1.0.0',
-            ],
-            'state' => ['enabled' => $enabled],
-            'settings' => ['schema' => [], 'values' => []],
-        ], JSON_PRETTY_PRINT));
+        $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, schema: []);
+        $this->writeModuleState($this->tempDir . '/storage/app/private/modules', $name, $enabled);
     }
 
     private function artisanCommand(string $command): PendingCommand

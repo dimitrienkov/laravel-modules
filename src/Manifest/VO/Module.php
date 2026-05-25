@@ -15,7 +15,7 @@ final readonly class Module
         public string $namespace,
         public string $path,
         public ManifestMeta $meta,
-        public ManifestState $state,
+        public ModuleState $state,
         public FeatureSchema $features,
     ) {
     }
@@ -28,9 +28,9 @@ final readonly class Module
         string $namespace,
         array $manifest,
         string $manifestPath,
+        ModuleState $state,
     ): self {
         $metaRaw = ManifestFieldReader::requiredObject($manifest, 'meta', $manifestPath);
-        $stateRaw = ManifestFieldReader::requiredObject($manifest, 'state', $manifestPath);
 
         $settingsRaw = $manifest['settings'] ?? null;
         if (! \is_array($settingsRaw)) {
@@ -44,8 +44,6 @@ final readonly class Module
 
         /** @var array<string, mixed> $metaRaw */
         $meta = ManifestMeta::fromArray($metaRaw, $manifestPath);
-        /** @var array<string, mixed> $stateRaw */
-        $state = ManifestState::fromArray($stateRaw, $manifestPath);
         /** @var array<string, mixed> $schemaRaw */
         $features = FeatureSchema::fromArray($schemaRaw, $manifestPath);
 
@@ -70,7 +68,7 @@ final readonly class Module
         return $this->path . '/module.json';
     }
 
-    public function withState(ManifestState $state): self
+    public function withState(ModuleState $state): self
     {
         return new self(
             name: $this->name,
@@ -90,7 +88,6 @@ final readonly class Module
     {
         return [
             'meta' => $this->meta->toArray(),
-            'state' => $this->state->toArray(),
             'settings' => [
                 'schema' => $this->features->toArray(),
             ],
@@ -100,14 +97,12 @@ final readonly class Module
     /**
      * @return array<string, mixed>
      */
-    public function toManifestArray(FeatureValues $values): array
+    public function toManifestArray(): array
     {
         return [
             'meta' => $this->meta->toArray(),
-            'state' => $this->state->toArray(),
             'settings' => [
                 'schema' => $this->features->toArray(),
-                'values' => $values->toArray(),
             ],
         ];
     }

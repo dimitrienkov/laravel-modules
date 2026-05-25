@@ -9,16 +9,20 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesDisableCommand;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Contracts\Console\Kernel;
@@ -29,6 +33,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 final class ModulesDisableCommandTest extends TestCase
 {
+    use CreatesModuleFiles;
     private string $tempDir;
 
     protected function setUp(): void
@@ -88,16 +93,28 @@ final class ModulesDisableCommandTest extends TestCase
             'modules' => ['paths' => ['directories' => ['app/Modules']]],
         ]);
 
+        $statePaths = new ModuleStatePaths(config: $config, basePath: $this->tempDir);
+        $stateRepository = new ModuleStateRepository(
+            paths: $statePaths,
+            writer: new AtomicJsonWriter(),
+        );
+
         $manifests = new ModuleManifestRepository(
             layout: $layout,
             writer: new AtomicJsonWriter(),
             validator: $validator,
             namespaceResolver: new FakeNamespaceResolver($this->tempDir),
             documentReader: new ManifestDocumentReader(),
+            stateRepository: $stateRepository,
         );
 
         $sorter = new TopologicalSorter();
-        $cache = new ModuleRegistryCache($validator, $layout, $this->tempDir);
+        $cache = new ModuleRegistryCache(
+            validator: $validator,
+            layout: $layout,
+            stateRepository: $stateRepository,
+            basePath: $this->tempDir,
+        );
 
         $registry = new ModuleRegistry(
             manifests: $manifests,
@@ -118,6 +135,7 @@ final class ModulesDisableCommandTest extends TestCase
         $app->instance(ModuleRegistryInterface::class, $registry);
         $app->instance(ModuleRegistry::class, $registry);
         $app->instance(ModuleManifestRepositoryInterface::class, $manifests);
+        $app->instance(ModuleStateRepositoryInterface::class, $stateRepository);
         $app->instance(ModuleDependencyGuard::class, $guard);
         $app->instance(LifecycleRegistryInvalidator::class, $invalidator);
 
@@ -129,25 +147,8 @@ final class ModulesDisableCommandTest extends TestCase
      */
     private function writeManifest(string $name, bool $enabled = true, array $dependencies = []): void
     {
-        $studlyName = ucfirst($name);
-        $path = $this->tempDir . '/app/Modules/' . $studlyName;
-        mkdir($path, 0755, true);
-
-        $manifest = [
-            'meta' => [
-                'name' => $name,
-                'display_name' => $studlyName,
-                'version' => '1.0.0',
-            ],
-            'state' => ['enabled' => $enabled],
-            'settings' => ['schema' => [], 'values' => []],
-        ];
-
-        if ($dependencies !== []) {
-            $manifest['meta']['dependencies'] = $dependencies;
-        }
-
-        file_put_contents($path . '/module.json', json_encode($manifest, JSON_PRETTY_PRINT));
+        $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, dependencies: $dependencies, schema: []);
+        $this->writeModuleState($this->tempDir . '/storage/app/private/modules', $name, $enabled);
     }
 
     private function artisanCommand(string $command): PendingCommand

@@ -16,12 +16,15 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
@@ -31,7 +34,10 @@ use ZipArchive;
 
 final class InstallModuleUseCaseTest extends TestCase
 {
+    use CreatesModuleFiles;
     private string $tempDir;
+
+    private string $stateRoot;
 
     private Filesystem $filesystem;
 
@@ -40,6 +46,7 @@ final class InstallModuleUseCaseTest extends TestCase
         parent::setUp();
         $this->filesystem = new Filesystem();
         $this->tempDir = sys_get_temp_dir() . '/install_test_' . uniqid();
+        $this->stateRoot = $this->tempDir . '/storage/app/private/modules';
         $this->filesystem->makeDirectory($this->tempDir . '/bootstrap/cache', 0755, true);
         $this->filesystem->makeDirectory($this->tempDir . '/app/Modules', 0755, true);
         $this->filesystem->makeDirectory($this->tempDir . '/sources', 0755, true);
@@ -64,6 +71,7 @@ final class InstallModuleUseCaseTest extends TestCase
         $this->assertSame('directory', $result->sourceType);
         $this->assertDirectoryExists($result->path);
         $this->assertFileExists($result->path . '/module.json');
+        $this->assertFileExists($this->stateRoot . '/blog/state.json');
     }
 
     #[Test]
@@ -88,8 +96,8 @@ final class InstallModuleUseCaseTest extends TestCase
         $result = $useCase->execute($sourceDir, disabled: true);
 
         $this->assertFalse($result->enabled);
-        $manifest = json_decode(file_get_contents($result->path . '/module.json'), true);
-        $this->assertFalse($manifest['state']['enabled']);
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertFalse($state['enabled']);
     }
 
     #[Test]
@@ -121,10 +129,14 @@ final class InstallModuleUseCaseTest extends TestCase
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
         $config = new Repository([
-            'modules' => ['paths' => ['directories' => ['app/Modules'], 'backup' => $this->tempDir . '/backups']],
+            'modules' => ['paths' => ['directories' => ['app/Modules'], 'backup' => $this->tempDir . '/backups', 'state' => $this->stateRoot]],
         ]);
 
         $namespaceResolver = new FakeNamespaceResolver($this->tempDir);
+        $stateRepo = new ModuleStateRepository(
+            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
+            writer: new AtomicJsonWriter(),
+        );
 
         $manifests = new ModuleManifestRepository(
             layout: $layout,
@@ -132,10 +144,11 @@ final class InstallModuleUseCaseTest extends TestCase
             validator: $validator,
             namespaceResolver: $namespaceResolver,
             documentReader: new ManifestDocumentReader(),
+            stateRepository: $stateRepo,
         );
 
         $sorter = new TopologicalSorter();
-        $cache = new ModuleRegistryCache($validator, $layout, $this->tempDir);
+        $cache = new ModuleRegistryCache($validator, $layout, $stateRepo, $this->tempDir);
 
         $registry = new ModuleRegistry(
             manifests: $manifests,
@@ -163,6 +176,7 @@ final class InstallModuleUseCaseTest extends TestCase
         return new InstallModuleUseCase(
             $registry,
             $manifests,
+            $stateRepo,
             $sourcePreparer,
             $paths,
             $guard,
@@ -179,8 +193,7 @@ final class InstallModuleUseCaseTest extends TestCase
 
         file_put_contents($dir . '/module.json', json_encode([
             'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'version' => '1.0.0'],
-            'state' => ['enabled' => true],
-            'settings' => ['schema' => new \stdClass(), 'values' => new \stdClass()],
+            'settings' => ['schema' => new \stdClass()],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
         file_put_contents($dir . '/readme.txt', 'Module ' . $name);
@@ -192,8 +205,7 @@ final class InstallModuleUseCaseTest extends TestCase
     {
         $manifest = json_encode([
             'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'version' => '1.0.0'],
-            'state' => ['enabled' => true],
-            'settings' => ['schema' => new \stdClass(), 'values' => new \stdClass()],
+            'settings' => ['schema' => new \stdClass()],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
         $zipPath = $this->tempDir . '/sources/' . $name . '.zip';
@@ -207,13 +219,7 @@ final class InstallModuleUseCaseTest extends TestCase
 
     private function createInstalledModule(string $name): void
     {
-        $path = $this->tempDir . '/app/Modules/' . ucfirst($name);
-        $this->filesystem->makeDirectory($path, 0755, true);
-
-        file_put_contents($path . '/module.json', json_encode([
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'version' => '1.0.0'],
-            'state' => ['enabled' => true],
-            'settings' => ['schema' => new \stdClass(), 'values' => new \stdClass()],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        $this->writeModuleManifest($this->tempDir . '/app/Modules', $name);
+        $this->writeModuleState($this->stateRoot, $name, values: new \stdClass());
     }
 }

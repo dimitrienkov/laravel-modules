@@ -6,17 +6,17 @@ namespace DimitrienkoV\LaravelModules\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
-use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyDisabledException;
-use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 
 final readonly class DisableModuleUseCase
 {
     public function __construct(
         private ModuleRegistryInterface $registry,
-        private ModuleManifestRepositoryInterface $manifestRepository,
+        private ModuleStateRepositoryInterface $stateRepository,
         private ModuleDependencyGuard $dependencyGuard,
         private LifecycleRegistryInvalidator $invalidator,
     ) {
@@ -32,13 +32,13 @@ final readonly class DisableModuleUseCase
 
         $this->dependencyGuard->assertCanDisable($module);
 
-        $newState = new ManifestState(
+        $newState = new ModuleState(
             enabled: false,
             installedAt: $module->state->installedAt,
             updatedAt: (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
         );
 
-        $updated = $this->manifestRepository->updateState($module, $newState);
+        $updated = $this->stateRepository->updateState($module, $newState);
         $this->invalidator->invalidate();
 
         return $updated;

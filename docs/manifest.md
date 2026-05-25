@@ -2,7 +2,7 @@
 
 # Manifest
 
-Каждый модуль должен иметь `module.json` в корне. Manifest является источником правды для metadata, enabled state, feature schema и explicit feature values.
+Каждый модуль должен иметь `module.json` в корне. Manifest иммутабелен — является источником правды для metadata и feature schema. Mutable state (`enabled`, timestamps, `settings.values`) хранится отдельно в `state.json` (см. [State file](#state-file)).
 
 ## Полный пример
 
@@ -19,11 +19,6 @@
       "users": "^1.5",
       "media": ">=1.4 <3.0"
     }
-  },
-  "state": {
-    "enabled": true,
-    "installed_at": "2026-05-23T14:12:00+00:00",
-    "updated_at": "2026-05-23T14:12:00+00:00"
   },
   "settings": {
     "schema": {
@@ -43,10 +38,6 @@
         "default": "auto",
         "options": ["auto", "manual", "off"]
       }
-    },
-    "values": {
-      "enable_comments": false,
-      "max_posts_per_page": 50
     }
   }
 }
@@ -57,10 +48,9 @@
 | Ключ | Обязателен | Назначение |
 |------|------------|------------|
 | `meta` | Да | Module identity, version и dependencies |
-| `state` | Да | Runtime enabled state и optional timestamps |
-| `settings` | Да | Feature schema и explicit values |
+| `settings` | Да | Feature schema (только `schema`, без `values`) |
 
-Неизвестные top-level ключи invalid. Legacy-секция `autoload` явно запрещена.
+Неизвестные top-level ключи invalid. Legacy-секции `autoload` и `state` явно запрещены — state хранится в `state.json`.
 
 ## `meta`
 
@@ -86,15 +76,42 @@ Dependencies задаются только object-формой:
 
 List-form dependencies не являются валидным manifest contract в v2.0 core. Для wildcard constraint указывайте `"*"` явно.
 
-## `state`
+## State file
+
+Mutable state хранится отдельно от manifest в `state.json`:
+
+```
+storage/app/private/modules/{name}/state.json
+```
+
+Путь настраивается через `modules.paths.state` (см. [Configuration](configuration.md)).
+
+### Полный пример `state.json`
+
+```json
+{
+  "enabled": true,
+  "installed_at": "2026-05-23T14:12:00+00:00",
+  "updated_at": "2026-05-23T14:12:00+00:00",
+  "settings": {
+    "values": {
+      "enable_comments": false,
+      "max_posts_per_page": 50
+    }
+  }
+}
+```
+
+### Разрешённые top-level ключи `state.json`
 
 | Поле | Обязательно | Назначение |
 |------|-------------|------------|
 | `enabled` | Да | Управляет применением default loaders к модулю |
 | `installed_at` | Нет | Installation timestamp |
 | `updated_at` | Нет | Update timestamp |
+| `settings` | Нет | Object с `values` — explicit feature overrides |
 
-State writes должны идти через `ModuleManifestRepository::updateState()`.
+State writes должны идти через `ModuleStateRepository`. Lifecycle-команды модифицируют только `state.json`, не трогая `module.json`.
 
 ## `settings.schema`
 
@@ -107,13 +124,13 @@ State writes должны идти через `ModuleManifestRepository::updateS
 | `string` | String |
 | `enum` | String из `options` |
 
-`settings.schema` задаёт defaults. `settings.values` хранит только explicit overrides.
+`settings.schema` в `module.json` задаёт defaults. `settings.values` в `state.json` хранит только explicit overrides.
 
-## `settings.values`
+## `settings.values` (в `state.json`)
 
-Runtime values валидируются против schema при чтении и записи. Missing values берут default из schema без записи default-значений в файл.
+Runtime values хранятся в `state.json` и валидируются против schema из `module.json` при чтении и записи. Missing values берут default из schema без записи default-значений в файл.
 
-Manifest writes должны идти через `ModuleManifestRepository::saveValues()` или `updateState()`. Прямой `file_put_contents()` может обойти validation и atomic write behavior.
+State writes должны идти через `ModuleStateRepository::saveValues()` или `updateState()`. Прямой `file_put_contents()` может обойти validation и atomic write behavior.
 
 ## See Also
 

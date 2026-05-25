@@ -6,17 +6,17 @@ namespace DimitrienkoV\LaravelModules\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
-use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyEnabledException;
-use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 
 final readonly class EnableModuleUseCase
 {
     public function __construct(
         private ModuleRegistryInterface $registry,
-        private ModuleManifestRepositoryInterface $manifestRepository,
+        private ModuleStateRepositoryInterface $stateRepository,
         private ModuleDependencyGuard $dependencyGuard,
         private LifecycleRegistryInvalidator $invalidator,
     ) {
@@ -30,9 +30,9 @@ final readonly class EnableModuleUseCase
             throw ModuleAlreadyEnabledException::forModule($moduleName);
         }
 
-        $candidateState = new ManifestState(
+        $candidateState = new ModuleState(
             enabled: true,
-            installedAt: $module->state->installedAt,
+            installedAt: $module->state->installedAt ?? (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
             updatedAt: (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
         );
         $candidate = $module->withState($candidateState);
@@ -45,7 +45,7 @@ final readonly class EnableModuleUseCase
 
         $this->dependencyGuard->assertGraphValid($candidateGraph);
 
-        $updated = $this->manifestRepository->updateState($module, $candidateState);
+        $updated = $this->stateRepository->updateState($module, $candidateState);
         $this->invalidator->invalidate();
 
         return $updated;

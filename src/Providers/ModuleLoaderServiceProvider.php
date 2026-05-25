@@ -23,6 +23,7 @@ use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use DimitrienkoV\LaravelModules\Loaders\BladeComponentLoader;
@@ -47,6 +48,7 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\MoonShine\MoonShineModuleAutoloader;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
@@ -54,6 +56,7 @@ use DimitrienkoV\LaravelModules\Support\ApplicationNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
 use Illuminate\Contracts\Config\Repository;
@@ -94,6 +97,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->mergeConfigFrom($this->packageConfigPath(), 'modules');
 
         $this->registerManifestBindings();
+        $this->registerStateBindings();
         $this->registerRegistryBindings();
         $this->registerFeatureBindings();
         $this->registerLifecycleBindings();
@@ -160,11 +164,33 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 validator: $this->app->make(ManifestValidatorInterface::class),
                 namespaceResolver: $this->app->make(NamespaceResolverInterface::class),
                 documentReader: $this->app->make(ManifestDocumentReader::class),
+                stateRepository: $this->app->make(ModuleStateRepositoryInterface::class),
             );
         });
         $this->app->singleton(
             ModuleManifestRepositoryInterface::class,
             fn (): ModuleManifestRepository => $this->app->make(ModuleManifestRepository::class),
+        );
+    }
+
+    private function registerStateBindings(): void
+    {
+        $this->app->singleton(ModuleStatePaths::class, function (): ModuleStatePaths {
+            return new ModuleStatePaths(
+                config: $this->app->make(Repository::class),
+                basePath: $this->app->basePath(),
+            );
+        });
+
+        $this->app->singleton(ModuleStateRepository::class, function (): ModuleStateRepository {
+            return new ModuleStateRepository(
+                paths: $this->app->make(ModuleStatePaths::class),
+                writer: $this->app->make(AtomicJsonWriter::class),
+            );
+        });
+        $this->app->singleton(
+            ModuleStateRepositoryInterface::class,
+            fn (): ModuleStateRepository => $this->app->make(ModuleStateRepository::class),
         );
     }
 
@@ -186,6 +212,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             return new ModuleRegistryCache(
                 validator: $this->app->make(ManifestValidatorInterface::class),
                 layout: $this->app->make(ModuleLayout::class),
+                stateRepository: $this->app->make(ModuleStateRepositoryInterface::class),
                 basePath: $this->app->basePath(),
             );
         });

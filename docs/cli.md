@@ -70,7 +70,7 @@ php artisan make:module user_auth --disabled
 php artisan make:module analytics --directory=app/Integrations --force
 ```
 
-`make:module` создаёт директорию модуля с `module.json`, ServiceProvider stub и базовые поддиректории. `--disabled` создаёт модуль в отключённом состоянии. `--force` перезаписывает существующий модуль.
+`make:module` создаёт директорию модуля с `module.json`, `state.json`, ServiceProvider stub и базовые поддиректории. `--disabled` создаёт модуль в отключённом состоянии. `--force` перезаписывает существующий модуль.
 
 ## Enable / Disable / List
 
@@ -82,7 +82,7 @@ php artisan modules:list --enabled
 php artisan modules:list --disabled
 ```
 
-`modules:enable` проверяет зависимости через `TopologicalSorter` перед включением. `modules:disable` запрещает отключение, если enabled-модули зависят от целевого.
+`modules:enable` проверяет зависимости через `TopologicalSorter` перед включением. `modules:disable` запрещает отключение, если enabled-модули зависят от целевого. Обе команды модифицируют только `state.json`, не трогая `module.json`.
 
 ## Install
 
@@ -92,7 +92,7 @@ php artisan modules:install /path/to/module.zip
 php artisan modules:install /path/to/module.zip --disabled
 ```
 
-Модуль валидируется до копирования файлов. После установки нужно запустить `php artisan migrate`.
+Модуль валидируется до копирования файлов. Команда создаёт `state.json` и не модифицирует `module.json`. После установки нужно запустить `php artisan migrate`.
 
 ## Update
 
@@ -101,7 +101,7 @@ php artisan modules:update blog /path/to/blog-v2
 php artisan modules:update blog /path/to/blog-v2.zip
 ```
 
-Update бэкапит текущую директорию, заменяет файлы и мержит `settings.values`: сохраняются explicit values для ключей, которые остались в новой schema. Пропущенные values выводятся отдельным блоком.
+Update бэкапит текущую директорию, заменяет файлы и мержит `settings.values` в `state.json`: сохраняются explicit values для ключей, которые остались в новой schema. Пропущенные values выводятся отдельным блоком.
 
 ## Remove
 
@@ -111,7 +111,7 @@ php artisan modules:remove blog --force
 php artisan modules:remove blog --force --no-backup
 ```
 
-`--force` пропускает confirmation prompt. Без `--no-backup` модуль перемещается в `config('modules.paths.backup')`. Remove запрещён, если другие installed модули зависят от удаляемого. Миграции не откатываются автоматически.
+`--force` пропускает confirmation prompt. Без `--no-backup` модуль перемещается в `config('modules.paths.backup')`. Также удаляется соответствующий `state.json`. Remove запрещён, если другие installed модули зависят от удаляемого. Миграции не откатываются автоматически.
 
 ## Ещё не реализовано
 

@@ -6,7 +6,7 @@ namespace DimitrienkoV\LaravelModules\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 
-final readonly class ManifestState
+final readonly class ModuleState
 {
     private const array ALLOWED_KEYS = [
         'enabled' => true,
@@ -24,15 +24,20 @@ final readonly class ManifestState
     /**
      * @param array<string, mixed> $state
      */
-    public static function fromArray(array $state, string $manifestPath): self
+    public static function fromArray(array $state, string $contextPath): self
     {
-        ManifestFieldReader::assertAllowedKeys($state, self::ALLOWED_KEYS, 'state', $manifestPath);
+        ManifestFieldReader::assertAllowedKeys($state, self::ALLOWED_KEYS, 'state', $contextPath);
 
-        $enabled = ManifestFieldReader::requiredBool($state, 'enabled', 'state', $manifestPath);
-        $installedAt = ManifestFieldReader::optionalString($state, 'installed_at', 'state', $manifestPath);
-        $updatedAt = ManifestFieldReader::optionalString($state, 'updated_at', 'state', $manifestPath);
+        $enabled = ManifestFieldReader::requiredBool($state, 'enabled', 'state', $contextPath);
+        $installedAt = ManifestFieldReader::optionalString($state, 'installed_at', 'state', $contextPath);
+        $updatedAt = ManifestFieldReader::optionalString($state, 'updated_at', 'state', $contextPath);
 
         return new self($enabled, $installedAt, $updatedAt);
+    }
+
+    public static function disabledDefault(): self
+    {
+        return new self(enabled: false, installedAt: null, updatedAt: null);
     }
 
     /**

@@ -12,18 +12,21 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
-use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 
 final readonly class InstallModuleUseCase
 {
     public function __construct(
         private ModuleRegistryInterface $registry,
         private ModuleManifestRepositoryInterface $manifestRepository,
+        private ModuleStateRepositoryInterface $stateRepository,
         private ModuleSourcePreparer $sourcePreparer,
         private ModuleLifecyclePaths $paths,
         private ModuleDependencyGuard $dependencyGuard,
@@ -56,7 +59,7 @@ final readonly class InstallModuleUseCase
             $namespace = $this->namespaceResolver->resolve($targetPath);
             $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
 
-            $candidateState = new ManifestState(
+            $candidateState = new ModuleState(
                 enabled: ! $disabled,
                 installedAt: $now,
                 updatedAt: $now,
@@ -67,7 +70,8 @@ final readonly class InstallModuleUseCase
                 namespace: $namespace,
                 manifest: $prepared->manifest,
                 manifestPath: $prepared->manifestPath,
-            )->withState($candidateState);
+                state: $candidateState,
+            );
 
             $allModules = $this->registry->all();
             $allModules[] = $candidate;
@@ -75,19 +79,14 @@ final readonly class InstallModuleUseCase
 
             $this->directoryOps->copyDirectory($prepared->path, $targetPath);
 
-            $values = FeatureValues::fromArray(
-                $prepared->manifest['settings']['values'] ?? [],
-                $candidate->features,
+            $this->manifestRepository->writeManifest($candidate);
+
+            $values = new FeatureValues($candidate->features, []);
+            $this->stateRepository->write(
                 $candidate->name,
-                $candidate->manifestPath(),
+                new ModuleStateDocument($candidateState, $values),
             );
 
-            $this->manifestRepository->saveValues(
-                $candidate,
-                $values,
-            );
-
-            $this->manifestRepository->updateState($candidate, $candidateState);
             $this->invalidator->invalidate();
 
             $sourceType = is_dir($sourcePath) ? 'directory' : 'zip';

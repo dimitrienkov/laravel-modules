@@ -10,11 +10,14 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
@@ -23,7 +26,10 @@ use PHPUnit\Framework\TestCase;
 
 final class LifecycleRegistryInvalidatorTest extends TestCase
 {
+    use CreatesModuleFiles;
     private string $tempDir;
+
+    private string $stateRoot;
 
     private Filesystem $filesystem;
 
@@ -32,6 +38,7 @@ final class LifecycleRegistryInvalidatorTest extends TestCase
         parent::setUp();
         $this->filesystem = new Filesystem();
         $this->tempDir = sys_get_temp_dir() . '/lifecycle_invalidator_' . uniqid();
+        $this->stateRoot = $this->tempDir . '/storage/app/private/modules';
         $this->filesystem->makeDirectory($this->tempDir . '/bootstrap/cache', 0755, true);
         $this->filesystem->makeDirectory($this->tempDir . '/app/Modules', 0755, true);
     }
@@ -100,19 +107,26 @@ final class LifecycleRegistryInvalidatorTest extends TestCase
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
 
-        $cache = new ModuleRegistryCache(
-            validator: $validator,
-            layout: $layout,
-            basePath: $this->tempDir,
-        );
-
         $config = new Repository([
             'modules' => [
                 'paths' => [
                     'directories' => ['app/Modules'],
+                    'state' => $this->stateRoot,
                 ],
             ],
         ]);
+
+        $stateRepo = new ModuleStateRepository(
+            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
+            writer: new AtomicJsonWriter(),
+        );
+
+        $cache = new ModuleRegistryCache(
+            validator: $validator,
+            layout: $layout,
+            stateRepository: $stateRepo,
+            basePath: $this->tempDir,
+        );
 
         $registry = new ModuleRegistry(
             manifests: new ModuleManifestRepository(
@@ -121,6 +135,7 @@ final class LifecycleRegistryInvalidatorTest extends TestCase
                 validator: $validator,
                 namespaceResolver: new FakeNamespaceResolver($this->tempDir),
                 documentReader: new ManifestDocumentReader(),
+                stateRepository: $stateRepo,
             ),
             sorter: new TopologicalSorter(),
             scanner: new ModuleDirectoryScanner(
@@ -141,28 +156,7 @@ final class LifecycleRegistryInvalidatorTest extends TestCase
      */
     private function createModuleDirectory(string $dirName, array $meta): void
     {
-        $studlyName = ucfirst($dirName);
-        $modulePath = $this->tempDir . '/app/Modules/' . $studlyName;
-        $this->filesystem->makeDirectory($modulePath, 0755, true);
-
-        $manifest = [
-            'meta' => [
-                'name' => $meta['name'],
-                'display_name' => ucfirst($meta['name']),
-                'version' => $meta['version'],
-            ],
-            'state' => [
-                'enabled' => true,
-            ],
-            'settings' => [
-                'schema' => new \stdClass(),
-                'values' => new \stdClass(),
-            ],
-        ];
-
-        file_put_contents(
-            $modulePath . '/module.json',
-            json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
-        );
+        $this->writeModuleManifest($this->tempDir . '/app/Modules', $meta['name'], $meta['version']);
+        $this->writeModuleState($this->stateRoot, $meta['name'], values: new \stdClass());
     }
 }

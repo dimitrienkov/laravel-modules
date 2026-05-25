@@ -26,6 +26,7 @@ return [
             'app/Subsystems',
         ],
         'backup' => storage_path('app/module-backups'),
+        'state' => storage_path('app/private/modules'),
     ],
     'routing' => [
         'types' => [
@@ -66,6 +67,20 @@ Lifecycle-команды (`make:module`, `modules:install`) принимают `
 ## Backup path
 
 `paths.backup` задаёт директорию для backup при `modules:update` и `modules:remove`. По умолчанию `storage_path('app/module-backups')`. Формат backup: `<name>-<Ymd-His>`.
+
+## State path
+
+`paths.state` задаёт корневую директорию для mutable state файлов модулей. По умолчанию `storage_path('app/private/modules')`. Каждый модуль получает поддиректорию `{name}/state.json`:
+
+```
+storage/app/private/modules/
+├── blog/
+│   └── state.json
+└── users/
+    └── state.json
+```
+
+`state.json` хранит `enabled`, `installed_at`, `updated_at` и `settings.values`. `ModuleStatePaths` валидирует, что state root не пересекается с module directories.
 
 ## Stubs
 

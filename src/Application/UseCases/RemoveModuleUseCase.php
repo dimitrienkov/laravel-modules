@@ -9,11 +9,13 @@ use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 
 final readonly class RemoveModuleUseCase
 {
     public function __construct(
         private ModuleRegistryInterface $registry,
+        private ModuleStateRepositoryInterface $stateRepository,
         private ModuleDependencyGuard $dependencyGuard,
         private ModuleDirectoryOperations $directoryOps,
         private LifecycleRegistryInvalidator $invalidator,
@@ -29,9 +31,11 @@ final readonly class RemoveModuleUseCase
         $backupPath = null;
 
         if ($noBackup) {
+            $this->stateRepository->delete($moduleName);
             $this->directoryOps->deleteDirectory($module->path, $moduleName);
         } else {
             $backupPath = $this->directoryOps->moveToBackup($module->path, $moduleName);
+            $this->stateRepository->moveToBackup($moduleName, $backupPath);
         }
 
         $this->invalidator->invalidate();

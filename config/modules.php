@@ -11,6 +11,7 @@ return [
             'app/Subsystems',
         ],
         'backup' => storage_path('app/module-backups'),
+        'state' => storage_path('app/private/modules'),
     ],
     'routing' => [
         'types' => [

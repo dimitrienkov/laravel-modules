@@ -15,10 +15,12 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
@@ -30,6 +32,8 @@ final class ScaffoldModuleUseCaseTest extends TestCase
 {
     private string $tempDir;
 
+    private string $stateRoot;
+
     private Filesystem $filesystem;
 
     protected function setUp(): void
@@ -37,6 +41,7 @@ final class ScaffoldModuleUseCaseTest extends TestCase
         parent::setUp();
         $this->filesystem = new Filesystem();
         $this->tempDir = sys_get_temp_dir() . '/scaffold_test_' . uniqid();
+        $this->stateRoot = $this->tempDir . '/storage/app/private/modules';
         $this->filesystem->makeDirectory($this->tempDir . '/bootstrap/cache', 0755, true);
         $this->filesystem->makeDirectory($this->tempDir . '/app/Modules', 0755, true);
     }
@@ -58,6 +63,7 @@ final class ScaffoldModuleUseCaseTest extends TestCase
         $this->assertTrue($result->enabled);
         $this->assertDirectoryExists($result->path);
         $this->assertFileExists($result->path . '/module.json');
+        $this->assertFileExists($this->stateRoot . '/blog/state.json');
         $this->assertDirectoryExists($result->path . '/Providers');
         $this->assertDirectoryExists($result->path . '/Config');
         $this->assertDirectoryExists($result->path . '/Routes');
@@ -85,8 +91,8 @@ final class ScaffoldModuleUseCaseTest extends TestCase
         $result = $useCase->execute(new ScaffoldModuleConfig(name: 'blog', disabled: true));
 
         $this->assertFalse($result->enabled);
-        $manifest = json_decode(file_get_contents($result->path . '/module.json'), true);
-        $this->assertFalse($manifest['state']['enabled']);
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertFalse($state['enabled']);
     }
 
     #[Test]
@@ -126,7 +132,7 @@ final class ScaffoldModuleUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function scaffoldWritesValidManifest(): void
+    public function scaffoldWritesValidManifestAndState(): void
     {
         $useCase = $this->makeUseCase();
 
@@ -135,7 +141,10 @@ final class ScaffoldModuleUseCaseTest extends TestCase
         $manifest = json_decode(file_get_contents($result->path . '/module.json'), true);
         $this->assertSame('user_auth', $manifest['meta']['name']);
         $this->assertSame('1.0.0', $manifest['meta']['version']);
-        $this->assertNotNull($manifest['state']['installed_at']);
+        $this->assertArrayNotHasKey('state', $manifest);
+
+        $state = json_decode(file_get_contents($this->stateRoot . '/user_auth/state.json'), true);
+        $this->assertNotNull($state['installed_at']);
     }
 
     private function makeUseCase(): ScaffoldModuleUseCase
@@ -143,10 +152,15 @@ final class ScaffoldModuleUseCaseTest extends TestCase
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
         $config = new Repository([
-            'modules' => ['paths' => ['directories' => ['app/Modules']]],
+            'modules' => ['paths' => ['directories' => ['app/Modules'], 'state' => $this->stateRoot]],
         ]);
 
         $namespaceResolver = new FakeNamespaceResolver($this->tempDir);
+
+        $stateRepo = new ModuleStateRepository(
+            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
+            writer: new AtomicJsonWriter(),
+        );
 
         $manifests = new ModuleManifestRepository(
             layout: $layout,
@@ -154,9 +168,10 @@ final class ScaffoldModuleUseCaseTest extends TestCase
             validator: $validator,
             namespaceResolver: $namespaceResolver,
             documentReader: new ManifestDocumentReader(),
+            stateRepository: $stateRepo,
         );
 
-        $cache = new ModuleRegistryCache($validator, $layout, $this->tempDir);
+        $cache = new ModuleRegistryCache($validator, $layout, $stateRepo, $this->tempDir);
 
         $registry = new ModuleRegistry(
             manifests: $manifests,
@@ -177,7 +192,7 @@ final class ScaffoldModuleUseCaseTest extends TestCase
         return new ScaffoldModuleUseCase(
             registry: $registry,
             manifestRepository: $manifests,
-            validator: $validator,
+            stateRepository: $stateRepo,
             namespaceResolver: $namespaceResolver,
             paths: $paths,
             invalidator: $invalidator,

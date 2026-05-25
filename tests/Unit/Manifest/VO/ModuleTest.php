@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\VO;
 
-use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
-use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -20,6 +19,7 @@ final class ModuleTest extends TestCase
             'App\\Modules\\Blog',
             $this->validManifest(),
             '/app/Modules/Blog/module.json',
+            new ModuleState(true, null),
         );
 
         self::assertSame('blog', $module->name);
@@ -35,8 +35,9 @@ final class ModuleTest extends TestCase
         $module = Module::fromManifest(
             '/app/Modules/Blog',
             'App\\Modules\\Blog',
-            $this->validManifest(enabled: true),
+            $this->validManifest(),
             '/app/Modules/Blog/module.json',
+            new ModuleState(true, null),
         );
 
         self::assertTrue($module->isEnabled());
@@ -48,8 +49,9 @@ final class ModuleTest extends TestCase
         $module = Module::fromManifest(
             '/app/Modules/Blog',
             'App\\Modules\\Blog',
-            $this->validManifest(enabled: false),
+            $this->validManifest(),
             '/app/Modules/Blog/module.json',
+            new ModuleState(false, null),
         );
 
         self::assertFalse($module->isEnabled());
@@ -63,6 +65,7 @@ final class ModuleTest extends TestCase
             'App\\Modules\\Blog',
             $this->validManifest(),
             '/app/Modules/Blog/module.json',
+            new ModuleState(true, null),
         );
 
         self::assertSame('/app/Modules/Blog/module.json', $module->manifestPath());
@@ -74,11 +77,12 @@ final class ModuleTest extends TestCase
         $module = Module::fromManifest(
             '/app/Modules/Blog',
             'App\\Modules\\Blog',
-            $this->validManifest(enabled: true),
+            $this->validManifest(),
             '/app/Modules/Blog/module.json',
+            new ModuleState(true, null),
         );
 
-        $newState = new ManifestState(false, '2026-05-24T00:00:00+00:00');
+        $newState = new ModuleState(false, '2026-05-24T00:00:00+00:00');
         $updated = $module->withState($newState);
 
         self::assertTrue($module->isEnabled());
@@ -87,51 +91,49 @@ final class ModuleTest extends TestCase
     }
 
     #[Test]
-    public function to_descriptor_array_returns_manifest_without_values(): void
+    public function to_descriptor_array_returns_immutable_manifest_only(): void
     {
         $module = Module::fromManifest(
             '/app/Modules/Blog',
             'App\\Modules\\Blog',
             $this->validManifest(),
             '/app/Modules/Blog/module.json',
+            new ModuleState(true, null),
         );
 
         $descriptor = $module->toDescriptorArray();
 
         self::assertArrayHasKey('meta', $descriptor);
-        self::assertArrayHasKey('state', $descriptor);
+        self::assertArrayNotHasKey('state', $descriptor);
         self::assertArrayHasKey('settings', $descriptor);
         self::assertArrayHasKey('schema', $descriptor['settings']);
         self::assertArrayNotHasKey('values', $descriptor['settings']);
     }
 
     #[Test]
-    public function to_manifest_array_includes_values(): void
+    public function to_manifest_array_returns_immutable_manifest(): void
     {
         $module = Module::fromManifest(
             '/app/Modules/Blog',
             'App\\Modules\\Blog',
             $this->validManifest(),
             '/app/Modules/Blog/module.json',
+            new ModuleState(true, null),
         );
 
-        $values = FeatureValues::fromArray(
-            ['comments_enabled' => false],
-            $module->features,
-            'blog',
-            '/app/Modules/Blog/module.json',
-        );
+        $manifest = $module->toManifestArray();
 
-        $manifest = $module->toManifestArray($values);
-
-        self::assertArrayHasKey('values', $manifest['settings']);
-        self::assertSame(['comments_enabled' => false], $manifest['settings']['values']);
+        self::assertArrayHasKey('meta', $manifest);
+        self::assertArrayNotHasKey('state', $manifest);
+        self::assertArrayHasKey('settings', $manifest);
+        self::assertArrayHasKey('schema', $manifest['settings']);
+        self::assertArrayNotHasKey('values', $manifest['settings']);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function validManifest(bool $enabled = true): array
+    private function validManifest(): array
     {
         return [
             'meta' => [
@@ -140,14 +142,10 @@ final class ModuleTest extends TestCase
                 'version' => '1.0.0',
                 'dependencies' => [],
             ],
-            'state' => [
-                'enabled' => $enabled,
-            ],
             'settings' => [
                 'schema' => [
                     'comments_enabled' => ['type' => 'bool', 'default' => true],
                 ],
-                'values' => [],
             ],
         ];
     }

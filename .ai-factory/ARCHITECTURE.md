@@ -1,6 +1,6 @@
 # Архитектура `dimitrienkov0/laravel-modules`
 
-> Текущая архитектура v2.0 core: manifest-driven registry, typed manifest layer, loader-pipeline, scoped feature runtime и optional integration bridges. Документ описывает фактический runtime, а roadmap-функции помечает отдельно.
+> Текущая архитектура v2.0 core: manifest-driven registry, typed manifest layer, loader-pipeline, scoped feature runtime, отдельное state-хранилище и optional integration bridges. Документ описывает фактический runtime, а roadmap-функции помечает отдельно.
 
 ## Архитектурный паттерн
 
@@ -8,10 +8,11 @@
 
 - Хост-приложение остаётся обычным Laravel-монолитом.
 - Модуль — директория внутри `app_path()` хост-приложения. Namespace резолвится через `Application::getNamespace()` и `Application::path()`.
-- `module.json` — источник правды для metadata, state, feature schema и explicit feature values.
-- Registry строится из manifest'ов, сортируется по dependencies и может быть прогрет в `bootstrap/cache/modules.php`.
+- `module.json` — immutable manifest, содержит только `meta` и `settings.schema`. В нём НЕТ `state` и `settings.values`.
+- Mutable state (`enabled`, `installed_at`, `updated_at`) и explicit feature values хранятся в `state.json` в приватном хранилище хоста (`storage/app/private/modules/{module-name}/state.json`).
+- Registry строится из manifest'ов, сортируется по dependencies и может быть прогрет в `bootstrap/cache/modules.php`. Cache (v3) кеширует только manifest descriptors, state НЕ кешируется.
 - Loader-pipeline применяет независимые loaders к enabled-модулям в dependency order.
-- Runtime feature values читаются из `module.json`, а не из production registry cache.
+- Runtime feature values читаются из `state.json` через `ModuleStateRepositoryInterface`, а не из production registry cache.
 
 Выбранный паттерн подходит пакету, потому что задача — дать host-приложению модульный runtime без собственного composer autoload на каждый модуль, без БД для состояния и без жёсткой привязки к MoonShine/Inertia.
 
@@ -58,6 +59,7 @@ src/
 │   ├── ManifestValidatorInterface.php
 │   ├── ModuleManifestRepositoryInterface.php
 │   ├── ModuleRegistryInterface.php
+│   ├── ModuleStateRepositoryInterface.php
 │   └── NamespaceResolverInterface.php
 ├── Exceptions/
 │   └── *Exception.php
@@ -91,16 +93,18 @@ src/
 │   │   ├── FeatureSchema.php
 │   │   ├── FeatureValues.php
 │   │   ├── ManifestMeta.php
-│   │   ├── ManifestState.php
 │   │   ├── Module.php
 │   │   ├── ModuleDependencies.php
-│   │   └── ModuleDependency.php
+│   │   ├── ModuleDependency.php
+│   │   ├── ModuleState.php
+│   │   └── ModuleStateDocument.php
 │   ├── FeatureRepository.php
 │   ├── ManifestDocumentReader.php
 │   ├── ManifestSettingsValidator.php
 │   ├── ManifestValidator.php
 │   ├── ModuleManifestRepository.php
-│   └── ModuleRegistry.php
+│   ├── ModuleRegistry.php
+│   └── ModuleStateRepository.php
 ├── MoonShine/
 │   └── MoonShineModuleAutoloader.php
 ├── Providers/
@@ -113,19 +117,22 @@ src/
 │       └── ModuleRegistryCachePayload.php
 └── Support/
     ├── ApplicationNamespaceResolver.php
+    ├── AtomicFileWriter.php
     ├── AtomicJsonWriter.php
     ├── ContainerLifecycleHooks.php
     ├── ModuleLayout.php
-    └── TopologicalSorter.php
+    ├── ModuleStatePaths.php
+    ├── TopologicalSorter.php
+    └── ZipExtractor.php
 ```
 
 ## Dependency rules
 
 - `Providers` могут собирать зависимости и регистрировать bindings, но бизнес-правила manifest/registry остаются в соответствующих сервисах.
 - `Loaders` зависят от `Contracts`, `Manifest\VO\Module`, `Support\ModuleLayout` и Laravel services.
-- `Manifest` отвечает за parsing, validation, VO hydration, repository, registry orchestration и runtime feature API.
+- `Manifest` отвечает за parsing, validation, VO hydration, manifest repository, state repository, registry orchestration и runtime feature API.
 - `Registry` отвечает только за directory scan и production cache format.
-- `Support` содержит инфраструктурные утилиты: path layout, atomic writes, namespace resolution, topological sort, zip extraction и container lifecycle hooks.
+- `Support` содержит инфраструктурные утилиты: path layout, state path resolution, atomic writes, namespace resolution, topological sort, zip extraction и container lifecycle hooks.
 - `Application` содержит lifecycle UseCase-классы, support-сервисы и DTOs. `Application/UseCases` → `Contracts + Manifest\VO + Application/Support + Application/DTOs + Support`. `Application/Support` → `Contracts + Manifest\VO + Support + Registry`. `Application/DTOs` → `∅`. `Application` не зависит от `Loaders`, `Providers`, `MoonShine`.
 - `Console/Commands` → `Application/UseCases + Contracts`.
 - `MoonShine` — optional bridge; core runtime не должен требовать MoonShine классы без guard.
@@ -140,7 +147,7 @@ src/
 - `Loaders -> Contracts + Manifest\VO + Support + Laravel abstractions`
 - `Manifest -> Contracts + Registry + Manifest\VO/Parsing/Enums + Support`
 - `Registry -> Manifest\VO + Contracts + Support`
-- `Support -> Manifest\VO` только там, где утилита работает с typed module path объектом; `Support -> Laravel abstractions` допустим для namespace resolution и container lifecycle hooks.
+- `Support -> Manifest\VO` только там, где утилита работает с typed module path объектом; `Support -> Laravel abstractions` допустим для namespace resolution, container lifecycle hooks и config resolution (ModuleStatePaths).
 
 Запрещённые направления:
 
@@ -153,7 +160,7 @@ src/
 
 1. `ModuleLoaderServiceProvider::register()` делает `mergeConfigFrom(config/modules.php, 'modules')`.
 2. Provider регистрирует core bindings:
-   - singleton: `ModuleLayout`, `AtomicJsonWriter`, `ContainerLifecycleHooks`, `TopologicalSorter`, validator, manifest repository, scanner, cache, registry.
+   - singleton: `ModuleLayout`, `ModuleStatePaths`, `AtomicJsonWriter`, `ContainerLifecycleHooks`, `TopologicalSorter`, validator, manifest repository, state repository, scanner, cache, registry.
    - scoped: `FeatureRepositoryInterface`.
 3. Provider регистрирует default loaders и тегирует их `ModuleLoaderServiceProvider::LOADER_TAG`.
 4. Provider регистрирует `MoonShineModuleAutoloader` binding только если существует `MoonShine\Contracts\Core\DependencyInjection\CoreContract`.
@@ -235,23 +242,55 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Contracts;
 
-use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
-use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 
 interface ModuleManifestRepositoryInterface
 {
     public function load(string $modulePath): Module;
 
-    public function readValues(Module $module): FeatureValues;
-
-    public function saveValues(Module $module, FeatureValues $values): void;
-
-    public function updateState(Module $module, ManifestState $state): Module;
+    public function writeManifest(Module $module): void;
 }
 ```
 
-Публичная граница записи принимает typed VO, а не raw arrays. Запись в `module.json` должна идти через этот repository.
+`load()` читает и валидирует immutable `module.json`, затем дочитывает актуальный state из `state.json` через `ModuleStateRepositoryInterface`. `writeManifest()` записывает только immutable часть (`meta` + `settings.schema`).
+
+### ModuleStateRepositoryInterface
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace DimitrienkoV\LaravelModules\Contracts;
+
+use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
+use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
+
+interface ModuleStateRepositoryInterface
+{
+    public function read(string $moduleName, Module $module): ModuleStateDocument;
+
+    public function readState(string $moduleName, Module $module): ModuleState;
+
+    public function readValues(Module $module): FeatureValues;
+
+    public function write(string $moduleName, ModuleStateDocument $document): void;
+
+    public function updateState(Module $module, ModuleState $state): Module;
+
+    public function saveValues(Module $module, FeatureValues $values): void;
+
+    public function delete(string $moduleName): void;
+
+    public function moveToBackup(string $moduleName, string $backupPath): ?string;
+
+    public function exists(string $moduleName): bool;
+}
+```
+
+`ModuleStateRepository` управляет `state.json` в приватном хранилище хоста. Путь резолвится через `ModuleStatePaths`. Запись атомарна через `AtomicJsonWriter`. При отсутствии `state.json` возвращается `ModuleState::disabledDefault()` с пустыми values.
 
 ### FeatureRepositoryInterface
 
@@ -280,13 +319,13 @@ Typed getters бросают `FeatureTypeMismatchException`, если факти
 
 `ManifestValidator` разрешает только:
 
-- top-level: `meta`, `state`, `settings`
-- `settings`: `schema`, `values`
+- top-level: `meta`, `settings`
+- `settings`: `schema`
 - `FeatureType`: `bool`, `int`, `string`, `enum`
 
-`autoload` прямо запрещён. Loader applicability определяется только convention-based путями через `ModuleLayout`.
+`state`, `settings.values` и `autoload` прямо запрещены в `module.json`. Loader applicability определяется только convention-based путями через `ModuleLayout`.
 
-`FeatureSchema` хранит definitions и defaults. `FeatureValues` хранит только explicit values и возвращает default из schema, если explicit override отсутствует.
+`FeatureSchema` хранит definitions и defaults (в immutable `module.json`). `FeatureValues` хранит только explicit values (в mutable `state.json`) и возвращает default из schema, если explicit override отсутствует.
 
 ```json
 {
@@ -298,22 +337,47 @@ Typed getters бросают `FeatureTypeMismatchException`, если факти
       "users": "^1.5"
     }
   },
-  "state": {
-    "enabled": true
-  },
   "settings": {
     "schema": {
       "enable_comments": {
         "type": "bool",
         "default": true
       }
-    },
+    }
+  }
+}
+```
+
+State и values (`state.json`):
+
+```json
+{
+  "enabled": true,
+  "installed_at": "2026-05-23T14:12:00+00:00",
+  "settings": {
     "values": {
       "enable_comments": false
     }
   }
 }
 ```
+
+## State хранилище
+
+Mutable state отделён от immutable manifest:
+
+- **`module.json`** (в директории модуля) — immutable; содержит `meta` и `settings.schema`. Source-модули поставляются с этим файлом.
+- **`state.json`** (в `storage/app/private/modules/{module-name}/`) — mutable; содержит `enabled`, `installed_at`, `updated_at` и `settings.values`. Создаётся хост-приложением при install, НЕ поставляется с модулем.
+
+`ModuleStatePaths` резолвит пути state-файлов:
+- `stateRoot()` — корневая директория (из конфига `modules.paths.state` или default `storage/app/private/modules`)
+- `stateDirectory(string $moduleName)` — директория state модуля
+- `stateFile(string $moduleName)` — путь к `state.json`
+- `validate()` — проверяет, что state root не находится внутри директории модулей
+
+`ModuleStateDocument` — VO, оборачивающий `ModuleState` + `FeatureValues` для атомарного чтения/записи полного state-документа.
+
+Lifecycle-команды (`install`, `update`, `remove`, `enable`, `disable`) модифицируют только `state.json` через `ModuleStateRepositoryInterface`, никогда `module.json`.
 
 ## Registry и cache
 
@@ -327,13 +391,15 @@ Typed getters бросают `FeatureTypeMismatchException`, если факти
 - cache exists -> `ModuleRegistryCache::load()`
 - cache missing -> scan через `ModuleDirectoryScanner`
 
-Cache payload:
+Cache payload (v3):
 
-- `version`
-- `modules[name] = path + namespace + manifest descriptor`
+- `version` (= 3)
+- `modules[name] = path + namespace + manifest descriptor` (только `meta` + `settings.schema`, без state и values)
 - `load_order = list<moduleName>`
 
 `ModuleRegistryCache` валидирует версию и структуру payload перед hydration. Это защищает runtime от устаревшего или повреждённого cache file.
+
+State и feature values НЕ кешируются в registry cache. При загрузке из cache `ModuleManifestRepository::load()` читает актуальный state из `state.json` через `ModuleStateRepository`. Это гарантирует, что изменения state и settings применяются немедленно без необходимости `modules:optimize-clear`.
 
 ## Dependency sorting
 
@@ -413,7 +479,8 @@ $core->autoload($module->namespace);
 
 - `ModuleRegistry` — singleton с lazy immutable-ish cache после первого scan/cache load.
 - `FeatureRepositoryInterface` — scoped binding; его per-request array cache сбрасывается Laravel container'ом между requests под Octane.
-- `FeatureRepository` читает values через `ModuleManifestRepository::readValues()`, чтобы видеть изменения `module.json` на следующем request.
+- `FeatureRepository` читает values через `ModuleStateRepositoryInterface::readValues()`, чтобы видеть изменения `state.json` на следующем request.
+- `ModuleStateRepository` — readonly singleton, без internal mutable state; каждый вызов читает `state.json` с диска.
 - В `src/` запрещены mutable static properties.
 - Optional integrations должны быть guarded через `class_exists`, `interface_exists` или container lifecycle checks.
 
@@ -432,6 +499,15 @@ $core->autoload($module->namespace);
 - `observersDir()`, `policiesDir()`, `middlewareDir()`
 
 Не все пути имеют реализованный loader в текущем core. Методы под будущие loaders нужны, чтобы расширения использовали единый path contract.
+
+## ModuleStatePaths
+
+`ModuleStatePaths` — единая точка формирования путей state-хранилища:
+
+- `stateRoot()` — корневая директория из `modules.paths.state` или default `storage/app/private/modules`
+- `stateDirectory(string $moduleName)` — директория state конкретного модуля
+- `stateFile(string $moduleName)` — путь к `state.json`
+- `validate()` — проверяет, что state root не пересекается с директориями модулей
 
 ## Quality architecture
 
@@ -457,9 +533,9 @@ $core->autoload($module->namespace);
 
 Следующие элементы не являются текущим runtime и должны описываться как roadmap, пока соответствующие классы не появятся в `src/`:
 
-- lifecycle commands: install/update/remove/enable/disable/list;
-- module scaffold и module-aware generators;
+- module-aware generators (`make:* --module`);
 - MoonShine admin resources/pages;
-- package signing, marketplace, remote delivery.
+- package signing, marketplace, remote delivery;
+- lifecycle events (`ModuleInstalled`, `ModuleEnabled`, etc.).
 
 Документация должна оставаться синхронизированной с фактической структурой `src/`, `tests/`, `composer.json` и `.github/PULL_REQUEST_TEMPLATE.md`.

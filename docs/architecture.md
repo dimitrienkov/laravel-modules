@@ -16,13 +16,15 @@
 
 | Service | Responsibility |
 |---------|----------------|
-| `ModuleManifestRepository` | Читает, валидирует, гидратирует и пишет `module.json` |
+| `ModuleManifestRepository` | Читает и валидирует иммутабельный `module.json`; `load()` и `writeManifest()` |
+| `ModuleStateRepository` | Читает/пишет mutable `state.json` (`enabled`, timestamps, `settings.values`) |
+| `ModuleStatePaths` | Resolution путей к `state.json`: state root, state directory, state file |
 | `ModuleDirectoryScanner` | Находит module directories в configured roots |
 | `ModuleRegistry` | Загружает modules из cache или filesystem и даёт lookup/load order |
 | `ModuleRegistryCache` | Читает и пишет `bootstrap/cache/modules.php` payload format |
 | `TopologicalSorter` | Сортирует modules по dependencies и проверяет SemVer constraints |
 | `ModuleLoaderPipeline` | Сортирует loaders по priority и применяет их к enabled modules |
-| `FeatureRepository` | Читает текущие feature values из `module.json` per request |
+| `FeatureRepository` | Читает текущие feature values из `state.json` через `ModuleStateRepository` per request |
 
 ## Loader pipeline
 
@@ -100,7 +102,7 @@ $this->app->tag([TranslationLoader::class], ModuleLoaderServiceProvider::LOADER_
 
 `FeatureRepositoryInterface` биндится как scoped. Это сохраняет request-level cache совместимым с Octane-style runtimes и предотвращает stale feature values между requests.
 
-Feature values читаются из `module.json`, а не из production registry cache. Изменение `settings.values` не требует `modules:optimize-clear`.
+Feature values читаются из `state.json`, а не из production registry cache. Изменение `settings.values` не требует `modules:optimize-clear`.
 
 ## Optional MoonShine bridge
 

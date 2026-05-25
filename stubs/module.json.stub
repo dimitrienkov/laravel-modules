@@ -4,12 +4,7 @@
         "display_name": "{{ displayName }}",
         "version": "1.0.0"
     },
-    "state": {
-        "enabled": {{ enabled }},
-        "installed_at": "{{ installedAt }}"
-    },
     "settings": {
-        "schema": {},
-        "values": {}
+        "schema": {}
     }
 }

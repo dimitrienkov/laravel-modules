@@ -11,17 +11,20 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleUpdateException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
-use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 
 final readonly class UpdateModuleUseCase
 {
     public function __construct(
         private ModuleRegistryInterface $registry,
         private ModuleManifestRepositoryInterface $manifestRepository,
+        private ModuleStateRepositoryInterface $stateRepository,
         private ModuleSourcePreparer $sourcePreparer,
         private ModuleDependencyGuard $dependencyGuard,
         private ModuleDirectoryOperations $directoryOps,
@@ -41,7 +44,7 @@ final readonly class UpdateModuleUseCase
             }
 
             $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
-            $preservedState = new ManifestState(
+            $preservedState = new ModuleState(
                 enabled: $existingModule->state->enabled,
                 installedAt: $existingModule->state->installedAt,
                 updatedAt: $now,
@@ -52,7 +55,8 @@ final readonly class UpdateModuleUseCase
                 namespace: $existingModule->namespace,
                 manifest: $prepared->manifest,
                 manifestPath: $prepared->manifestPath,
-            )->withState($preservedState);
+                state: $preservedState,
+            );
 
             $allModules = $this->registry->all();
             $candidateGraph = array_map(
@@ -61,12 +65,14 @@ final readonly class UpdateModuleUseCase
             );
             $this->dependencyGuard->assertGraphValid($candidateGraph);
 
-            $existingValues = $this->manifestRepository->readValues($existingModule);
+            $existingValues = $this->stateRepository->readValues($existingModule);
             $this->directoryOps->replaceDirectoryWithBackup(
                 $existingModule->path,
                 $prepared->path,
                 $moduleName,
             );
+
+            $this->manifestRepository->writeManifest($candidate);
 
             [$mergedValues, $skippedKeys] = $this->mergeValues(
                 $existingValues,
@@ -75,8 +81,11 @@ final readonly class UpdateModuleUseCase
                 $candidate->manifestPath(),
             );
 
-            $this->manifestRepository->saveValues($candidate, $mergedValues);
-            $this->manifestRepository->updateState($candidate, $preservedState);
+            $this->stateRepository->write(
+                $moduleName,
+                new ModuleStateDocument($preservedState, $mergedValues),
+            );
+
             $this->invalidator->invalidate();
 
             return new UpdateModuleResult(

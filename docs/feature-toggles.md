@@ -2,9 +2,9 @@
 
 # Feature Toggles
 
-Feature toggles - это настройки модулей, хранящиеся в `module.json`. Schema задаёт доступные settings и defaults; values содержат explicit overrides.
+Feature toggles - это настройки модулей. Schema задаётся в `module.json` (иммутабельный manifest); explicit values хранятся в `state.json` (`storage/app/private/modules/{name}/`).
 
-## Manifest shape
+## Schema (в `module.json`)
 
 ```json
 {
@@ -25,7 +25,16 @@ Feature toggles - это настройки модулей, хранящиеся
         "default": "auto",
         "options": ["auto", "manual", "off"]
       }
-    },
+    }
+  }
+}
+```
+
+## Values (в `state.json`)
+
+```json
+{
+  "settings": {
     "values": {
       "enable_comments": false,
       "max_posts_per_page": 50
@@ -34,7 +43,7 @@ Feature toggles - это настройки модулей, хранящиеся
 }
 ```
 
-`settings.values` не обязан повторять defaults. Missing values fallback'ятся на `settings.schema`.
+`settings.values` не обязан повторять defaults. Missing values fallback'ятся на `settings.schema` из `module.json`.
 
 ## Runtime API
 
@@ -76,15 +85,15 @@ Typed methods бросают `FeatureTypeMismatchException`, если resolved v
 
 ## Fresh values
 
-`FeatureRepository` читает feature values через `ModuleManifestRepository::readValues()`.
+`FeatureRepository` читает feature values через `ModuleStateRepository::readValues()` из `state.json`.
 
 Он намеренно не читает feature values из `bootstrap/cache/modules.php`. Production registry cache ускоряет module discovery, а feature values остаются актуальными на следующем request.
 
 ## Write boundary
 
-Записывайте feature values через `ModuleManifestRepository::saveValues()`. Метод валидирует manifest и использует `AtomicJsonWriter`.
+Записывайте feature values через `ModuleStateRepository::saveValues()`. Метод валидирует values против schema и использует `AtomicJsonWriter`.
 
-Не пишите `module.json` напрямую из application code.
+`module.json` иммутабелен в runtime — не пишите в него из application code.
 
 ## Error cases
 

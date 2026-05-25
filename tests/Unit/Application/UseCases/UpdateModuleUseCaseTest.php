@@ -16,12 +16,15 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
@@ -30,7 +33,10 @@ use PHPUnit\Framework\TestCase;
 
 final class UpdateModuleUseCaseTest extends TestCase
 {
+    use CreatesModuleFiles;
     private string $tempDir;
+
+    private string $stateRoot;
 
     private Filesystem $filesystem;
 
@@ -39,6 +45,7 @@ final class UpdateModuleUseCaseTest extends TestCase
         parent::setUp();
         $this->filesystem = new Filesystem();
         $this->tempDir = sys_get_temp_dir() . '/update_test_' . uniqid();
+        $this->stateRoot = $this->tempDir . '/storage/app/private/modules';
         $this->filesystem->makeDirectory($this->tempDir . '/bootstrap/cache', 0755, true);
         $this->filesystem->makeDirectory($this->tempDir . '/app/Modules', 0755, true);
         $this->filesystem->makeDirectory($this->tempDir . '/backups', 0755, true);
@@ -87,9 +94,9 @@ final class UpdateModuleUseCaseTest extends TestCase
 
         $result = $useCase->execute('blog', $sourceDir);
 
-        $manifest = json_decode(file_get_contents($this->tempDir . '/app/Modules/Blog/module.json'), true);
-        $this->assertFalse($manifest['state']['enabled']);
-        $this->assertSame('2026-01-01T00:00:00+00:00', $manifest['state']['installed_at']);
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertFalse($state['enabled']);
+        $this->assertSame('2026-01-01T00:00:00+00:00', $state['installed_at']);
     }
 
     #[Test]
@@ -107,9 +114,9 @@ final class UpdateModuleUseCaseTest extends TestCase
 
         $result = $useCase->execute('blog', $sourceDir);
 
-        $manifest = json_decode(file_get_contents($this->tempDir . '/app/Modules/Blog/module.json'), true);
-        $this->assertFalse($manifest['settings']['values']['enable_comments']);
-        $this->assertSame(50, $manifest['settings']['values']['max_posts']);
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertFalse($state['settings']['values']['enable_comments']);
+        $this->assertSame(50, $state['settings']['values']['max_posts']);
         $this->assertEmpty($result->skippedValues);
     }
 
@@ -137,8 +144,13 @@ final class UpdateModuleUseCaseTest extends TestCase
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
         $config = new Repository([
-            'modules' => ['paths' => ['directories' => ['app/Modules'], 'backup' => $this->tempDir . '/backups']],
+            'modules' => ['paths' => ['directories' => ['app/Modules'], 'backup' => $this->tempDir . '/backups', 'state' => $this->stateRoot]],
         ]);
+
+        $stateRepo = new ModuleStateRepository(
+            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
+            writer: new AtomicJsonWriter(),
+        );
 
         $manifests = new ModuleManifestRepository(
             layout: $layout,
@@ -146,10 +158,11 @@ final class UpdateModuleUseCaseTest extends TestCase
             validator: $validator,
             namespaceResolver: new FakeNamespaceResolver($this->tempDir),
             documentReader: new ManifestDocumentReader(),
+            stateRepository: $stateRepo,
         );
 
         $sorter = new TopologicalSorter();
-        $cache = new ModuleRegistryCache($validator, $layout, $this->tempDir);
+        $cache = new ModuleRegistryCache($validator, $layout, $stateRepo, $this->tempDir);
 
         $registry = new ModuleRegistry(
             manifests: $manifests,
@@ -173,6 +186,7 @@ final class UpdateModuleUseCaseTest extends TestCase
         return new UpdateModuleUseCase(
             $registry,
             $manifests,
+            $stateRepo,
             $sourcePreparer,
             $guard,
             $directoryOps,
@@ -192,22 +206,13 @@ final class UpdateModuleUseCaseTest extends TestCase
         array $schema = [],
         array $values = [],
     ): void {
-        $path = $this->tempDir . '/app/Modules/' . ucfirst($name);
-        $this->filesystem->makeDirectory($path, 0755, true);
-
-        $manifest = [
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'version' => $version],
-            'state' => ['enabled' => $enabled],
-            'settings' => [
-                'schema' => $schema ?: new \stdClass(),
-                'values' => $values ?: new \stdClass(),
-            ],
-        ];
-        if ($installedAt !== null) {
-            $manifest['state']['installed_at'] = $installedAt;
-        }
-
-        file_put_contents($path . '/module.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        $this->writeModuleManifest(
+            $this->tempDir . '/app/Modules',
+            $name,
+            $version,
+            schema: $schema ?: new \stdClass(),
+        );
+        $this->writeModuleState($this->stateRoot, $name, $enabled, $installedAt, $values ?: new \stdClass());
     }
 
     /**
@@ -223,10 +228,8 @@ final class UpdateModuleUseCaseTest extends TestCase
 
         $manifest = [
             'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'version' => $version],
-            'state' => ['enabled' => true],
             'settings' => [
                 'schema' => $schema ?: new \stdClass(),
-                'values' => new \stdClass(),
             ],
         ];
 

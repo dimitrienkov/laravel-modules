@@ -8,9 +8,9 @@ use DimitrienkoV\LaravelModules\Application\DTOs\ScaffoldModuleConfig;
 use DimitrienkoV\LaravelModules\Application\DTOs\ScaffoldModuleResult;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
-use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
@@ -18,9 +18,10 @@ use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
-use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 use Illuminate\Filesystem\Filesystem;
 
 final readonly class ScaffoldModuleUseCase
@@ -28,7 +29,7 @@ final readonly class ScaffoldModuleUseCase
     public function __construct(
         private ModuleRegistryInterface $registry,
         private ModuleManifestRepositoryInterface $manifestRepository,
-        private ManifestValidatorInterface $validator,
+        private ModuleStateRepositoryInterface $stateRepository,
         private NamespaceResolverInterface $namespaceResolver,
         private ModuleLifecyclePaths $paths,
         private LifecycleRegistryInvalidator $invalidator,
@@ -58,7 +59,7 @@ final readonly class ScaffoldModuleUseCase
         $this->createDirectoryStructure($targetPath, $namespace, $studlyName);
 
         $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
-        $state = new ManifestState(
+        $state = new ModuleState(
             enabled: ! $config->disabled,
             installedAt: $now,
             updatedAt: $now,
@@ -82,9 +83,10 @@ final readonly class ScaffoldModuleUseCase
             features: new FeatureSchema([]),
         );
 
-        $manifest = $module->toManifestArray(new FeatureValues($module->features, []));
-        $this->validator->validate($manifest, $targetPath . '/module.json');
-        $this->manifestRepository->saveValues($module, new FeatureValues($module->features, []));
+        $this->manifestRepository->writeManifest($module);
+
+        $values = new FeatureValues($module->features, []);
+        $this->stateRepository->write($config->name, new ModuleStateDocument($state, $values));
 
         $this->invalidator->invalidate();
 

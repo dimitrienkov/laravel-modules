@@ -10,16 +10,19 @@ use DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
@@ -67,11 +70,13 @@ final class MakeModuleCommandTest extends TestCase
         $this->artisanCommand('make:module blog --disabled')
             ->assertSuccessful();
 
-        $manifest = json_decode(
-            file_get_contents($this->tempDir . '/app/Modules/Blog/module.json'),
+        $stateFile = $this->tempDir . '/storage/app/private/modules/blog/state.json';
+        $this->assertFileExists($stateFile);
+        $state = json_decode(
+            file_get_contents($stateFile),
             true,
         );
-        $this->assertFalse($manifest['state']['enabled']);
+        $this->assertFalse($state['enabled']);
     }
 
     #[Test]
@@ -115,6 +120,11 @@ final class MakeModuleCommandTest extends TestCase
         ]);
 
         $namespaceResolver = new FakeNamespaceResolver($this->tempDir);
+        $statePaths = new ModuleStatePaths(config: $config, basePath: $this->tempDir);
+        $stateRepository = new ModuleStateRepository(
+            paths: $statePaths,
+            writer: new AtomicJsonWriter(),
+        );
 
         $manifests = new ModuleManifestRepository(
             layout: $layout,
@@ -122,9 +132,15 @@ final class MakeModuleCommandTest extends TestCase
             validator: $validator,
             namespaceResolver: $namespaceResolver,
             documentReader: new ManifestDocumentReader(),
+            stateRepository: $stateRepository,
         );
 
-        $cache = new ModuleRegistryCache($validator, $layout, $this->tempDir);
+        $cache = new ModuleRegistryCache(
+            validator: $validator,
+            layout: $layout,
+            stateRepository: $stateRepository,
+            basePath: $this->tempDir,
+        );
 
         $registry = new ModuleRegistry(
             manifests: $manifests,
@@ -144,6 +160,7 @@ final class MakeModuleCommandTest extends TestCase
 
         $app->instance(ModuleRegistryInterface::class, $registry);
         $app->instance(ModuleManifestRepositoryInterface::class, $manifests);
+        $app->instance(ModuleStateRepositoryInterface::class, $stateRepository);
         $app->instance(ManifestValidatorInterface::class, $validator);
         $app->instance(NamespaceResolverInterface::class, $namespaceResolver);
         $app->instance(ModuleLifecyclePaths::class, $paths);

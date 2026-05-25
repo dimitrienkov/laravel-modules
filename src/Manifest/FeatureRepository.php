@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Manifest;
 
 use DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface;
-use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\FeatureTypeMismatchException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 
@@ -19,7 +19,7 @@ final class FeatureRepository implements FeatureRepositoryInterface
 
     public function __construct(
         private readonly ModuleRegistryInterface $registry,
-        private readonly ModuleManifestRepositoryInterface $manifests,
+        private readonly ModuleStateRepositoryInterface $stateRepository,
     ) {
     }
 
@@ -68,7 +68,7 @@ final class FeatureRepository implements FeatureRepositoryInterface
         }
 
         $module = $this->registry->find($moduleName);
-        $this->values[$moduleName] = $this->manifests->readValues($module);
+        $this->values[$moduleName] = $this->stateRepository->readValues($module);
 
         return $this->values[$moduleName];
     }

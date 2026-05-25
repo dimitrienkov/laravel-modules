@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Registry;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleCacheException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
@@ -33,16 +35,17 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function it_builds_payload_without_settings_values(): void
+    public function it_builds_payload_without_state_or_values(): void
     {
         $cache = $this->cache();
         $module = ModuleFactory::make(name: 'blog');
 
         $payload = $cache->buildPayload([$module]);
 
-        self::assertSame(2, $payload->version);
+        self::assertSame(3, $payload->version);
         self::assertSame(['blog'], $payload->loadOrder);
         self::assertArrayHasKey('blog', $payload->modules);
+        self::assertArrayNotHasKey('state', $payload->modules['blog']->manifest);
         self::assertArrayNotHasKey('values', $payload->modules['blog']->manifest['settings']);
     }
 
@@ -140,7 +143,7 @@ final class ModuleRegistryCacheTest extends TestCase
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php return ' . var_export([
-            'version' => 2,
+            'version' => 3,
             'modules' => [],
             'load_order' => ['missing'],
         ], true) . ';');
@@ -156,7 +159,7 @@ final class ModuleRegistryCacheTest extends TestCase
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php return ' . var_export([
-            'version' => 2,
+            'version' => 3,
             'modules' => [
                 'blog' => ['path' => '/tmp/blog', 'namespace' => 'App\\Blog', 'manifest' => []],
             ],
@@ -174,7 +177,7 @@ final class ModuleRegistryCacheTest extends TestCase
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php return ' . var_export([
-            'version' => 2,
+            'version' => 3,
             'modules' => [
                 'blog' => ['path' => '/tmp/blog', 'namespace' => 'App\\Blog', 'manifest' => []],
                 'users' => ['path' => '/tmp/users', 'namespace' => 'App\\Users', 'manifest' => []],
@@ -190,9 +193,13 @@ final class ModuleRegistryCacheTest extends TestCase
 
     private function cache(): ModuleRegistryCache
     {
+        $stateRepo = $this->createMock(ModuleStateRepositoryInterface::class);
+        $stateRepo->method('readState')->willReturn(ModuleState::disabledDefault());
+
         return new ModuleRegistryCache(
             validator: new ManifestValidator(new ManifestSettingsValidator()),
             layout: new ModuleLayout(),
+            stateRepository: $stateRepo,
             basePath: $this->tempDir,
         );
     }

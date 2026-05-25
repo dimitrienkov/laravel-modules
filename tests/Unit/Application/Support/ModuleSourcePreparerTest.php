@@ -148,12 +148,8 @@ final class ModuleSourcePreparerTest extends TestCase
                 'display_name' => ucfirst($name),
                 'version' => '1.0.0',
             ],
-            'state' => [
-                'enabled' => true,
-            ],
             'settings' => [
                 'schema' => new \stdClass(),
-                'values' => new \stdClass(),
             ],
         ];
 
@@ -173,12 +169,8 @@ final class ModuleSourcePreparerTest extends TestCase
                 'display_name' => ucfirst($name),
                 'version' => '1.0.0',
             ],
-            'state' => [
-                'enabled' => true,
-            ],
             'settings' => [
                 'schema' => new \stdClass(),
-                'values' => new \stdClass(),
             ],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 

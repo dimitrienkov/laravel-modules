@@ -15,11 +15,14 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
@@ -28,7 +31,10 @@ use PHPUnit\Framework\TestCase;
 
 final class RemoveModuleUseCaseTest extends TestCase
 {
+    use CreatesModuleFiles;
     private string $tempDir;
+
+    private string $stateRoot;
 
     private Filesystem $filesystem;
 
@@ -37,6 +43,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         parent::setUp();
         $this->filesystem = new Filesystem();
         $this->tempDir = sys_get_temp_dir() . '/remove_test_' . uniqid();
+        $this->stateRoot = $this->tempDir . '/storage/app/private/modules';
         $this->filesystem->makeDirectory($this->tempDir . '/bootstrap/cache', 0755, true);
         $this->filesystem->makeDirectory($this->tempDir . '/app/Modules', 0755, true);
         $this->filesystem->makeDirectory($this->tempDir . '/backups', 0755, true);
@@ -72,6 +79,7 @@ final class RemoveModuleUseCaseTest extends TestCase
 
         $this->assertNull($result->backupPath);
         $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
+        $this->assertFileDoesNotExist($this->stateRoot . '/blog/state.json');
     }
 
     #[Test]
@@ -113,11 +121,16 @@ final class RemoveModuleUseCaseTest extends TestCase
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
         $config = new Repository([
-            'modules' => ['paths' => ['directories' => ['app/Modules'], 'backup' => $this->tempDir . '/backups']],
+            'modules' => ['paths' => ['directories' => ['app/Modules'], 'backup' => $this->tempDir . '/backups', 'state' => $this->stateRoot]],
         ]);
 
+        $stateRepo = new ModuleStateRepository(
+            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
+            writer: new AtomicJsonWriter(),
+        );
+
         $sorter = new TopologicalSorter();
-        $cache = new ModuleRegistryCache($validator, $layout, $this->tempDir);
+        $cache = new ModuleRegistryCache($validator, $layout, $stateRepo, $this->tempDir);
 
         $registry = new ModuleRegistry(
             manifests: new ModuleManifestRepository(
@@ -126,6 +139,7 @@ final class RemoveModuleUseCaseTest extends TestCase
                 validator: $validator,
                 namespaceResolver: new FakeNamespaceResolver($this->tempDir),
                 documentReader: new ManifestDocumentReader(),
+                stateRepository: $stateRepo,
             ),
             sorter: $sorter,
             scanner: new ModuleDirectoryScanner(
@@ -143,7 +157,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         $paths = new ModuleLifecyclePaths($config, $this->tempDir, $this->tempDir . '/app');
         $directoryOps = new ModuleDirectoryOperations(new Filesystem(), $paths);
 
-        return new RemoveModuleUseCase($registry, $guard, $directoryOps, $invalidator);
+        return new RemoveModuleUseCase($registry, $stateRepo, $guard, $directoryOps, $invalidator);
     }
 
     /**
@@ -151,18 +165,7 @@ final class RemoveModuleUseCaseTest extends TestCase
      */
     private function createModule(string $name, bool $enabled = true, array $dependencies = []): void
     {
-        $path = $this->tempDir . '/app/Modules/' . ucfirst($name);
-        $this->filesystem->makeDirectory($path, 0755, true);
-
-        $manifest = [
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'version' => '1.0.0'],
-            'state' => ['enabled' => $enabled],
-            'settings' => ['schema' => new \stdClass(), 'values' => new \stdClass()],
-        ];
-        if ($dependencies !== []) {
-            $manifest['meta']['dependencies'] = $dependencies;
-        }
-
-        file_put_contents($path . '/module.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, dependencies: $dependencies);
+        $this->writeModuleState($this->stateRoot, $name, $enabled, values: new \stdClass());
     }
 }
