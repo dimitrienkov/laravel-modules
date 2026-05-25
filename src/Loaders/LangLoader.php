@@ -8,7 +8,6 @@ use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Str;
 use Illuminate\Translation\Translator;
 
 final readonly class LangLoader implements LoaderInterface
@@ -28,7 +27,7 @@ final readonly class LangLoader implements LoaderInterface
             return;
         }
 
-        $this->translator->addNamespace(Str::snake($module->name), $langDir);
+        $this->translator->addNamespace($module->name, $langDir);
     }
 
     public function priority(): int

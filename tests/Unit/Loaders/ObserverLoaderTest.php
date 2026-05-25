@@ -7,6 +7,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 use DimitrienkoV\LaravelModules\Loaders\ObserverLoader;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Filesystem\Filesystem;
@@ -15,7 +16,7 @@ use PHPUnit\Framework\TestCase;
 
 final class ObserverLoaderTest extends TestCase
 {
-    private string $tempDir;
+    use UsesTempDirectory;
 
     /** @var list<callable> */
     private array $autoloaders = [];
@@ -24,8 +25,7 @@ final class ObserverLoaderTest extends TestCase
     {
         parent::setUp();
 
-        $this->tempDir = sys_get_temp_dir() . '/laravel-modules-observer-loader-' . bin2hex(random_bytes(6));
-        mkdir($this->tempDir, 0755, true);
+        $this->createTempDirectory('observer-loader');
         Model::setEventDispatcher(new Dispatcher());
     }
 
@@ -37,7 +37,7 @@ final class ObserverLoaderTest extends TestCase
 
         $this->autoloaders = [];
         Model::unsetEventDispatcher();
-        $this->deleteDirectory($this->tempDir);
+        $this->deleteTempDirectory();
 
         parent::tearDown();
     }
@@ -137,29 +137,5 @@ final class ObserverLoaderTest extends TestCase
 
         spl_autoload_register($autoloader);
         $this->autoloaders[] = $autoloader;
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
     }
 }

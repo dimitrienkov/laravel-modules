@@ -7,7 +7,7 @@
 **Modular Laravel Runtime с Manifest Layer и Loader-Pipeline.**
 
 - Хост-приложение остаётся обычным Laravel-монолитом.
-- Модуль — директория внутри настроенного PSR-4 root хост-приложения.
+- Модуль — директория внутри `app_path()` хост-приложения. Namespace резолвится через `Application::getNamespace()` и `Application::path()`.
 - `module.json` — источник правды для metadata, state, feature schema и explicit feature values.
 - Registry строится из manifest'ов, сортируется по dependencies и может быть прогрет в `bootstrap/cache/modules.php`.
 - Loader-pipeline применяет независимые loaders к enabled-модулям в dependency order.
@@ -305,10 +305,20 @@ Cache payload:
 | Loader | Priority | Правило |
 |--------|----------|---------|
 | `ConfigLoader` | 10 | Загружает `Config/*.php` в config key `<module>.<file>` |
-| `ServiceProviderLoader` | 20 | Регистрирует классы `Providers/*ServiceProvider.php`, если class exists и наследует Laravel `ServiceProvider` |
+| `ServiceProviderLoader` | 20 | Регистрирует классы `Providers/*ServiceProvider.php`, пропуская abstract |
 | `MigrationLoader` | 30 | Добавляет `Database/Migrations/` в Laravel migrator paths |
 | `FactoryLoader` | 31 | Настраивает factory name guessing для `Domain\Models` -> `Database\Factories` |
+| `LangLoader` | 32 | Регистрирует translation namespace `<module_name>` |
+| `ViewLoader` | 33 | Регистрирует view namespace `<module_name>` |
+| `BladeComponentLoader` | 34 | Регистрирует Blade component namespace |
+| `EventLoader` | 35 | Добавляет event discovery paths для `Domain/Listeners` |
+| `ObserverLoader` | 36 | Регистрирует observers для matching models, пропуская abstract |
+| `PolicyLoader` | 37 | Регистрирует policies для matching models, пропуская abstract |
+| `CommandLoader` | 40 | Регистрирует command paths через `addCommandPaths()` |
+| `MiddlewareLoader` | 45 | Регистрирует middleware aliases `<module>.<snake_name>` |
 | `RouteLoader` | 50 | Загружает flat и versioned route files по `modules.routing.types` |
+| `ConsoleRouteLoader` | 51 | Регистрирует console routes через `addCommandRoutePaths()` (deferred) |
+| `BroadcastLoader` | 52 | Загружает broadcast channels (deferred до boot) |
 
 Добавление кастомного loader:
 
@@ -401,7 +411,6 @@ $core->autoload($module->namespace);
 
 - lifecycle commands: install/update/remove/enable/disable/list;
 - module scaffold и module-aware generators;
-- loaders для translations, views, Blade components, console routes, commands, events, observers, policies, middleware, broadcasting;
 - MoonShine admin resources/pages;
 - package signing, marketplace, remote delivery.
 

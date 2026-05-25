@@ -15,9 +15,9 @@ use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
@@ -38,7 +38,6 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $this->modulePath = $this->tempDir . '/app/Modules/Blog';
 
         mkdir($this->modulePath, 0755, true);
-        $this->writeComposer();
         $this->writeManifest(['comments_enabled' => false]);
         $this->bindFeatureServices();
     }
@@ -85,7 +84,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
             layout: $layout,
             writer: new AtomicJsonWriter(),
             validator: $validator,
-            namespaceResolver: new ComposerNamespaceResolver($this->tempDir),
+            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
         ));
 
         $app->instance(ModuleRegistryInterface::class, new ModuleRegistry(
@@ -145,20 +144,6 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
                         ],
                     ],
                     'values' => $values,
-                ],
-            ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
-        );
-    }
-
-    private function writeComposer(): void
-    {
-        file_put_contents(
-            $this->tempDir . '/composer.json',
-            json_encode([
-                'autoload' => [
-                    'psr-4' => [
-                        'App\\' => 'app/',
-                    ],
                 ],
             ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
         );

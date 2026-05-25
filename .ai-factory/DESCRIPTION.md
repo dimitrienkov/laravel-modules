@@ -24,7 +24,7 @@
 - Value objects и parser layer: `Module`, `ManifestMeta`, `ManifestState`, `ModuleDependencies`, `FeatureSchema`, `FeatureDefinition`, `FeatureValues`.
 - `ModuleManifestRepository` как единственная точка чтения/валидации/атомарной записи `module.json`.
 - `ModuleDirectoryScanner`, `ModuleRegistry`, `ModuleRegistryCache`, `TopologicalSorter`.
-- Loader pipeline с реализованными лоадерами: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `RouteLoader`.
+- Loader pipeline с 15 реализованными лоадерами: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`.
 - `FeatureRepositoryInterface` с методами `get`, `bool`, `int`, `string`; реализация биндится как scoped.
 - Команды `modules:optimize` и `modules:optimize-clear`, интегрированные с Laravel optimizer hooks.
 - Optional MoonShine bridge через `MoonShineModuleAutoloader`.
@@ -36,7 +36,6 @@
 
 - `make:module`, `modules:install`, `modules:update`, `modules:remove`, `modules:enable`, `modules:disable`, `modules:list`.
 - Module-aware генераторы `make:* --module`.
-- Дополнительные лоадеры: translations, views, Blade components, console routes, commands, events, observers, policies, middleware, broadcasting.
 - MoonShine resources/pages для управления модулями и settings forms.
 - Packaging/marketplace/signature flow для коммерческой поставки.
 
@@ -125,7 +124,17 @@
 | `ServiceProviderLoader` | 20 | `Providers/*ServiceProvider.php` по namespace модуля |
 | `MigrationLoader` | 30 | `Database/Migrations/` через Laravel migrator path |
 | `FactoryLoader` | 31 | `Database/Factories/` через `Factory::guessFactoryNamesUsing()` |
+| `LangLoader` | 32 | `Lang/` translation namespace `<module_name>` |
+| `ViewLoader` | 33 | `Resources/views/` view namespace `<module_name>` |
+| `BladeComponentLoader` | 34 | `View/Components/` Blade component namespace |
+| `EventLoader` | 35 | `Domain/Listeners/` event discovery paths |
+| `ObserverLoader` | 36 | `Domain/Observers/*Observer.php` → matching `Domain/Models/` |
+| `PolicyLoader` | 37 | `Domain/Policies/*Policy.php` → matching `Domain/Models/` |
+| `CommandLoader` | 40 | `Console/Commands/` через `addCommandPaths()` |
+| `MiddlewareLoader` | 45 | `Http/Middleware/` aliases `<module>.<snake_name>` |
 | `RouteLoader` | 50 | `Routes/api.php`, `Routes/api/*.php`, `Routes/web.php`, `Routes/inertia.php` |
+| `ConsoleRouteLoader` | 51 | `Routes/console.php` через `addCommandRoutePaths()` (deferred) |
+| `BroadcastLoader` | 52 | `Routes/channels.php` broadcast channels (deferred до boot) |
 
 MoonShine autoload не является `LoaderInterface`: это отдельный optional bridge, который регистрируется через `afterResolving(CoreContract::class)` и вызывает `$core->autoload($module->namespace)` для enabled-модулей.
 
@@ -146,7 +155,7 @@ Route loading управляется `config/modules.php`:
 1. Если существует `bootstrap/cache/modules.php`, читает cache одним `require`.
 2. Иначе сканирует `modules.paths.directories` через `ModuleDirectoryScanner`.
 3. Для каждой директории с `module.json` вызывает `ModuleManifestRepository::load()`.
-4. Резолвит namespace по корневому PSR-4 `composer.json`.
+4. Резолвит namespace через `Application::getNamespace()` и `Application::path()`.
 5. Сортирует модули через `TopologicalSorter`.
 
 `modules:optimize` пишет cache payload с версией формата, serialized manifest descriptors и `load_order`. `modules:optimize-clear` удаляет cache и сбрасывает in-memory registry.

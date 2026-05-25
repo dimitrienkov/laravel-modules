@@ -7,6 +7,8 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 use DimitrienkoV\LaravelModules\Loaders\ConsoleRouteLoader;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use DimitrienkoV\LaravelModules\Tests\Support\Stubs\RecordingConsoleKernel;
+use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
@@ -15,25 +17,24 @@ use PHPUnit\Framework\TestCase;
 
 final class ConsoleRouteLoaderTest extends TestCase
 {
-    private string $tempDir;
+    use UsesTempDirectory;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->tempDir = sys_get_temp_dir() . '/laravel-modules-console-route-loader-' . bin2hex(random_bytes(6));
-        mkdir($this->tempDir, 0755, true);
+        $this->createTempDirectory('console-route-loader');
     }
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->tempDir);
+        $this->deleteTempDirectory();
 
         parent::tearDown();
     }
 
     #[Test]
-    public function it_registers_console_route_file_via_kernel(): void
+    public function it_registers_console_route_file_via_kernel_after_boot(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $consoleRoutesFile = $modulePath . '/Routes/console.php';
@@ -47,6 +48,10 @@ final class ConsoleRouteLoaderTest extends TestCase
 
         $app->singleton(ConsoleKernel::class, static fn (): RecordingConsoleKernel => $kernel);
         $app->make(ConsoleKernel::class);
+
+        self::assertSame([], $kernel->addedRoutePaths);
+
+        $app->boot();
 
         self::assertContains($consoleRoutesFile, $kernel->addedRoutePaths);
     }
@@ -83,51 +88,8 @@ final class ConsoleRouteLoaderTest extends TestCase
 
         $app->singleton(ConsoleKernel::class, static fn (): RecordingConsoleKernel => $kernel);
         $app->make(ConsoleKernel::class);
+        $app->boot();
 
         self::assertSame([], $kernel->addedRoutePaths);
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
-    }
-}
-
-final class RecordingConsoleKernel extends ConsoleKernel
-{
-    /** @var list<string> */
-    public array $addedRoutePaths = [];
-
-    public function __construct()
-    {
-    }
-
-    /**
-     * @param list<string> $paths
-     */
-    public function addCommandRoutePaths(array $paths): static
-    {
-        $this->addedRoutePaths = [...$this->addedRoutePaths, ...$paths];
-
-        return $this;
     }
 }

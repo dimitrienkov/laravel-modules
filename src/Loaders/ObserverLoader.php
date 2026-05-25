@@ -9,6 +9,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
+use ReflectionClass;
 
 final readonly class ObserverLoader implements LoaderInterface
 {
@@ -47,10 +48,14 @@ final readonly class ObserverLoader implements LoaderInterface
     {
         $basename = basename($file, '.php');
         $observerFqcn = $module->namespace . '\\Domain\\Observers\\' . $basename;
-        $modelName = substr($basename, 0, -8);
+        $modelName = substr($basename, 0, -\strlen('Observer'));
         $modelFqcn = $module->namespace . '\\Domain\\Models\\' . $modelName;
 
         if (! class_exists($observerFqcn) || ! class_exists($modelFqcn)) {
+            return;
+        }
+
+        if ((new ReflectionClass($observerFqcn))->isAbstract()) {
             return;
         }
 

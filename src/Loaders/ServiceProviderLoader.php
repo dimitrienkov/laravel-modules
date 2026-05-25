@@ -10,6 +10,7 @@ use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\ServiceProvider;
+use ReflectionClass;
 
 final readonly class ServiceProviderLoader implements LoaderInterface
 {
@@ -53,9 +54,15 @@ final readonly class ServiceProviderLoader implements LoaderInterface
 
             $class = $module->namespace . '\\Providers\\' . basename($file, '.php');
 
-            if (class_exists($class) && is_subclass_of($class, ServiceProvider::class)) {
-                $providers[] = $class;
+            if (! class_exists($class) || ! is_subclass_of($class, ServiceProvider::class)) {
+                continue;
             }
+
+            if ((new ReflectionClass($class))->isAbstract()) {
+                continue;
+            }
+
+            $providers[] = $class;
         }
 
         sort($providers);

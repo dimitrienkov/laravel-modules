@@ -9,11 +9,16 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Loaders\Pipeline\ModuleLoaderPipeline;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 final class ModuleLoaderPipelineTest extends TestCase
 {
+    use MockeryPHPUnitIntegration;
+
     #[Test]
     public function it_runs_loaders_in_priority_order(): void
     {
@@ -28,6 +33,7 @@ final class ModuleLoaderPipelineTest extends TestCase
                 new PipelineRecordingLoader($calls, 20, 'late'),
                 new PipelineRecordingLoader($calls, 10, 'early'),
             ],
+            exceptionHandler: $this->fakeExceptionHandler(),
         );
 
         $pipeline->boot();
@@ -52,6 +58,7 @@ final class ModuleLoaderPipelineTest extends TestCase
             loaders: [
                 new PipelineRecordingLoader($calls, 10, 'loader'),
             ],
+            exceptionHandler: $this->fakeExceptionHandler(),
         );
 
         $pipeline->boot();
@@ -67,11 +74,48 @@ final class ModuleLoaderPipelineTest extends TestCase
                 ModuleFactory::make(name: 'blog'),
             ]),
             loaders: [],
+            exceptionHandler: $this->fakeExceptionHandler(),
         );
 
         $pipeline->boot();
 
         $this->expectNotToPerformAssertions();
+    }
+
+    #[Test]
+    public function it_continues_after_loader_exception_and_reports_it(): void
+    {
+        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new \ArrayObject();
+        $exception = new \RuntimeException('Loader failed');
+
+        /** @var ExceptionHandler&Mockery\MockInterface $handler */
+        $handler = Mockery::mock(ExceptionHandler::class);
+        $handler->shouldReceive('report')->once()->with($exception);
+
+        $pipeline = new ModuleLoaderPipeline(
+            registry: new PipelineFakeRegistry([
+                ModuleFactory::make(name: 'blog'),
+            ]),
+            loaders: [
+                new PipelineThrowingLoader($exception, 10),
+                new PipelineRecordingLoader($calls, 20, 'after'),
+            ],
+            exceptionHandler: $handler,
+        );
+
+        $pipeline->boot();
+
+        self::assertSame([['after', 'blog']], $calls->getArrayCopy());
+    }
+
+    private function fakeExceptionHandler(): ExceptionHandler
+    {
+        /** @var ExceptionHandler&Mockery\MockInterface $handler */
+        $handler = Mockery::mock(ExceptionHandler::class);
+        $handler->shouldReceive('report');
+
+        return $handler;
     }
 }
 
@@ -90,6 +134,25 @@ final class PipelineRecordingLoader implements LoaderInterface
     public function load(Module $module): void
     {
         $this->calls->append([$this->name, $module->name]);
+    }
+
+    public function priority(): int
+    {
+        return $this->priority;
+    }
+}
+
+final readonly class PipelineThrowingLoader implements LoaderInterface
+{
+    public function __construct(
+        private \Throwable $exception,
+        private int $priority,
+    ) {
+    }
+
+    public function load(Module $module): void
+    {
+        throw $this->exception;
     }
 
     public function priority(): int

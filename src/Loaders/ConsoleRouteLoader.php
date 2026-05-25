@@ -32,14 +32,16 @@ final readonly class ConsoleRouteLoader implements LoaderInterface
             return;
         }
 
-        $this->app->afterResolving(
+        $app = $this->app;
+
+        $app->afterResolving(
             ConsoleKernel::class,
-            static function (object $kernel) use ($consoleRoutesFile): void {
+            static function (object $kernel) use ($app, $consoleRoutesFile): void {
                 if (! $kernel instanceof ConsoleKernel) {
                     return;
                 }
 
-                $kernel->addCommandRoutePaths([$consoleRoutesFile]);
+                $app->booted(static fn () => $kernel->addCommandRoutePaths([$consoleRoutesFile]));
             },
         );
     }

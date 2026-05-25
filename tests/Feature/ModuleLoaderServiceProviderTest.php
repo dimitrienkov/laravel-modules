@@ -16,7 +16,7 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Providers\ModuleLoaderServiceProvider;
-use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
+use DimitrienkoV\LaravelModules\Support\ApplicationNamespaceResolver;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase;
@@ -31,7 +31,7 @@ final class ModuleLoaderServiceProviderTest extends TestCase
         $app = $this->application();
 
         self::assertInstanceOf(ManifestValidator::class, $app->make(ManifestValidatorInterface::class));
-        self::assertInstanceOf(ComposerNamespaceResolver::class, $app->make(NamespaceResolverInterface::class));
+        self::assertInstanceOf(ApplicationNamespaceResolver::class, $app->make(NamespaceResolverInterface::class));
         self::assertInstanceOf(
             ModuleManifestRepository::class,
             $app->make(ModuleManifestRepositoryInterface::class),

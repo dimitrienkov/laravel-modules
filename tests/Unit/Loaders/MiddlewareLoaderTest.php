@@ -7,6 +7,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 use DimitrienkoV\LaravelModules\Loaders\MiddlewareLoader;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Routing\Router;
@@ -15,7 +16,7 @@ use PHPUnit\Framework\TestCase;
 
 final class MiddlewareLoaderTest extends TestCase
 {
-    private string $tempDir;
+    use UsesTempDirectory;
 
     /** @var list<callable> */
     private array $autoloaders = [];
@@ -24,8 +25,7 @@ final class MiddlewareLoaderTest extends TestCase
     {
         parent::setUp();
 
-        $this->tempDir = sys_get_temp_dir() . '/laravel-modules-middleware-loader-' . bin2hex(random_bytes(6));
-        mkdir($this->tempDir, 0755, true);
+        $this->createTempDirectory('middleware-loader');
     }
 
     protected function tearDown(): void
@@ -35,7 +35,7 @@ final class MiddlewareLoaderTest extends TestCase
         }
 
         $this->autoloaders = [];
-        $this->deleteDirectory($this->tempDir);
+        $this->deleteTempDirectory();
 
         parent::tearDown();
     }
@@ -97,29 +97,5 @@ final class MiddlewareLoaderTest extends TestCase
 
         spl_autoload_register($autoloader);
         $this->autoloaders[] = $autoloader;
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
     }
 }

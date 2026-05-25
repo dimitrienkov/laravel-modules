@@ -12,8 +12,8 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -32,7 +32,6 @@ final class ModuleManifestRepositoryTest extends TestCase
         $this->modulePath = $this->tempDir . '/app/Modules/Blog';
 
         mkdir($this->modulePath, 0755, true);
-        $this->writeComposer();
     }
 
     protected function tearDown(): void
@@ -231,7 +230,7 @@ final class ModuleManifestRepositoryTest extends TestCase
             layout: new ModuleLayout(),
             writer: new AtomicJsonWriter(),
             validator: new ManifestValidator(),
-            namespaceResolver: new ComposerNamespaceResolver($this->tempDir),
+            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
         );
     }
 
@@ -268,20 +267,6 @@ final class ModuleManifestRepositoryTest extends TestCase
                 ],
             ],
         ];
-    }
-
-    private function writeComposer(): void
-    {
-        file_put_contents(
-            $this->tempDir . '/composer.json',
-            json_encode([
-                'autoload' => [
-                    'psr-4' => [
-                        'App\\' => 'app/',
-                    ],
-                ],
-            ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
-        );
     }
 
     /**

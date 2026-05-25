@@ -9,6 +9,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Filesystem\Filesystem;
+use ReflectionClass;
 
 final readonly class PolicyLoader implements LoaderInterface
 {
@@ -48,10 +49,14 @@ final readonly class PolicyLoader implements LoaderInterface
     {
         $basename = basename($file, '.php');
         $policyFqcn = $module->namespace . '\\Domain\\Policies\\' . $basename;
-        $modelName = substr($basename, 0, -6);
+        $modelName = substr($basename, 0, -\strlen('Policy'));
         $modelFqcn = $module->namespace . '\\Domain\\Models\\' . $modelName;
 
         if (! class_exists($policyFqcn) || ! class_exists($modelFqcn)) {
+            return;
+        }
+
+        if ((new ReflectionClass($policyFqcn))->isAbstract()) {
             return;
         }
 

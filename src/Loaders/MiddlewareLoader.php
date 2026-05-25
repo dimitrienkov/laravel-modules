@@ -36,20 +36,25 @@ final readonly class MiddlewareLoader implements LoaderInterface
                 continue;
             }
 
-            $className = basename($file, '.php');
-            $fqcn = $module->namespace . '\\Http\\Middleware\\' . $className;
-
-            if (! class_exists($fqcn)) {
-                continue;
-            }
-
-            $alias = $module->name . '.' . Str::snake($className);
-            $this->router->aliasMiddleware($alias, $fqcn);
+            $this->registerMiddleware($module, $file);
         }
     }
 
     public function priority(): int
     {
         return 45;
+    }
+
+    private function registerMiddleware(Module $module, string $file): void
+    {
+        $className = basename($file, '.php');
+        $fqcn = $module->namespace . '\\Http\\Middleware\\' . $className;
+
+        if (! class_exists($fqcn)) {
+            return;
+        }
+
+        $alias = $module->name . '.' . Str::snake($className);
+        $this->router->aliasMiddleware($alias, $fqcn);
     }
 }

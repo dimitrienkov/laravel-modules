@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Loaders\Pipeline;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 
 final readonly class ModuleLoaderPipeline
 {
@@ -15,6 +16,7 @@ final readonly class ModuleLoaderPipeline
     public function __construct(
         private ModuleRegistryInterface $registry,
         private iterable $loaders,
+        private ExceptionHandler $exceptionHandler,
     ) {
     }
 
@@ -29,7 +31,11 @@ final readonly class ModuleLoaderPipeline
                     continue;
                 }
 
-                $loader->load($module);
+                try {
+                    $loader->load($module);
+                } catch (\Throwable $exception) {
+                    $this->exceptionHandler->report($exception);
+                }
             }
         }
     }

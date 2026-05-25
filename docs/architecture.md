@@ -34,9 +34,19 @@ Default loaders tagged через `ModuleLoaderServiceProvider::LOADER_TAG`.
 | `ServiceProviderLoader` | 20 | `Providers/*ServiceProvider.php` |
 | `MigrationLoader` | 30 | `Database/Migrations/` |
 | `FactoryLoader` | 31 | `Database/Factories/` |
+| `LangLoader` | 32 | `Lang/` |
+| `ViewLoader` | 33 | `Resources/views/` |
+| `BladeComponentLoader` | 34 | `View/Components/` |
+| `EventLoader` | 35 | `Domain/Listeners/` |
+| `ObserverLoader` | 36 | `Domain/Observers/` |
+| `PolicyLoader` | 37 | `Domain/Policies/` |
+| `CommandLoader` | 40 | `Console/Commands/` |
+| `MiddlewareLoader` | 45 | `Http/Middleware/` |
 | `RouteLoader` | 50 | `Routes/api.php`, `Routes/api/*.php`, `Routes/web.php`, `Routes/inertia.php` |
+| `ConsoleRouteLoader` | 51 | `Routes/console.php` |
+| `BroadcastLoader` | 52 | `Routes/channels.php` |
 
-Меньшее значение priority выполняется раньше.
+Меньшее значение priority выполняется раньше. Pipeline изолирует ошибки: исключение в одном loader не останавливает загрузку остальных.
 
 ## Custom loader example
 

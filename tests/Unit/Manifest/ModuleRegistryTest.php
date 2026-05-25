@@ -11,9 +11,9 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
@@ -29,7 +29,6 @@ final class ModuleRegistryTest extends TestCase
 
         $this->tempDir = sys_get_temp_dir() . '/laravel-modules-registry-' . bin2hex(random_bytes(6));
         mkdir($this->tempDir . '/app/Modules', 0755, true);
-        $this->writeComposer();
     }
 
     protected function tearDown(): void
@@ -134,7 +133,7 @@ final class ModuleRegistryTest extends TestCase
                 layout: $layout,
                 writer: new AtomicJsonWriter(),
                 validator: $validator,
-                namespaceResolver: new ComposerNamespaceResolver($this->tempDir),
+                namespaceResolver: new FakeNamespaceResolver($this->tempDir),
             ),
             sorter: new TopologicalSorter(),
             scanner: new ModuleDirectoryScanner(
@@ -173,20 +172,6 @@ final class ModuleRegistryTest extends TestCase
                 'values' => [],
             ],
         ];
-    }
-
-    private function writeComposer(): void
-    {
-        file_put_contents(
-            $this->tempDir . '/composer.json',
-            json_encode([
-                'autoload' => [
-                    'psr-4' => [
-                        'App\\' => 'app/',
-                    ],
-                ],
-            ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
-        );
     }
 
     /**

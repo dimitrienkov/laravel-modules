@@ -6,7 +6,7 @@
 
 `dimitrienkov0/laravel-modules` — manifest-driven Laravel-пакет для модульной архитектуры приложений. Текущий срез v2.0 core реализует обнаружение модулей по `module.json`, типизированный manifest layer, dependency-aware `ModuleRegistry`, loader-pipeline, runtime feature toggles, production cache и опциональный MoonShine autoload bridge.
 
-Команды жизненного цикла установки/обновления модулей, генераторы `make:* --module`, дополнительные лоадеры и полноценный MoonShine admin-UI описаны в roadmap, но не должны документироваться как уже реализованные.
+Команды жизненного цикла установки/обновления модулей, генераторы `make:* --module` и полноценный MoonShine admin-UI описаны в roadmap, но не должны документироваться как уже реализованные.
 
 ## Технологический стек
 
@@ -76,7 +76,7 @@
 - `ModuleManifestRepository` валидирует manifest и гидратирует VO из `src/Manifest/VO`.
 - `TopologicalSorter` сортирует модули по `meta.dependencies` и проверяет Composer SemVer constraints.
 - `ModuleRegistry` читает `bootstrap/cache/modules.php`, если cache существует, иначе сканирует файловую систему.
-- `ModuleLoaderPipeline` запускает default loaders: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `RouteLoader`.
+- `ModuleLoaderPipeline` запускает 15 default loaders: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`. Pipeline изолирует ошибки: исключение в одном loader не останавливает загрузку остальных.
 - `MoonShineModuleAutoloader` подключается только при наличии MoonShine `CoreContract`.
 - `FeatureRepositoryInterface` биндится как scoped и читает актуальные `settings.values` из `module.json`, а не из production cache.
 

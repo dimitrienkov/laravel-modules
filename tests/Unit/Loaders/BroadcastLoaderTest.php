@@ -7,31 +7,32 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 use DimitrienkoV\LaravelModules\Loaders\BroadcastLoader;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\Application;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 final class BroadcastLoaderTest extends TestCase
 {
-    private string $tempDir;
+    use UsesTempDirectory;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->tempDir = sys_get_temp_dir() . '/laravel-modules-broadcast-loader-' . bin2hex(random_bytes(6));
-        mkdir($this->tempDir, 0755, true);
+        $this->createTempDirectory('broadcast-loader');
     }
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->tempDir);
+        $this->deleteTempDirectory();
 
         parent::tearDown();
     }
 
     #[Test]
-    public function it_requires_channels_file_when_it_exists(): void
+    public function it_defers_channels_file_until_app_boot(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $channelsFile = $modulePath . '/Routes/channels.php';
@@ -40,8 +41,14 @@ final class BroadcastLoaderTest extends TestCase
         $marker = 'BROADCAST_LOADED_' . bin2hex(random_bytes(4));
         file_put_contents($channelsFile, "<?php define('{$marker}', true);");
 
-        (new BroadcastLoader(new Filesystem(), new ModuleLayout()))
+        $app = new Application($this->tempDir);
+
+        (new BroadcastLoader($app, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath));
+
+        self::assertFalse(\defined($marker));
+
+        $app->boot();
 
         self::assertTrue(\defined($marker));
     }
@@ -51,33 +58,13 @@ final class BroadcastLoaderTest extends TestCase
     {
         $marker = 'BROADCAST_NOT_LOADED_' . bin2hex(random_bytes(4));
 
-        (new BroadcastLoader(new Filesystem(), new ModuleLayout()))
+        $app = new Application($this->tempDir);
+
+        (new BroadcastLoader($app, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
 
+        $app->boot();
+
         self::assertFalse(\defined($marker));
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
     }
 }
