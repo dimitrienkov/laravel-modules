@@ -6,7 +6,7 @@
 
 `dimitrienkov0/laravel-modules` — manifest-driven Laravel-пакет для модульной архитектуры приложений. Текущий срез v2.0 core реализует обнаружение модулей по `module.json`, типизированный manifest layer, dependency-aware `ModuleRegistry`, loader-pipeline, runtime feature toggles, production cache и опциональный MoonShine autoload bridge.
 
-Команды жизненного цикла установки/обновления модулей, генераторы `make:* --module`, дополнительные лоадеры и полноценный MoonShine admin-UI описаны в roadmap, но не должны документироваться как уже реализованные.
+Команды жизненного цикла установки/обновления модулей, генераторы `make:* --module` и полноценный MoonShine admin-UI описаны в roadmap, но не должны документироваться как уже реализованные.
 
 ## Технологический стек
 
@@ -35,7 +35,7 @@
 │   ├── MoonShine/                    # MoonShineModuleAutoloader, optional bridge
 │   ├── Providers/                    # ModuleLoaderServiceProvider
 │   ├── Registry/                     # ModuleDirectoryScanner, ModuleRegistryCache
-│   └── Support/                      # ModuleLayout, AtomicJsonWriter, TopologicalSorter, namespace resolver
+│   └── Support/                      # ModuleLayout, AtomicFileWriter, AtomicJsonWriter, ContainerLifecycleHooks, TopologicalSorter, ApplicationNamespaceResolver
 ├── config/
 │   └── modules.php                   # дефолтные директории модулей и route types
 ├── tests/
@@ -76,7 +76,7 @@
 - `ModuleManifestRepository` валидирует manifest и гидратирует VO из `src/Manifest/VO`.
 - `TopologicalSorter` сортирует модули по `meta.dependencies` и проверяет Composer SemVer constraints.
 - `ModuleRegistry` читает `bootstrap/cache/modules.php`, если cache существует, иначе сканирует файловую систему.
-- `ModuleLoaderPipeline` запускает default loaders: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `RouteLoader`.
+- `ModuleLoaderPipeline` запускает 15 default loaders: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`. Pipeline изолирует ошибки: исключение в одном loader не останавливает загрузку остальных.
 - `MoonShineModuleAutoloader` подключается только при наличии MoonShine `CoreContract`.
 - `FeatureRepositoryInterface` биндится как scoped и читает актуальные `settings.values` из `module.json`, а не из production cache.
 
@@ -114,6 +114,6 @@
 - **Никаких фасадов и хелперов в `src/`.** Только DI; архитектурные тесты запрещают `Illuminate\Support\Facades`.
 - **Никаких `dd()`/`dump()`/`var_dump()`/`print_r()`/`exit()`/`die()` в `src/`.** Архитектурный тест поломается.
 - **`declare(strict_types=1);` обязателен** в каждом новом `.php`-файле под `src/`, `tests/` и `stubs/`, если `stubs/` существует.
-- **Пиши `module.json` только через `ModuleManifestRepository::save()` или его публичные методы.** Не используй прямой `file_put_contents` для manifest writes.
+- **Пиши `module.json` только через `ModuleManifestRepository::saveValues()` или `updateState()`.** Не используй прямой `file_put_contents` для manifest writes.
 - **Перед PR/коммитом запускай проверки отдельно:** `composer format`, `composer phpstan`, `composer test`. Для review также полезны `composer format:dry` и `composer rector:dry`.
 - **PR title — на английском в Conventional Commits формате.** Остальные секции PR-шаблона ведутся на русском.

@@ -6,6 +6,9 @@ namespace DimitrienkoV\LaravelModules\Loaders\Pipeline;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleLoaderException;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Throwable;
 
 final readonly class ModuleLoaderPipeline
 {
@@ -15,6 +18,7 @@ final readonly class ModuleLoaderPipeline
     public function __construct(
         private ModuleRegistryInterface $registry,
         private iterable $loaders,
+        private ExceptionHandler $exceptionHandler,
     ) {
     }
 
@@ -29,7 +33,13 @@ final readonly class ModuleLoaderPipeline
                     continue;
                 }
 
-                $loader->load($module);
+                try {
+                    $loader->load($module);
+                } catch (Throwable $exception) {
+                    $this->exceptionHandler->report(
+                        ModuleLoaderException::forLoaderFailure($loader, $module, $exception),
+                    );
+                }
             }
         }
     }
@@ -39,16 +49,18 @@ final readonly class ModuleLoaderPipeline
      */
     private function sortedLoaders(): array
     {
-        $loaders = [];
+        $indexed = [];
+        $position = 0;
         foreach ($this->loaders as $loader) {
-            $loaders[] = $loader;
+            $indexed[] = ['loader' => $loader, 'position' => $position++];
         }
 
         usort(
-            $loaders,
-            static fn (LoaderInterface $left, LoaderInterface $right): int => $left->priority() <=> $right->priority(),
+            $indexed,
+            static fn (array $left, array $right): int => $left['loader']->priority() <=> $right['loader']->priority()
+                ?: $left['position'] <=> $right['position'],
         );
 
-        return $loaders;
+        return array_column($indexed, 'loader');
     }
 }

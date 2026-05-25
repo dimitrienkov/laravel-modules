@@ -7,25 +7,29 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 use DimitrienkoV\LaravelModules\Loaders\FactoryLoader;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\Application;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 final class FactoryLoaderTest extends TestCase
 {
-    private string $tempDir;
+    use UsesTempDirectory;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->tempDir = sys_get_temp_dir() . '/laravel-modules-factory-loader-' . bin2hex(random_bytes(6));
-        mkdir($this->tempDir, 0755, true);
+        Factory::flushState();
+        $this->createTempDirectory('factory-loader');
     }
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->tempDir);
+        Factory::flushState();
+        $this->deleteTempDirectory();
 
         parent::tearDown();
     }
@@ -35,7 +39,7 @@ final class FactoryLoaderTest extends TestCase
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath . '/Database/Factories', 0755, true);
-        $loader = new FactoryLoader(new Filesystem(), new ModuleLayout());
+        $loader = $this->loader();
 
         $loader->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
@@ -50,37 +54,43 @@ final class FactoryLoaderTest extends TestCase
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath, 0755, true);
-        $loader = new FactoryLoader(new Filesystem(), new ModuleLayout());
+        $loader = $this->loader();
 
         $loader->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
         self::assertSame(
             'Database\\Factories\\PostFactory',
-            $loader->factoryClassFor('App\\Modules\\Blog\\Domain\\Models\\Post'),
+            $loader->factoryClassFor('App\\Models\\Post'),
         );
     }
 
-    private function deleteDirectory(string $directory): void
+    #[Test]
+    public function it_preserves_existing_host_factory_resolver_for_non_module_models(): void
     {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
+        Factory::guessFactoryNamesUsing(
+            static fn (string $modelClass): string => 'Host\\Database\\Factories\\'
+                . basename(str_replace('\\', '/', $modelClass))
+                . 'Factory',
         );
 
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
+        $modulePath = $this->tempDir . '/Blog';
+        mkdir($modulePath . '/Database/Factories', 0755, true);
+        $loader = $this->loader();
 
-                continue;
-            }
+        $loader->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
-            unlink($fileInfo->getPathname());
-        }
+        self::assertSame(
+            'App\\Modules\\Blog\\Database\\Factories\\PostFactory',
+            Factory::resolveFactoryName('App\\Modules\\Blog\\Domain\\Models\\Post'),
+        );
+        self::assertSame(
+            'Host\\Database\\Factories\\UserFactory',
+            Factory::resolveFactoryName('App\\Models\\User'),
+        );
+    }
 
-        rmdir($directory);
+    private function loader(): FactoryLoader
+    {
+        return new FactoryLoader(new Application($this->tempDir), new Filesystem(), new ModuleLayout());
     }
 }

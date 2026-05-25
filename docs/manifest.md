@@ -74,7 +74,7 @@
 | `license` | Нет | License string |
 | `dependencies` | Нет | Map `moduleName => Composer SemVer constraint` |
 
-Dependencies можно задавать object-формой:
+Dependencies задаются только object-формой:
 
 ```json
 {
@@ -84,23 +84,7 @@ Dependencies можно задавать object-формой:
 }
 ```
 
-Short list form нормализуется в wildcard constraints:
-
-```json
-{
-  "dependencies": ["users"]
-}
-```
-
-Нормализованный результат эквивалентен:
-
-```json
-{
-  "dependencies": {
-    "users": "*"
-  }
-}
-```
+List-form dependencies не являются валидным manifest contract в v2.0 core. Для wildcard constraint указывайте `"*"` явно.
 
 ## `state`
 
@@ -129,7 +113,7 @@ State writes должны идти через `ModuleManifestRepository::updateS
 
 Runtime values валидируются против schema при чтении и записи. Missing values берут default из schema без записи default-значений в файл.
 
-Manifest writes должны идти через `ModuleManifestRepository::save()` или публичные update-методы repository. Прямой `file_put_contents()` может обойти validation и atomic write behavior.
+Manifest writes должны идти через `ModuleManifestRepository::saveValues()` или `updateState()`. Прямой `file_put_contents()` может обойти validation и atomic write behavior.
 
 ## See Also
 

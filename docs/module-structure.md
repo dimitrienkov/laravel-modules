@@ -10,20 +10,35 @@
 app/Modules/Blog/
 |-- Config/
 |   `-- blog.php
+|-- Console/
+|   `-- Commands/
+|       `-- PublishPostCommand.php
 |-- Database/
 |   |-- Factories/
 |   `-- Migrations/
 |-- Domain/
-|   `-- Models/
+|   |-- Listeners/
+|   |-- Models/
+|   |-- Observers/
+|   `-- Policies/
+|-- Http/
+|   `-- Middleware/
+|-- Lang/
 |-- Providers/
 |   `-- BlogServiceProvider.php
+|-- Resources/
+|   `-- views/
 |-- Routes/
 |   |-- api.php
 |   |-- api/
 |   |   |-- v1.php
 |   |   `-- v2.php
 |   |-- web.php
-|   `-- inertia.php
+|   |-- inertia.php
+|   |-- console.php
+|   `-- channels.php
+|-- View/
+|   `-- Components/
 `-- module.json
 ```
 
@@ -31,36 +46,36 @@ Host-приложение может хранить внутри модуля с
 
 ## Загружаемые пути
 
-| Путь | Loader | Runtime behavior |
-|------|--------|------------------|
-| `Config/*.php` | `ConfigLoader` | Merges config под ключом `<module>.<config-name>` |
-| `Providers/*ServiceProvider.php` | `ServiceProviderLoader` | Регистрирует service providers модуля по namespace |
-| `Database/Migrations/` | `MigrationLoader` | Добавляет migration paths в Laravel migrator |
-| `Database/Factories/` | `FactoryLoader` | Добавляет module factory namespace guessing |
-| `Routes/api.php` | `RouteLoader` | Загружает с attributes из `modules.routing.types.api` |
-| `Routes/api/*.php` | `RouteLoader` | Загружает versioned API routes, например `api/v1` |
-| `Routes/web.php` | `RouteLoader` | Загружает с attributes из `modules.routing.types.web` |
-| `Routes/inertia.php` | `RouteLoader` | Загружает только при установленной Inertia |
+| Путь | Loader | Priority | Runtime behavior |
+|------|--------|----------|------------------|
+| `Config/*.php` | `ConfigLoader` | 10 | Merges config под ключом `<module>.<config-name>` |
+| `Providers/*ServiceProvider.php` | `ServiceProviderLoader` | 20 | Регистрирует service providers модуля по namespace |
+| `Database/Migrations/` | `MigrationLoader` | 30 | Добавляет migration paths в Laravel migrator |
+| `Database/Factories/` | `FactoryLoader` | 31 | Добавляет module factory namespace guessing |
+| `Lang/` | `LangLoader` | 32 | Регистрирует translation namespace `<module_name>` |
+| `Resources/views/` | `ViewLoader` | 33 | Регистрирует view namespace `<module_name>` |
+| `View/Components/` | `BladeComponentLoader` | 34 | Регистрирует Blade component namespace |
+| `Domain/Listeners/` | `EventLoader` | 35 | Добавляет event discovery paths |
+| `Domain/Observers/` | `ObserverLoader` | 36 | Регистрирует observers для matching моделей |
+| `Domain/Policies/` | `PolicyLoader` | 37 | Регистрирует policies для matching моделей |
+| `Console/Commands/` | `CommandLoader` | 40 | Регистрирует command paths через Laravel kernel |
+| `Http/Middleware/` | `MiddlewareLoader` | 45 | Регистрирует middleware aliases `<module>.<snake_name>` |
+| `Routes/api.php` | `RouteLoader` | 50 | Загружает с attributes из `modules.routing.types.api` |
+| `Routes/api/*.php` | `RouteLoader` | 50 | Загружает versioned API routes, например `api/v1` |
+| `Routes/web.php` | `RouteLoader` | 50 | Загружает с attributes из `modules.routing.types.web` |
+| `Routes/inertia.php` | `RouteLoader` | 50 | Загружает только при установленной Inertia |
+| `Routes/console.php` | `ConsoleRouteLoader` | 51 | Регистрирует console routes через kernel (deferred до boot) |
+| `Routes/channels.php` | `BroadcastLoader` | 52 | Загружает broadcast channels (deferred до boot) |
 
-Каждый loader проверяет наличие своего пути и завершает работу ранним return, если загружать нечего.
+Каждый loader проверяет наличие своего пути и завершает работу ранним return, если загружать нечего. Модули должны находиться внутри `app_path()` Laravel-приложения.
 
 ## Namespace resolution
 
-Namespaces модулей вычисляются из Composer PSR-4 autoload host-приложения. Пакет не использует hardcoded `App\\` prefix.
+Namespaces модулей вычисляются из `Application::getNamespace()` и `Application::path()` Laravel-приложения. Модули должны находиться внутри `app_path()`.
 
-Пример host mapping:
+Для `app/Modules/Blog` при стандартном `App\\` namespace модуля будет `App\Modules\Blog`.
 
-```json
-{
-  "autoload": {
-    "psr-4": {
-      "App\\": "app/"
-    }
-  }
-}
-```
-
-Для `app/Modules/Blog` namespace будет `App\Modules\Blog`.
+Кастомный `modules.paths.directories` должен указывать директории внутри `app_path()`.
 
 ## Enabled state
 
@@ -78,22 +93,9 @@ Disabled-модули могут быть обнаружены registry, но de
 
 ## Roadmap-only пути
 
-`ModuleLayout` уже знает несколько будущих путей, но текущий core не содержит runtime loaders для них:
-
 | Путь | Текущий статус |
 |------|----------------|
-| `Lang/` | Roadmap |
-| `Resources/views/` | Roadmap |
-| `View/Components/` | Roadmap |
-| `Console/Commands/` | Roadmap |
-| `Routes/console.php` | Roadmap |
-| `Routes/channels.php` | Roadmap |
-| `Domain/Observers/` | Roadmap |
-| `Domain/Policies/` | Roadmap |
-| `Http/Middleware/` | Roadmap |
 | `MoonShine/` admin pages/resources | Roadmap |
-
-Документируйте эти пути как extension points или roadmap, а не как реализованные loaders.
 
 ## See Also
 

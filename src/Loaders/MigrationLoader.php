@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Filesystem\Filesystem;
@@ -13,7 +14,7 @@ use Illuminate\Filesystem\Filesystem;
 final readonly class MigrationLoader implements LoaderInterface
 {
     public function __construct(
-        private Migrator $migrator,
+        private ContainerLifecycleHooks $hooks,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
     ) {
@@ -27,7 +28,12 @@ final readonly class MigrationLoader implements LoaderInterface
             return;
         }
 
-        $this->migrator->path($migrationsDir);
+        $this->hooks->callAfterResolving(
+            'migrator',
+            static function (Migrator $migrator) use ($migrationsDir): void {
+                $migrator->path($migrationsDir);
+            },
+        );
     }
 
     public function priority(): int

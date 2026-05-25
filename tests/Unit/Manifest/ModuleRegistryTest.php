@@ -5,15 +5,17 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
 
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
+use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
@@ -29,7 +31,6 @@ final class ModuleRegistryTest extends TestCase
 
         $this->tempDir = sys_get_temp_dir() . '/laravel-modules-registry-' . bin2hex(random_bytes(6));
         mkdir($this->tempDir . '/app/Modules', 0755, true);
-        $this->writeComposer();
     }
 
     protected function tearDown(): void
@@ -105,22 +106,25 @@ final class ModuleRegistryTest extends TestCase
     }
 
     #[Test]
-    public function it_builds_v2_cache_payload_from_scanned_modules(): void
+    public function it_writes_v2_cache_from_scanned_modules(): void
     {
         $this->writeModule('Users', $this->manifest('users', '1.0.0'));
 
-        $payload = $this->registry()->buildCachePayload();
+        $result = $this->registry()->writeCache();
 
+        self::assertFileExists($result['path']);
+        self::assertSame(1, $result['count']);
+
+        $payload = require $result['path'];
         self::assertSame(2, $payload['version']);
         self::assertSame(['users'], $payload['load_order']);
-        self::assertArrayHasKey('users', $payload['modules']);
         self::assertSame('App\\Modules\\Users', $payload['modules']['users']['namespace']);
     }
 
     private function registry(): ModuleRegistry
     {
         $layout = new ModuleLayout();
-        $validator = new ManifestValidator();
+        $validator = new ManifestValidator(new ManifestSettingsValidator());
         $config = new Repository([
             'modules' => [
                 'paths' => [
@@ -134,7 +138,8 @@ final class ModuleRegistryTest extends TestCase
                 layout: $layout,
                 writer: new AtomicJsonWriter(),
                 validator: $validator,
-                namespaceResolver: new ComposerNamespaceResolver($this->tempDir),
+                namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+                documentReader: new ManifestDocumentReader(),
             ),
             sorter: new TopologicalSorter(),
             scanner: new ModuleDirectoryScanner(
@@ -142,6 +147,7 @@ final class ModuleRegistryTest extends TestCase
                 filesystem: new Filesystem(),
                 layout: $layout,
                 basePath: $this->tempDir,
+                appPath: $this->tempDir . '/app',
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,
@@ -173,20 +179,6 @@ final class ModuleRegistryTest extends TestCase
                 'values' => [],
             ],
         ];
-    }
-
-    private function writeComposer(): void
-    {
-        file_put_contents(
-            $this->tempDir . '/composer.json',
-            json_encode([
-                'autoload' => [
-                    'psr-4' => [
-                        'App\\' => 'app/',
-                    ],
-                ],
-            ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
-        );
     }
 
     /**

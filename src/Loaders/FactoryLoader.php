@@ -7,9 +7,11 @@ namespace DimitrienkoV\LaravelModules\Loaders;
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
+use Throwable;
 
 final class FactoryLoader implements LoaderInterface
 {
@@ -18,9 +20,12 @@ final class FactoryLoader implements LoaderInterface
      */
     private array $factoryNamespacesByModelNamespace = [];
 
+    private mixed $previousFactoryNameResolver = null;
+
     private bool $registered = false;
 
     public function __construct(
+        private readonly Application $app,
         private readonly Filesystem $filesystem,
         private readonly ModuleLayout $layout,
     ) {
@@ -34,13 +39,14 @@ final class FactoryLoader implements LoaderInterface
             return;
         }
 
-        $this->factoryNamespacesByModelNamespace[$module->namespace . '\\Domain\\Models\\'] =
-            $module->namespace . '\\Database\\Factories\\';
+        $this->factoryNamespacesByModelNamespace[$this->layout->modelNamespace($module) . '\\'] =
+            $this->layout->factoryNamespace($module) . '\\';
 
         if ($this->registered) {
             return;
         }
 
+        $this->previousFactoryNameResolver = $this->currentFactoryNameResolver();
         Factory::guessFactoryNamesUsing($this->factoryClassForModel(...));
         $this->registered = true;
     }
@@ -64,9 +70,11 @@ final class FactoryLoader implements LoaderInterface
             return $factoryClass;
         }
 
-        $modelBaseName = basename(str_replace('\\', '/', $modelClass));
+        if (\is_callable($this->previousFactoryNameResolver)) {
+            return ($this->previousFactoryNameResolver)($modelClass);
+        }
 
-        return 'Database\\Factories\\' . $modelBaseName . 'Factory';
+        return $this->defaultFactoryClassFor($modelClass);
     }
 
     /**
@@ -80,5 +88,45 @@ final class FactoryLoader implements LoaderInterface
         $factoryClass = $this->factoryClassFor($modelClass);
 
         return $factoryClass;
+    }
+
+    private function currentFactoryNameResolver(): mixed
+    {
+        try {
+            $property = new \ReflectionProperty(Factory::class, 'factoryNameResolver');
+
+            return $property->getValue();
+        } catch (\ReflectionException) {
+            return null;
+        }
+    }
+
+    private function defaultFactoryClassFor(string $modelClass): string
+    {
+        $appNamespace = $this->applicationNamespace();
+        $modelsNamespace = $appNamespace . 'Models\\';
+
+        if (str_starts_with($modelClass, $modelsNamespace)) {
+            $modelName = substr($modelClass, \strlen($modelsNamespace));
+        } elseif (str_starts_with($modelClass, $appNamespace)) {
+            $modelName = substr($modelClass, \strlen($appNamespace));
+        } else {
+            $modelName = $modelClass;
+        }
+
+        return Factory::$namespace . $modelName . 'Factory';
+    }
+
+    private function applicationNamespace(): string
+    {
+        try {
+            if (! is_file($this->app->basePath('composer.json'))) {
+                return 'App\\';
+            }
+
+            return $this->app->getNamespace();
+        } catch (Throwable) {
+            return 'App\\';
+        }
     }
 }

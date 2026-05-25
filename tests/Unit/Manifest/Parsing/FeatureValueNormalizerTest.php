@@ -17,7 +17,7 @@ final class FeatureValueNormalizerTest extends TestCase
     {
         self::assertTrue(FeatureValueNormalizer::normalize(
             'key',
-            FeatureType::Bool,
+            FeatureType::Boolean,
             true,
             null,
             null,
@@ -35,7 +35,7 @@ final class FeatureValueNormalizerTest extends TestCase
 
         FeatureValueNormalizer::normalize(
             'key',
-            FeatureType::Bool,
+            FeatureType::Boolean,
             1,
             null,
             null,
@@ -50,7 +50,7 @@ final class FeatureValueNormalizerTest extends TestCase
     {
         self::assertSame(5, FeatureValueNormalizer::normalize(
             'key',
-            FeatureType::Int,
+            FeatureType::Integer,
             5,
             1,
             10,
@@ -68,7 +68,7 @@ final class FeatureValueNormalizerTest extends TestCase
 
         FeatureValueNormalizer::normalize(
             'key',
-            FeatureType::Int,
+            FeatureType::Integer,
             3,
             5,
             10,
@@ -86,7 +86,7 @@ final class FeatureValueNormalizerTest extends TestCase
 
         FeatureValueNormalizer::normalize(
             'key',
-            FeatureType::Int,
+            FeatureType::Integer,
             15,
             1,
             10,

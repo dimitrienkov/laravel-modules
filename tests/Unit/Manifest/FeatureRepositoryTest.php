@@ -8,6 +8,8 @@ use DimitrienkoV\LaravelModules\Exceptions\FeatureNotFoundException;
 use DimitrienkoV\LaravelModules\Exceptions\FeatureTypeMismatchException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
+use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
@@ -15,9 +17,9 @@ use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
@@ -37,7 +39,6 @@ final class FeatureRepositoryTest extends TestCase
         $this->modulePath = $this->tempDir . '/app/Modules/Blog';
 
         mkdir($this->modulePath, 0755, true);
-        $this->writeComposer();
         $this->writeManifest(['comments_enabled' => false, 'posts_per_page' => 20]);
     }
 
@@ -53,9 +54,9 @@ final class FeatureRepositoryTest extends TestCase
     {
         $features = $this->featureRepository();
 
-        self::assertFalse($features->bool('blog', 'comments_enabled'));
-        self::assertSame(20, $features->int('blog', 'posts_per_page'));
-        self::assertSame('light', $features->string('blog', 'theme'));
+        self::assertFalse($features->getBool('blog', 'comments_enabled'));
+        self::assertSame(20, $features->getInt('blog', 'posts_per_page'));
+        self::assertSame('light', $features->getString('blog', 'theme'));
         self::assertSame('light', $features->get('blog', 'theme'));
     }
 
@@ -74,7 +75,7 @@ final class FeatureRepositoryTest extends TestCase
         $this->expectException(FeatureTypeMismatchException::class);
         $this->expectExceptionMessage('must be [int]');
 
-        $this->featureRepository()->int('blog', 'comments_enabled');
+        $this->featureRepository()->getInt('blog', 'comments_enabled');
     }
 
     #[Test]
@@ -82,12 +83,12 @@ final class FeatureRepositoryTest extends TestCase
     {
         $features = $this->featureRepository();
 
-        self::assertFalse($features->bool('blog', 'comments_enabled'));
+        self::assertFalse($features->getBool('blog', 'comments_enabled'));
 
         $this->updateValues(['comments_enabled' => true, 'posts_per_page' => 20]);
 
-        self::assertFalse($features->bool('blog', 'comments_enabled'));
-        self::assertTrue($this->featureRepository()->bool('blog', 'comments_enabled'));
+        self::assertFalse($features->getBool('blog', 'comments_enabled'));
+        self::assertTrue($this->featureRepository()->getBool('blog', 'comments_enabled'));
     }
 
     #[Test]
@@ -95,7 +96,7 @@ final class FeatureRepositoryTest extends TestCase
     {
         $features = $this->featureRepository();
 
-        self::assertSame('light', $features->string('blog', 'theme'));
+        self::assertSame('light', $features->getString('blog', 'theme'));
     }
 
     #[Test]
@@ -104,7 +105,7 @@ final class FeatureRepositoryTest extends TestCase
         $this->expectException(FeatureTypeMismatchException::class);
         $this->expectExceptionMessage('must be [string]');
 
-        $this->featureRepository()->string('blog', 'comments_enabled');
+        $this->featureRepository()->getString('blog', 'comments_enabled');
     }
 
     #[Test]
@@ -127,7 +128,7 @@ final class FeatureRepositoryTest extends TestCase
     private function registry(): ModuleRegistry
     {
         $layout = new ModuleLayout();
-        $validator = new ManifestValidator();
+        $validator = new ManifestValidator(new ManifestSettingsValidator());
         $config = new Repository([
             'modules' => [
                 'paths' => [
@@ -144,6 +145,7 @@ final class FeatureRepositoryTest extends TestCase
                 filesystem: new Filesystem(),
                 layout: $layout,
                 basePath: $this->tempDir,
+                appPath: $this->tempDir . '/app',
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,
@@ -160,8 +162,9 @@ final class FeatureRepositoryTest extends TestCase
         return new ModuleManifestRepository(
             layout: $layout,
             writer: new AtomicJsonWriter(),
-            validator: new ManifestValidator(),
-            namespaceResolver: new ComposerNamespaceResolver($this->tempDir),
+            validator: new ManifestValidator(new ManifestSettingsValidator()),
+            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+            documentReader: new ManifestDocumentReader(),
         );
     }
 
@@ -172,7 +175,7 @@ final class FeatureRepositoryTest extends TestCase
     {
         $repository = $this->manifestRepository();
         $module = $repository->load($this->modulePath);
-        $repository->updateFeatureValues(
+        $repository->saveValues(
             $module,
             FeatureValues::fromArray($values, $module->features, $module->name, $module->manifestPath()),
         );
@@ -213,20 +216,6 @@ final class FeatureRepositoryTest extends TestCase
                         ],
                     ],
                     'values' => $values,
-                ],
-            ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
-        );
-    }
-
-    private function writeComposer(): void
-    {
-        file_put_contents(
-            $this->tempDir . '/composer.json',
-            json_encode([
-                'autoload' => [
-                    'psr-4' => [
-                        'App\\' => 'app/',
-                    ],
                 ],
             ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
         );

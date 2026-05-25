@@ -13,11 +13,12 @@ use PHPUnit\Framework\TestCase;
 final class ModuleDependenciesTest extends TestCase
 {
     #[Test]
-    public function it_accepts_valid_snake_case_dependency_names_in_list_form(): void
+    public function it_rejects_list_form_dependencies(): void
     {
-        $deps = ModuleDependencies::fromArray(['users', 'catalog_product'], '/tmp/module.json');
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('list form is not supported');
 
-        self::assertSame(['catalog_product' => '*', 'users' => '*'], $deps->all());
+        ModuleDependencies::fromArray(['users', 'catalog_product'], '/tmp/module.json');
     }
 
     #[Test]
@@ -34,22 +35,21 @@ final class ModuleDependenciesTest extends TestCase
 
     #[Test]
     #[DataProvider('invalidDependencyNameProvider')]
-    public function it_rejects_non_snake_case_dependency_names_in_list_form(string $name): void
-    {
-        $this->expectException(InvalidManifestException::class);
-        $this->expectExceptionMessage('must be lowercase snake_case');
-
-        ModuleDependencies::fromArray([$name], '/tmp/module.json');
-    }
-
-    #[Test]
-    #[DataProvider('invalidDependencyNameProvider')]
     public function it_rejects_non_snake_case_dependency_names_in_object_form(string $name): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('must be lowercase snake_case');
 
         ModuleDependencies::fromArray([$name => '^1.0'], '/tmp/module.json');
+    }
+
+    #[Test]
+    public function it_rejects_empty_constraint(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('non-empty Composer constraint');
+
+        ModuleDependencies::fromArray(['users' => ''], '/tmp/module.json');
     }
 
     #[Test]
@@ -79,6 +79,14 @@ final class ModuleDependenciesTest extends TestCase
         $deps = ModuleDependencies::fromArray(['users' => '^1.0'], '/tmp/module.json');
 
         self::assertNull($deps->constraintFor('nonexistent'));
+    }
+
+    #[Test]
+    public function it_accepts_wildcard_constraint_in_object_form(): void
+    {
+        $deps = ModuleDependencies::fromArray(['users' => '*'], '/tmp/module.json');
+
+        self::assertSame('*', $deps->constraintFor('users'));
     }
 
     /**

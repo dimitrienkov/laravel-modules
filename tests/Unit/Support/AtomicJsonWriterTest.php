@@ -47,7 +47,7 @@ final class AtomicJsonWriterTest extends TestCase
                 'name' => 'blog',
             ],
         ], json_decode($contents, true, flags: JSON_THROW_ON_ERROR));
-        self::assertFileExists($path . '.lock');
+        self::assertFileDoesNotExist($path . '.lock');
     }
 
     #[Test]
@@ -83,6 +83,24 @@ final class AtomicJsonWriterTest extends TestCase
 
         self::assertStringContainsString('Блог с комментариями 🔥', $contents);
         self::assertStringNotContainsString('\u', $contents);
+    }
+
+    #[Test]
+    public function it_reports_target_path_when_json_encode_fails(): void
+    {
+        $path = $this->tempDir . '/module.json';
+        $handle = fopen($this->tempDir . '/resource.txt', 'wb');
+
+        self::assertIsResource($handle);
+
+        try {
+            $this->expectException(ManifestWriteException::class);
+            $this->expectExceptionMessage("Unable to write module manifest [{$path}]");
+
+            (new AtomicJsonWriter())->write($path, ['invalid' => $handle]);
+        } finally {
+            fclose($handle);
+        }
     }
 
     private function deleteDirectory(string $directory): void

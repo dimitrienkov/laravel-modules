@@ -5,9 +5,7 @@
         "version": "1.0.0",
         "author": "Acme",
         "description": "Blog module",
-        "dependencies": [
-            "users"
-        ]
+        "dependencies": ["users"]
     },
     "state": {
         "enabled": true,

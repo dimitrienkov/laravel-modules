@@ -23,7 +23,7 @@ final class FeatureRepository implements FeatureRepositoryInterface
     ) {
     }
 
-    public function bool(string $moduleName, string $key): bool
+    public function getBool(string $moduleName, string $key): bool
     {
         $value = $this->get($moduleName, $key);
 
@@ -39,7 +39,7 @@ final class FeatureRepository implements FeatureRepositoryInterface
         return $this->values($moduleName)->get($moduleName, $key);
     }
 
-    public function int(string $moduleName, string $key): int
+    public function getInt(string $moduleName, string $key): int
     {
         $value = $this->get($moduleName, $key);
 
@@ -50,7 +50,7 @@ final class FeatureRepository implements FeatureRepositoryInterface
         return $value;
     }
 
-    public function string(string $moduleName, string $key): string
+    public function getString(string $moduleName, string $key): string
     {
         $value = $this->get($moduleName, $key);
 

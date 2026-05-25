@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -17,7 +18,7 @@ final class ManifestValidatorTest extends TestCase
     {
         parent::setUp();
 
-        $this->validator = new ManifestValidator();
+        $this->validator = new ManifestValidator(new ManifestSettingsValidator());
     }
 
     #[Test]

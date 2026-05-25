@@ -4,7 +4,7 @@
 
 `dimitrienkov0/laravel-modules` помогает Laravel-приложению находить модули в настроенных директориях, валидировать `module.json`, сортировать модули по зависимостям и загружать enabled-модули через предсказуемый loader-pipeline.
 
-Текущий срез v2.0 core покрывает runtime loading, feature values, production registry cache и optional-интеграции MoonShine/Inertia. Lifecycle-команды, генераторы модулей, дополнительные лоадеры и полноценный admin UI остаются roadmap, а не текущим runtime.
+Текущий срез v2.0 core покрывает runtime loading (15 loaders), feature values, production registry cache и optional-интеграции MoonShine/Inertia. Lifecycle-команды, генераторы модулей и полноценный admin UI остаются roadmap.
 
 ## Quick Start
 
@@ -27,7 +27,7 @@ php artisan modules:optimize
 
 - **Manifest-first modules**: metadata, enabled state, feature schema и feature values живут в `module.json`.
 - **Dependency-aware registry**: модули сортируются по `meta.dependencies` через Composer SemVer constraints.
-- **Loader pipeline**: config, service providers, migrations, factories и routes загружаются в deterministic priority order.
+- **Loader pipeline**: 15 loaders (config, providers, migrations, factories, translations, views, Blade components, events, observers, policies, commands, middleware, routes, console routes, broadcast channels) загружаются в deterministic priority order.
 - **Runtime feature API**: `FeatureRepositoryInterface` читает актуальные `settings.values` из `module.json`.
 - **Production cache**: `modules:optimize` пишет `bootstrap/cache/modules.php` для быстрого discovery.
 - **Optional bridges**: MoonShine и Inertia активируются только при наличии соответствующих пакетов.
@@ -38,17 +38,33 @@ php artisan modules:optimize
 app/Modules/Blog/
 |-- Config/
 |   `-- blog.php
+|-- Console/
+|   `-- Commands/
 |-- Database/
 |   |-- Factories/
 |   `-- Migrations/
+|-- Domain/
+|   |-- Listeners/
+|   |-- Models/
+|   |-- Observers/
+|   `-- Policies/
+|-- Http/
+|   `-- Middleware/
+|-- Lang/
 |-- Providers/
 |   `-- BlogServiceProvider.php
+|-- Resources/
+|   `-- views/
 |-- Routes/
 |   |-- api.php
 |   |-- api/
 |   |   `-- v1.php
 |   |-- web.php
-|   `-- inertia.php
+|   |-- inertia.php
+|   |-- console.php
+|   `-- channels.php
+|-- View/
+|   `-- Components/
 `-- module.json
 ```
 
@@ -97,7 +113,7 @@ final readonly class PostController
 
     public function index(): void
     {
-        $commentsEnabled = $this->features->bool('blog', 'enable_comments');
+        $commentsEnabled = $this->features->getBool('blog', 'enable_comments');
     }
 }
 ```

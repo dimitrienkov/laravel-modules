@@ -10,13 +10,15 @@ use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
+use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Providers\ModuleLoaderServiceProvider;
-use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
+use DimitrienkoV\LaravelModules\Support\ApplicationNamespaceResolver;
+use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase;
@@ -31,7 +33,8 @@ final class ModuleLoaderServiceProviderTest extends TestCase
         $app = $this->application();
 
         self::assertInstanceOf(ManifestValidator::class, $app->make(ManifestValidatorInterface::class));
-        self::assertInstanceOf(ComposerNamespaceResolver::class, $app->make(NamespaceResolverInterface::class));
+        self::assertInstanceOf(ContainerLifecycleHooks::class, $app->make(ContainerLifecycleHooks::class));
+        self::assertInstanceOf(ApplicationNamespaceResolver::class, $app->make(NamespaceResolverInterface::class));
         self::assertInstanceOf(
             ModuleManifestRepository::class,
             $app->make(ModuleManifestRepositoryInterface::class),
@@ -88,6 +91,40 @@ final class ModuleLoaderServiceProviderTest extends TestCase
     }
 
     #[Test]
+    public function it_registers_all_default_loaders_as_tagged_services(): void
+    {
+        $this->provider()->register();
+        $app = $this->application();
+
+        $loaderClasses = array_map(
+            static fn (object $loader): string => $loader::class,
+            iterator_to_array($app->tagged(ModuleLoaderServiceProvider::LOADER_TAG)),
+        );
+
+        $expected = [
+            'DimitrienkoV\\LaravelModules\\Loaders\\ConfigLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\ServiceProviderLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\MigrationLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\FactoryLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\LangLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\ViewLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\BladeComponentLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\EventLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\ObserverLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\PolicyLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\CommandLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\MiddlewareLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\RouteLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\ConsoleRouteLoader',
+            'DimitrienkoV\\LaravelModules\\Loaders\\BroadcastLoader',
+        ];
+
+        sort($expected);
+        sort($loaderClasses);
+        self::assertSame($expected, $loaderClasses);
+    }
+
+    #[Test]
     public function it_boots_without_moonshine_loader_class(): void
     {
         $provider = $this->provider();
@@ -102,6 +139,22 @@ final class ModuleLoaderServiceProviderTest extends TestCase
         );
 
         self::assertNotContains('DimitrienkoV\\LaravelModules\\Loaders\\MoonShineLoader', $loaderClasses);
+    }
+
+    #[Test]
+    public function it_fails_loudly_when_tagged_loader_does_not_implement_contract(): void
+    {
+        $provider = $this->provider();
+        $provider->register();
+        $app = $this->application();
+        $app->instance(ModuleRegistryInterface::class, new FakeRegistry([]));
+        $app->instance('loader.invalid', new \stdClass());
+        $app->tag(['loader.invalid'], ModuleLoaderServiceProvider::LOADER_TAG);
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('must implement [DimitrienkoV\\LaravelModules\\Contracts\\LoaderInterface]');
+
+        $provider->boot();
     }
 
     private function provider(): ModuleLoaderServiceProvider

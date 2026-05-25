@@ -8,6 +8,8 @@ use DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
+use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
@@ -15,9 +17,9 @@ use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
@@ -38,7 +40,6 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $this->modulePath = $this->tempDir . '/app/Modules/Blog';
 
         mkdir($this->modulePath, 0755, true);
-        $this->writeComposer();
         $this->writeManifest(['comments_enabled' => false]);
         $this->bindFeatureServices();
     }
@@ -55,23 +56,23 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
     {
         $firstRequest = $this->application()->make(FeatureRepositoryInterface::class);
 
-        self::assertFalse($firstRequest->bool('blog', 'comments_enabled'));
+        self::assertFalse($firstRequest->getBool('blog', 'comments_enabled'));
 
         $this->updateValues(['comments_enabled' => true]);
 
-        self::assertFalse($firstRequest->bool('blog', 'comments_enabled'));
+        self::assertFalse($firstRequest->getBool('blog', 'comments_enabled'));
 
         $this->application()->forgetScopedInstances();
         $secondRequest = $this->application()->make(FeatureRepositoryInterface::class);
 
-        self::assertTrue($secondRequest->bool('blog', 'comments_enabled'));
+        self::assertTrue($secondRequest->getBool('blog', 'comments_enabled'));
     }
 
     private function bindFeatureServices(): void
     {
         $app = $this->application();
         $layout = new ModuleLayout();
-        $validator = new ManifestValidator();
+        $validator = new ManifestValidator(new ManifestSettingsValidator());
 
         $config = new Repository([
             'modules' => [
@@ -85,7 +86,8 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
             layout: $layout,
             writer: new AtomicJsonWriter(),
             validator: $validator,
-            namespaceResolver: new ComposerNamespaceResolver($this->tempDir),
+            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+            documentReader: new ManifestDocumentReader(),
         ));
 
         $app->instance(ModuleRegistryInterface::class, new ModuleRegistry(
@@ -96,6 +98,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
                 filesystem: new Filesystem(),
                 layout: $layout,
                 basePath: $this->tempDir,
+                appPath: $this->tempDir . '/app',
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,
@@ -114,7 +117,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
     {
         $repository = $this->application()->make(ModuleManifestRepositoryInterface::class);
         $module = $repository->load($this->modulePath);
-        $repository->updateFeatureValues(
+        $repository->saveValues(
             $module,
             FeatureValues::fromArray($values, $module->features, $module->name, $module->manifestPath()),
         );
@@ -145,20 +148,6 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
                         ],
                     ],
                     'values' => $values,
-                ],
-            ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
-        );
-    }
-
-    private function writeComposer(): void
-    {
-        file_put_contents(
-            $this->tempDir . '/composer.json',
-            json_encode([
-                'autoload' => [
-                    'psr-4' => [
-                        'App\\' => 'app/',
-                    ],
                 ],
             ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
         );

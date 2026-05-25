@@ -12,19 +12,39 @@ use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
+use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
+use DimitrienkoV\LaravelModules\Loaders\BladeComponentLoader;
+use DimitrienkoV\LaravelModules\Loaders\BroadcastLoader;
+use DimitrienkoV\LaravelModules\Loaders\CommandLoader;
+use DimitrienkoV\LaravelModules\Loaders\ConfigLoader;
+use DimitrienkoV\LaravelModules\Loaders\ConsoleRouteLoader;
+use DimitrienkoV\LaravelModules\Loaders\EventLoader;
+use DimitrienkoV\LaravelModules\Loaders\FactoryLoader;
+use DimitrienkoV\LaravelModules\Loaders\LangLoader;
+use DimitrienkoV\LaravelModules\Loaders\MiddlewareLoader;
+use DimitrienkoV\LaravelModules\Loaders\MigrationLoader;
+use DimitrienkoV\LaravelModules\Loaders\ObserverLoader;
 use DimitrienkoV\LaravelModules\Loaders\Pipeline\ModuleLoaderPipeline;
+use DimitrienkoV\LaravelModules\Loaders\PolicyLoader;
+use DimitrienkoV\LaravelModules\Loaders\RouteLoader;
+use DimitrienkoV\LaravelModules\Loaders\ServiceProviderLoader;
+use DimitrienkoV\LaravelModules\Loaders\ViewLoader;
 use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
+use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\MoonShine\MoonShineModuleAutoloader;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Support\ApplicationNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
+use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\ServiceProvider;
 use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
@@ -34,14 +54,24 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     public const string LOADER_TAG = 'laravel-modules.loaders';
 
     /**
-     * @var array<int, string>
+     * @var array<int, class-string<LoaderInterface>>
      */
     private const array DEFAULT_LOADERS = [
-        'DimitrienkoV\\LaravelModules\\Loaders\\ConfigLoader',
-        'DimitrienkoV\\LaravelModules\\Loaders\\ServiceProviderLoader',
-        'DimitrienkoV\\LaravelModules\\Loaders\\MigrationLoader',
-        'DimitrienkoV\\LaravelModules\\Loaders\\FactoryLoader',
-        'DimitrienkoV\\LaravelModules\\Loaders\\RouteLoader',
+        ConfigLoader::class,
+        ServiceProviderLoader::class,
+        MigrationLoader::class,
+        FactoryLoader::class,
+        LangLoader::class,
+        ViewLoader::class,
+        BladeComponentLoader::class,
+        EventLoader::class,
+        ObserverLoader::class,
+        PolicyLoader::class,
+        CommandLoader::class,
+        MiddlewareLoader::class,
+        RouteLoader::class,
+        ConsoleRouteLoader::class,
+        BroadcastLoader::class,
     ];
 
     private const string MOONSHINE_CORE_CONTRACT = 'MoonShine\\Contracts\\Core\\DependencyInjection\\CoreContract';
@@ -50,9 +80,11 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom($this->packageConfigPath(), 'modules');
 
-        $this->registerCoreBindings();
+        $this->registerManifestBindings();
+        $this->registerRegistryBindings();
+        $this->registerFeatureBindings();
         $this->registerDefaultLoaders();
-        $this->registerMoonShineIntegration();
+        $this->registerMoonShineBindings();
     }
 
     public function boot(): void
@@ -73,26 +105,27 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             );
         }
 
+        $this->bootMoonShineIntegration();
         $this->pipeline()->boot();
     }
 
-    private function registerCoreBindings(): void
+    private function registerManifestBindings(): void
     {
         $this->app->singleton(ModuleLayout::class);
         $this->app->singleton(AtomicJsonWriter::class);
-        $this->app->singleton(TopologicalSorter::class);
+        $this->app->singleton(ContainerLifecycleHooks::class);
+        $this->app->singleton(ManifestDocumentReader::class);
+        $this->app->singleton(ManifestSettingsValidator::class);
         $this->app->singleton(ManifestValidator::class);
         $this->app->singleton(
             ManifestValidatorInterface::class,
             fn (): ManifestValidator => $this->app->make(ManifestValidator::class),
         );
 
-        $this->app->singleton(ComposerNamespaceResolver::class, function (): ComposerNamespaceResolver {
-            return new ComposerNamespaceResolver($this->app->basePath());
-        });
+        $this->app->singleton(ApplicationNamespaceResolver::class);
         $this->app->singleton(
             NamespaceResolverInterface::class,
-            fn (): ComposerNamespaceResolver => $this->app->make(ComposerNamespaceResolver::class),
+            fn (): ApplicationNamespaceResolver => $this->app->make(ApplicationNamespaceResolver::class),
         );
 
         $this->app->singleton(ModuleManifestRepository::class, function (): ModuleManifestRepository {
@@ -101,12 +134,18 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 writer: $this->app->make(AtomicJsonWriter::class),
                 validator: $this->app->make(ManifestValidatorInterface::class),
                 namespaceResolver: $this->app->make(NamespaceResolverInterface::class),
+                documentReader: $this->app->make(ManifestDocumentReader::class),
             );
         });
         $this->app->singleton(
             ModuleManifestRepositoryInterface::class,
             fn (): ModuleManifestRepository => $this->app->make(ModuleManifestRepository::class),
         );
+    }
+
+    private function registerRegistryBindings(): void
+    {
+        $this->app->singleton(TopologicalSorter::class);
 
         $this->app->singleton(ModuleDirectoryScanner::class, function (): ModuleDirectoryScanner {
             return new ModuleDirectoryScanner(
@@ -114,6 +153,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 filesystem: $this->app->make(Filesystem::class),
                 layout: $this->app->make(ModuleLayout::class),
                 basePath: $this->app->basePath(),
+                appPath: $this->app->path(),
             );
         });
 
@@ -137,57 +177,79 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             ModuleRegistryInterface::class,
             fn (): ModuleRegistry => $this->app->make(ModuleRegistry::class),
         );
+    }
 
+    private function registerFeatureBindings(): void
+    {
         $this->app->scoped(FeatureRepositoryInterface::class, FeatureRepository::class);
     }
 
     private function registerDefaultLoaders(): void
     {
-        $loaders = [];
-
         foreach (self::DEFAULT_LOADERS as $loader) {
-            if (! class_exists($loader)) {
-                continue;
-            }
-
             $this->app->singleton($loader);
-            $loaders[] = $loader;
         }
 
-        if ($loaders !== []) {
-            $this->app->tag($loaders, self::LOADER_TAG);
-        }
+        $this->app->tag(self::DEFAULT_LOADERS, self::LOADER_TAG);
     }
 
-    private function registerMoonShineIntegration(): void
+    private function registerMoonShineBindings(): void
     {
         if (! interface_exists(self::MOONSHINE_CORE_CONTRACT)) {
             return;
         }
 
         $this->app->singleton(MoonShineModuleAutoloader::class);
+    }
 
-        $this->app->afterResolving(
+    private function bootMoonShineIntegration(): void
+    {
+        if (! interface_exists(self::MOONSHINE_CORE_CONTRACT)) {
+            return;
+        }
+
+        $this->app->make(ContainerLifecycleHooks::class)->callAfterResolving(
             self::MOONSHINE_CORE_CONTRACT,
             function (object $core): void {
-                /** @var CoreContract $core */
+                if (! $core instanceof CoreContract) {
+                    return;
+                }
+
                 $this->app->make(MoonShineModuleAutoloader::class)->autoload($core);
             },
         );
     }
 
-    private function pipeline(): ModuleLoaderPipeline
+    /**
+     * @return array<int, LoaderInterface>
+     */
+    private function resolveTaggedLoaders(): array
     {
         $loaders = [];
         foreach ($this->app->tagged(self::LOADER_TAG) as $tagged) {
-            if ($tagged instanceof LoaderInterface) {
-                $loaders[] = $tagged;
+            if (! $tagged instanceof LoaderInterface) {
+                throw InvalidConfigurationException::forKey(
+                    self::LOADER_TAG,
+                    \sprintf(
+                        'tagged service [%s] must implement [%s].',
+                        get_debug_type($tagged),
+                        LoaderInterface::class,
+                    ),
+                );
             }
+
+            $loaders[] = $tagged;
         }
 
+        return $loaders;
+    }
+
+    private function pipeline(): ModuleLoaderPipeline
+    {
         return new ModuleLoaderPipeline(
             registry: $this->app->make(ModuleRegistryInterface::class),
-            loaders: $loaders,
+            loaders: $this->resolveTaggedLoaders(),
+            exceptionHandler: $this->app->make(ExceptionHandler::class),
         );
     }
 

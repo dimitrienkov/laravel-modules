@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Registry;
 
+use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Config\Repository;
@@ -55,13 +56,40 @@ final class ModuleDirectoryScannerTest extends TestCase
     }
 
     #[Test]
-    public function it_ignores_non_string_config_entries(): void
+    public function it_throws_for_non_string_config_entries(): void
     {
-        $this->createModule('Blog');
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('each entry must be a non-empty string');
 
-        $paths = $this->scanner(['app/Modules', 42, null])->scan();
+        $this->scanner(['app/Modules', 42])->scan();
+    }
 
-        self::assertCount(1, $paths);
+    #[Test]
+    public function it_throws_for_empty_string_config_entry(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('each entry must be a non-empty string');
+
+        $this->scanner([''])->scan();
+    }
+
+    #[Test]
+    public function it_throws_for_non_array_directories_config(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('must be a list of directory paths');
+
+        $scanner = new ModuleDirectoryScanner(
+            config: new Repository([
+                'modules' => ['paths' => ['directories' => 'not-an-array']],
+            ]),
+            filesystem: new Filesystem(),
+            layout: new ModuleLayout(),
+            basePath: $this->tempDir,
+            appPath: $this->tempDir . '/app',
+        );
+
+        $scanner->scan();
     }
 
     #[Test]
@@ -79,9 +107,22 @@ final class ModuleDirectoryScannerTest extends TestCase
     #[Test]
     public function it_returns_empty_for_missing_directory(): void
     {
-        $paths = $this->scanner(['nonexistent/path'])->scan();
+        $paths = $this->scanner(['app/NonexistentPath'])->scan();
 
         self::assertSame([], $paths);
+    }
+
+    #[Test]
+    public function it_throws_for_directory_outside_app_path(): void
+    {
+        $outsideDir = $this->tempDir . '/outside';
+        mkdir($outsideDir . '/Modules/Blog', 0755, true);
+        file_put_contents($outsideDir . '/Modules/Blog/module.json', '{}');
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('resolves outside app_path()');
+
+        $this->scanner(['outside/Modules'])->scan();
     }
 
     /**
@@ -96,6 +137,7 @@ final class ModuleDirectoryScannerTest extends TestCase
             filesystem: new Filesystem(),
             layout: new ModuleLayout(),
             basePath: $this->tempDir,
+            appPath: $this->tempDir . '/app',
         );
     }
 

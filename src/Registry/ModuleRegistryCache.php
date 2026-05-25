@@ -5,20 +5,24 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Registry;
 
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
-use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
+use DimitrienkoV\LaravelModules\Exceptions\AtomicWriteException;
+use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleCacheException;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleCacheWriteException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Registry\VO\ModuleRegistryCachePayload;
+use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use Throwable;
 
 final readonly class ModuleRegistryCache
 {
-    private const int CACHE_VERSION = 2;
-
     private const string CACHE_FILE = 'bootstrap/cache/modules.php';
 
     public function __construct(
         private ManifestValidatorInterface $validator,
         private ModuleLayout $layout,
         private string $basePath,
+        private AtomicFileWriter $fileWriter = new AtomicFileWriter(),
     ) {
     }
 
@@ -34,27 +38,10 @@ final readonly class ModuleRegistryCache
 
     /**
      * @param array<int, Module> $loadOrder
-     *
-     * @return array<string, mixed>
      */
-    public function buildPayload(array $loadOrder): array
+    public function buildPayload(array $loadOrder): ModuleRegistryCachePayload
     {
-        $payload = [
-            'version' => self::CACHE_VERSION,
-            'modules' => [],
-            'load_order' => [],
-        ];
-
-        foreach ($loadOrder as $module) {
-            $payload['modules'][$module->name] = [
-                'path' => $module->path,
-                'namespace' => $module->namespace,
-                'manifest' => $module->toDescriptorArray(),
-            ];
-            $payload['load_order'][] = $module->name;
-        }
-
-        return $payload;
+        return ModuleRegistryCachePayload::fromModules($loadOrder);
     }
 
     /**
@@ -62,40 +49,38 @@ final readonly class ModuleRegistryCache
      */
     public function load(): array
     {
-        $payload = require $this->cachePath();
+        $cachePath = $this->cachePath();
 
-        if (! \is_array($payload)) {
-            throw InvalidManifestException::forPath($this->cachePath(), 'module cache must return an array.');
+        try {
+            $raw = require $cachePath;
+        } catch (Throwable $exception) {
+            throw InvalidModuleCacheException::forPath(
+                $cachePath,
+                'cache file could not be loaded: ' . $exception->getMessage(),
+                $exception,
+            );
         }
 
-        $this->validatePayload($payload);
+        if (! \is_array($raw)) {
+            throw InvalidModuleCacheException::forPath($cachePath, 'module cache must return an array.');
+        }
 
-        /** @var array<string, array{path: string, namespace: string, manifest: array<string, mixed>}> $cachedModules */
-        $cachedModules = $payload['modules'];
-        /** @var array<int, string> $loadOrderNames */
-        $loadOrderNames = $payload['load_order'];
+        $payload = ModuleRegistryCachePayload::fromCachedArray($raw, $cachePath);
 
         $modules = [];
-        foreach ($cachedModules as $name => $cachedModule) {
-            $manifestPath = $this->layout->manifestFilePath($cachedModule['path']);
-            $this->validator->validate($cachedModule['manifest'], $manifestPath);
+        foreach ($payload->modules as $name => $descriptor) {
+            $manifestPath = $this->layout->manifestFilePath($descriptor->path);
+            $this->validator->validate($descriptor->manifest, $manifestPath);
             $modules[$name] = Module::fromManifest(
-                path: $cachedModule['path'],
-                namespace: $cachedModule['namespace'],
-                manifest: $cachedModule['manifest'],
+                path: $descriptor->path,
+                namespace: $descriptor->namespace,
+                manifest: $descriptor->manifest,
                 manifestPath: $manifestPath,
             );
         }
 
         $loadOrder = [];
-        foreach ($loadOrderNames as $name) {
-            if (! isset($modules[$name])) {
-                throw InvalidManifestException::forPath(
-                    $this->cachePath(),
-                    "module cache load_order references missing module [{$name}].",
-                );
-            }
-
+        foreach ($payload->loadOrder as $name) {
             $loadOrder[] = $modules[$name];
         }
 
@@ -105,52 +90,35 @@ final readonly class ModuleRegistryCache
         ];
     }
 
+    /**
+     * @param array<int, Module> $loadOrder
+     */
+    public function write(array $loadOrder): string
+    {
+        $payload = $this->buildPayload($loadOrder);
+        $cachePath = $this->cachePath();
+        $content = '<?php return ' . var_export($payload->toArray(), true) . ';' . PHP_EOL;
+
+        try {
+            $this->fileWriter->write($cachePath, $content);
+        } catch (AtomicWriteException $exception) {
+            throw ModuleCacheWriteException::forPath($cachePath, $exception->getMessage(), $exception);
+        }
+
+        return $cachePath;
+    }
+
     public function forget(): void
     {
         $path = $this->cachePath();
+        if (! is_file($path)) {
+            return;
+        }
+
+        @unlink($path);
+
         if (is_file($path)) {
-            unlink($path);
-        }
-    }
-
-    /**
-     * @param array<mixed> $payload
-     */
-    private function validatePayload(array $payload): void
-    {
-        if (($payload['version'] ?? null) !== self::CACHE_VERSION) {
-            throw InvalidManifestException::forPath($this->cachePath(), 'module cache version is not supported.');
-        }
-
-        if (! isset($payload['modules']) || ! \is_array($payload['modules'])) {
-            throw InvalidManifestException::forPath($this->cachePath(), 'module cache modules must be an array.');
-        }
-
-        if (! isset($payload['load_order']) || ! \is_array($payload['load_order'])) {
-            throw InvalidManifestException::forPath($this->cachePath(), 'module cache load_order must be an array.');
-        }
-
-        foreach ($payload['modules'] as $module) {
-            if (
-                ! \is_array($module)
-                || ! \is_string($module['path'] ?? null)
-                || ! \is_string($module['namespace'] ?? null)
-                || ! \is_array($module['manifest'] ?? null)
-            ) {
-                throw InvalidManifestException::forPath(
-                    $this->cachePath(),
-                    'module cache entries must contain path, namespace and manifest.',
-                );
-            }
-        }
-
-        foreach ($payload['load_order'] as $name) {
-            if (! \is_string($name)) {
-                throw InvalidManifestException::forPath(
-                    $this->cachePath(),
-                    'module cache load_order entries must be module names.',
-                );
-            }
+            throw ModuleCacheWriteException::forPath($path, 'cache file could not be deleted.');
         }
     }
 }

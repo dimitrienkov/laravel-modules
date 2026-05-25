@@ -46,18 +46,17 @@ final class ModuleRegistry implements ModuleRegistryInterface
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array{path: string, count: int}
      */
-    public function buildCachePayload(): array
+    public function writeCache(): array
     {
         $loaded = $this->scan();
+        $cachePath = $this->cache->write($loaded['loadOrder']);
 
-        return $this->cache->buildPayload($loaded['loadOrder']);
-    }
-
-    public function cachePath(): string
-    {
-        return $this->cache->cachePath();
+        return [
+            'path' => $cachePath,
+            'count' => \count($loaded['loadOrder']),
+        ];
     }
 
     public function find(string $name): Module

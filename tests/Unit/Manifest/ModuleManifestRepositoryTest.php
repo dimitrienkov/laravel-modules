@@ -7,13 +7,15 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
+use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -32,7 +34,6 @@ final class ModuleManifestRepositoryTest extends TestCase
         $this->modulePath = $this->tempDir . '/app/Modules/Blog';
 
         mkdir($this->modulePath, 0755, true);
-        $this->writeComposer();
     }
 
     protected function tearDown(): void
@@ -53,7 +54,7 @@ final class ModuleManifestRepositoryTest extends TestCase
         self::assertSame('Blog', $module->displayName);
         self::assertSame('App\\Modules\\Blog', $module->namespace);
         self::assertTrue($module->isEnabled());
-        self::assertSame('*', $module->meta->dependencies->constraintFor('users'));
+        self::assertSame('^1.0', $module->meta->dependencies->constraintFor('users'));
     }
 
     #[Test]
@@ -97,13 +98,13 @@ final class ModuleManifestRepositoryTest extends TestCase
         $module = $repo->load($this->modulePath);
         $values = $repo->readValues($module);
 
-        $repo->save($module, $values);
+        $repo->saveValues($module, $values);
 
         $stored = $this->readStoredManifest();
 
         self::assertSame(['posts_per_page' => 20], $stored['settings']['values']);
-        self::assertSame(['users' => '*'], $stored['meta']['dependencies']);
-        self::assertFileExists($this->modulePath . '/module.json.lock');
+        self::assertSame(['users' => '^1.0'], $stored['meta']['dependencies']);
+        self::assertFileDoesNotExist($this->modulePath . '/module.json.lock');
     }
 
     #[Test]
@@ -121,7 +122,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_updates_feature_values_through_typed_value_object(): void
+    public function it_saves_feature_values_through_typed_value_object(): void
     {
         $this->writeManifest($this->validManifest());
         $repo = $this->repository();
@@ -133,7 +134,7 @@ final class ModuleManifestRepositoryTest extends TestCase
             $module->manifestPath(),
         );
 
-        $repo->updateFeatureValues($module, $values);
+        $repo->saveValues($module, $values);
         $stored = $this->readStoredManifest();
 
         self::assertFalse($stored['settings']['values']['comments_enabled']);
@@ -222,7 +223,7 @@ final class ModuleManifestRepositoryTest extends TestCase
 
         $module = ModuleFactory::make(path: $this->modulePath);
         $values = new FeatureValues($module->features, []);
-        $this->repository()->save($module, $values);
+        $this->repository()->saveValues($module, $values);
     }
 
     private function repository(): ModuleManifestRepository
@@ -230,8 +231,9 @@ final class ModuleManifestRepositoryTest extends TestCase
         return new ModuleManifestRepository(
             layout: new ModuleLayout(),
             writer: new AtomicJsonWriter(),
-            validator: new ManifestValidator(),
-            namespaceResolver: new ComposerNamespaceResolver($this->tempDir),
+            validator: new ManifestValidator(new ManifestSettingsValidator()),
+            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+            documentReader: new ManifestDocumentReader(),
         );
     }
 
@@ -245,7 +247,7 @@ final class ModuleManifestRepositoryTest extends TestCase
                 'name' => 'blog',
                 'display_name' => 'Blog',
                 'version' => '1.0.0',
-                'dependencies' => ['users'],
+                'dependencies' => ['users' => '^1.0'],
             ],
             'state' => [
                 'enabled' => true,
@@ -268,20 +270,6 @@ final class ModuleManifestRepositoryTest extends TestCase
                 ],
             ],
         ];
-    }
-
-    private function writeComposer(): void
-    {
-        file_put_contents(
-            $this->tempDir . '/composer.json',
-            json_encode([
-                'autoload' => [
-                    'psr-4' => [
-                        'App\\' => 'app/',
-                    ],
-                ],
-            ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
-        );
     }
 
     /**

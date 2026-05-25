@@ -34,9 +34,19 @@ Default loaders tagged через `ModuleLoaderServiceProvider::LOADER_TAG`.
 | `ServiceProviderLoader` | 20 | `Providers/*ServiceProvider.php` |
 | `MigrationLoader` | 30 | `Database/Migrations/` |
 | `FactoryLoader` | 31 | `Database/Factories/` |
+| `LangLoader` | 32 | `Lang/` |
+| `ViewLoader` | 33 | `Resources/views/` |
+| `BladeComponentLoader` | 34 | `View/Components/` |
+| `EventLoader` | 35 | `Domain/Listeners/` |
+| `ObserverLoader` | 36 | `Domain/Observers/` |
+| `PolicyLoader` | 37 | `Domain/Policies/` |
+| `CommandLoader` | 40 | `Console/Commands/` |
+| `MiddlewareLoader` | 45 | `Http/Middleware/` |
 | `RouteLoader` | 50 | `Routes/api.php`, `Routes/api/*.php`, `Routes/web.php`, `Routes/inertia.php` |
+| `ConsoleRouteLoader` | 51 | `Routes/console.php` |
+| `BroadcastLoader` | 52 | `Routes/channels.php` |
 
-Меньшее значение priority выполняется раньше.
+Меньшее значение priority выполняется раньше. Pipeline изолирует ошибки: исключение в одном loader не останавливает загрузку остальных.
 
 ## Custom loader example
 
@@ -82,9 +92,9 @@ $this->app->tag([TranslationLoader::class], ModuleLoaderServiceProvider::LOADER_
 
 `ModuleRegistry` сначала проверяет `bootstrap/cache/modules.php`.
 
-Если cache существует, registry загружает его через `require`. Если cache нет, registry сканирует configured directories, читает manifests, резолвит namespaces и сортирует modules.
+Если cache существует, registry загружает его через `require` и заворачивает повреждённый PHP cache в `InvalidModuleCacheException`. Если cache нет, registry сканирует configured directories, читает manifests, резолвит namespaces и сортирует modules.
 
-`modules:optimize` пишет cache payload. `modules:optimize-clear` удаляет его и сбрасывает in-memory registry.
+`modules:optimize` пишет cache payload атомарно через temp file, flush и rename. `modules:optimize-clear` удаляет его и сбрасывает in-memory registry.
 
 ## Feature runtime
 
@@ -96,7 +106,7 @@ Feature values читаются из `module.json`, а не из production regi
 
 MoonShine autoload не является pipeline loader. `ModuleLoaderServiceProvider` регистрирует `MoonShineModuleAutoloader` только когда существует `MoonShine\Contracts\Core\DependencyInjection\CoreContract`.
 
-После resolve MoonShine core bridge вызывает `$core->autoload($module->namespace)` для каждого enabled-модуля.
+Bridge ставит package-style `callAfterResolving()` hook, поэтому работает и когда MoonShine core уже resolved. После resolve MoonShine core bridge вызывает `$core->autoload($module->namespace)` для каждого enabled-модуля.
 
 ## Dependency rules
 

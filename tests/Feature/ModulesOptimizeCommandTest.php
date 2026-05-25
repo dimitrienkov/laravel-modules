@@ -6,15 +6,17 @@ namespace DimitrienkoV\LaravelModules\Tests\Feature;
 
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeClearCommand;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeCommand;
+use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ComposerNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
@@ -37,7 +39,6 @@ final class ModulesOptimizeCommandTest extends TestCase
         $this->modulePath = $this->tempDir . '/app/Modules/Blog';
 
         mkdir($this->modulePath, 0755, true);
-        $this->writeComposer();
         $this->writeManifest();
 
         $app = $this->application();
@@ -83,10 +84,35 @@ final class ModulesOptimizeCommandTest extends TestCase
         self::assertFileExists($this->tempDir . '/bootstrap/cache/modules-providers.php');
     }
 
+    #[Test]
+    public function optimize_clear_resets_in_memory_registry_in_same_process(): void
+    {
+        /** @var ModuleRegistry $registry */
+        $registry = $this->application()->make(ModuleRegistry::class);
+
+        self::assertSame(['blog'], array_map(
+            static fn (object $module): string => $module->name,
+            $registry->loadOrder(),
+        ));
+
+        $usersPath = $this->tempDir . '/app/Modules/Users';
+        mkdir($usersPath, 0755, true);
+        $this->writeManifest($usersPath, 'users', 'Users');
+        mkdir($this->tempDir . '/bootstrap/cache', 0755, true);
+        file_put_contents($this->tempDir . '/bootstrap/cache/modules.php', '<?php return [];');
+
+        $this->artisanCommand('modules:optimize-clear')->assertSuccessful();
+
+        self::assertSame(['blog', 'users'], array_map(
+            static fn (object $module): string => $module->name,
+            $registry->loadOrder(),
+        ));
+    }
+
     private function registryCache(): ModuleRegistryCache
     {
         return new ModuleRegistryCache(
-            validator: new ManifestValidator(),
+            validator: new ManifestValidator(new ManifestSettingsValidator()),
             layout: new ModuleLayout(),
             basePath: $this->tempDir,
         );
@@ -95,7 +121,7 @@ final class ModulesOptimizeCommandTest extends TestCase
     private function registry(): ModuleRegistry
     {
         $layout = new ModuleLayout();
-        $validator = new ManifestValidator();
+        $validator = new ManifestValidator(new ManifestSettingsValidator());
         $config = new Repository([
             'modules' => [
                 'paths' => [
@@ -109,7 +135,8 @@ final class ModulesOptimizeCommandTest extends TestCase
                 layout: $layout,
                 writer: new AtomicJsonWriter(),
                 validator: $validator,
-                namespaceResolver: new ComposerNamespaceResolver($this->tempDir),
+                namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+                documentReader: new ManifestDocumentReader(),
             ),
             sorter: new TopologicalSorter(),
             scanner: new ModuleDirectoryScanner(
@@ -117,6 +144,7 @@ final class ModulesOptimizeCommandTest extends TestCase
                 filesystem: new Filesystem(),
                 layout: $layout,
                 basePath: $this->tempDir,
+                appPath: $this->tempDir . '/app',
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,
@@ -146,28 +174,19 @@ final class ModulesOptimizeCommandTest extends TestCase
         return $pendingCommand;
     }
 
-    private function writeComposer(): void
-    {
-        file_put_contents(
-            $this->tempDir . '/composer.json',
-            json_encode([
-                'autoload' => [
-                    'psr-4' => [
-                        'App\\' => 'app/',
-                    ],
-                ],
-            ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
-        );
-    }
+    private function writeManifest(
+        ?string $modulePath = null,
+        string $name = 'blog',
+        string $displayName = 'Blog',
+    ): void {
+        $modulePath ??= $this->modulePath;
 
-    private function writeManifest(): void
-    {
         file_put_contents(
-            $this->modulePath . '/module.json',
+            $modulePath . '/module.json',
             json_encode([
                 'meta' => [
-                    'name' => 'blog',
-                    'display_name' => 'Blog',
+                    'name' => $name,
+                    'display_name' => $displayName,
                     'version' => '1.0.0',
                     'dependencies' => [],
                 ],
