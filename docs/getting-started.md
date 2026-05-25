@@ -109,13 +109,7 @@ php artisan modules:optimize-clear
 
 При boot Laravel-приложения `ModuleLoaderServiceProvider` создаёт `ModuleLoaderPipeline` и применяет default loaders к enabled-модулям в dependency order.
 
-Текущий runtime загружает только поддерживаемые пути:
-
-- `Config/*.php`
-- `Providers/*ServiceProvider.php`
-- `Database/Migrations/`
-- `Database/Factories/`
-- `Routes/api.php`, `Routes/api/*.php`, `Routes/web.php`, `Routes/inertia.php`
+Текущий runtime загружает все 15 поддерживаемых путей модуля — от конфигов и провайдеров до middleware, observers, policies и broadcast channels. Полный список см. в [Module Structure](module-structure.md).
 
 ## See Also
 

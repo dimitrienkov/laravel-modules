@@ -4,7 +4,7 @@
 
 `dimitrienkov0/laravel-modules` — Laravel-пакет для manifest-driven модульной архитектуры. Пакет загружает модули из настроенных директорий хост-приложения, читает `module.json`, строит dependency-aware registry, применяет loader-pipeline и предоставляет runtime API для feature toggles без БД.
 
-Текущий реализованный срез — **v2.0 core**: контракты, manifest VO, registry/cache, базовые лоадеры, scoped `FeatureRepository`, optimizer-команды и optional bridges для MoonShine/Inertia. Команды установки/обновления модулей, module-aware генераторы, дополнительные лоадеры и полноценный MoonShine admin-UI остаются roadmap-задачами следующих фаз.
+Текущий реализованный срез — **v2.0 core**: контракты, manifest VO, registry/cache, 15 лоадеров (полный loader pipeline), scoped `FeatureRepository`, optimizer-команды и optional bridges для MoonShine/Inertia. Команды установки/обновления модулей, module-aware генераторы и полноценный MoonShine admin-UI остаются roadmap-задачами следующих фаз.
 
 ## Целевые сценарии
 
@@ -23,7 +23,8 @@
 - Manifest contract: `meta`, `state`, `settings.schema`, `settings.values`; секция `autoload` запрещена.
 - Value objects и parser layer: `Module`, `ManifestMeta`, `ManifestState`, `ModuleDependencies`, `FeatureSchema`, `FeatureDefinition`, `FeatureValues`.
 - `ModuleManifestRepository` как единственная точка чтения/валидации/атомарной записи `module.json`.
-- `ModuleDirectoryScanner`, `ModuleRegistry`, `ModuleRegistryCache`, `TopologicalSorter`.
+- `ModuleDirectoryScanner`, `ModuleRegistry`, `ModuleRegistryCache`, `TopologicalSorter`, `ApplicationNamespaceResolver`.
+- Support-утилиты: `AtomicFileWriter` (shared atomic write), `AtomicJsonWriter` (JSON-обёртка), `ContainerLifecycleHooks` (safe `callAfterResolving`), `ModuleLayout` (пути и namespaces модуля).
 - Loader pipeline с 15 реализованными лоадерами: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`.
 - `FeatureRepositoryInterface` с методами `get`, `getBool`, `getInt`, `getString`; реализация биндится как scoped.
 - Команды `modules:optimize` и `modules:optimize-clear`, интегрированные с Laravel optimizer hooks.
@@ -215,7 +216,7 @@ app/Modules/Blog/
 ## Нефункциональные требования
 
 - **Octane safety:** runtime-сервисы с per-request cache должны быть scoped; singleton-сервисы не должны накапливать mutable runtime state между request.
-- **Атомарность:** запись `module.json` идёт через `AtomicJsonWriter` с lock, temp file, `rename`; production cache пишется через lock/temp/flush/atomic rename.
+- **Атомарность:** запись `module.json` идёт через `AtomicJsonWriter` (делегирует в `AtomicFileWriter`) с lock, temp file, `rename`; production cache пишется через lock/temp/flush/atomic rename.
 - **Детерминированность:** manifest schema, dependencies, feature definitions и cache payload сортируются там, где это важно для стабильного результата.
 - **Безопасность manifest:** неизвестные ключи запрещены; `autoload` запрещён как legacy-механика.
 - **Расширяемость:** новые loaders добавляются через `LoaderInterface` и service container tag `ModuleLoaderServiceProvider::LOADER_TAG`.

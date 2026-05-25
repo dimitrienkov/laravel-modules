@@ -35,7 +35,7 @@
 │   ├── MoonShine/                    # MoonShineModuleAutoloader, optional bridge
 │   ├── Providers/                    # ModuleLoaderServiceProvider
 │   ├── Registry/                     # ModuleDirectoryScanner, ModuleRegistryCache
-│   └── Support/                      # ModuleLayout, AtomicJsonWriter, TopologicalSorter, namespace resolver
+│   └── Support/                      # ModuleLayout, AtomicFileWriter, AtomicJsonWriter, ContainerLifecycleHooks, TopologicalSorter, ApplicationNamespaceResolver
 ├── config/
 │   └── modules.php                   # дефолтные директории модулей и route types
 ├── tests/
