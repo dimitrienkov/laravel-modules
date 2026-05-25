@@ -112,6 +112,7 @@ final readonly class ScaffoldModuleUseCase
         if (! $force) {
             try {
                 $this->registry->find($name);
+
                 throw ModuleAlreadyExistsException::forName($name);
             } catch (\DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException) {
             }
@@ -142,9 +143,9 @@ final readonly class ScaffoldModuleUseCase
             }
         }
 
-        $stubPath = dirname(__DIR__, 3) . '/stubs/module-service-provider.stub';
+        $stubPath = \dirname(__DIR__, 3) . '/stubs/module-service-provider.stub';
         if (is_file($stubPath)) {
-            $content = file_get_contents($stubPath);
+            $content = (string) file_get_contents($stubPath);
             $content = str_replace(
                 ['{{ namespace }}', '{{ studlyName }}'],
                 [$namespace, $studlyName],

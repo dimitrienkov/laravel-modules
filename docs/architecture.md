@@ -2,7 +2,7 @@
 
 # Architecture
 
-Текущий v2.0 core - это Modular Laravel Runtime с typed manifest layer, dependency-aware registry, loader pipeline, scoped feature runtime и optional integration bridges.
+Текущий v2.0 core — Modular Laravel Runtime с typed manifest layer, dependency-aware registry, loader pipeline, lifecycle UseCase-классами, scoped feature runtime и optional integration bridges.
 
 ## Runtime flow
 
@@ -108,12 +108,55 @@ MoonShine autoload не является pipeline loader. `ModuleLoaderServicePr
 
 Bridge ставит package-style `callAfterResolving()` hook, поэтому работает и когда MoonShine core уже resolved. После resolve MoonShine core bridge вызывает `$core->autoload($module->namespace)` для каждого enabled-модуля.
 
+## Lifecycle layer
+
+UseCase-классы в `Application/UseCases/` реализуют бизнес-операции жизненного цикла модулей: enable, disable, scaffold, install, update, remove. Все — `final readonly` с constructor DI.
+
+### Core services
+
+| Service | Responsibility |
+|---------|----------------|
+| `EnableModuleUseCase` | Включает модуль с проверкой dependency graph |
+| `DisableModuleUseCase` | Отключает модуль с проверкой reverse dependencies |
+| `ScaffoldModuleUseCase` | Создаёт структуру нового модуля из stubs |
+| `InstallModuleUseCase` | Устанавливает модуль из directory/zip source |
+| `UpdateModuleUseCase` | Обновляет модуль с backup и merge settings values |
+| `RemoveModuleUseCase` | Удаляет модуль с backup или без |
+
+### Support services
+
+| Service | Responsibility |
+|---------|----------------|
+| `ModuleSourcePreparer` | Staging boundary: валидирует source (directory/zip) до копирования |
+| `ModuleDependencyGuard` | Проверяет dependency graph перед мутациями |
+| `ModuleDirectoryOperations` | Filesystem-операции: copy, replace with backup, restore, delete |
+| `ModuleLifecyclePaths` | Resolution путей: target root, backup directory |
+| `LifecycleRegistryInvalidator` | Сбрасывает production cache и in-memory registry после мутаций |
+| `ZipExtractor` | Извлечение zip с защитой от zip-slip |
+
+### Cache invalidation
+
+После каждой успешной мутации (enable, disable, install, update, remove, scaffold) `LifecycleRegistryInvalidator` сбрасывает `bootstrap/cache/modules.php` через `ModuleRegistryCache::forget()` и in-memory state через `ModuleRegistry::reset()`. Это гарантирует, что следующий `ModuleRegistry::all()` вернёт актуальное состояние.
+
+### Source staging
+
+Install и update валидируют source ДО копирования файлов. `ModuleSourcePreparer` читает `module.json` из source через `ManifestDocumentReader`, прогоняет через `ManifestValidatorInterface` и возвращает `PreparedSource`. `ModuleManifestRepository::load()` не используется для source paths вне `app_path()`.
+
+### Миграции и rollback
+
+Lifecycle-команды не запускают и не откатывают миграции автоматически. `modules:install` напоминает про `php artisan migrate` после установки. `modules:remove` напоминает про `php artisan migrate:rollback` до удаления. `MigrationLoader` подхватывает миграции модуля на следующем boot.
+
 ## Dependency rules
 
 - `Contracts` задают public boundaries и не должны зависеть от implementations.
 - `Manifest` владеет parsing, validation, value objects, repository, registry orchestration и feature API.
 - `Registry` владеет directory scan и production cache format.
 - `Loaders` зависят от contracts, `Manifest\VO\Module`, `ModuleLayout` и Laravel services.
+- `Application/UseCases` → `Contracts + Manifest\VO + Application/Support + Application/DTOs + Support`.
+- `Application/Support` → `Contracts + Manifest\VO + Support + Registry`.
+- `Application/DTOs` → `∅` (value objects без зависимостей).
+- `Application` не зависит от `Loaders`, `Providers`, `MoonShine`.
+- `Console/Commands` → `Application/UseCases + Contracts`.
 - Optional integrations должны оставаться guarded и optional.
 - Runtime code в `src/` должен оставаться DI-first, без Laravel facades.
 

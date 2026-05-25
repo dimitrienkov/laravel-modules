@@ -4,7 +4,7 @@
 
 `dimitrienkov0/laravel-modules` — Laravel-пакет для manifest-driven модульной архитектуры. Пакет загружает модули из настроенных директорий хост-приложения, читает `module.json`, строит dependency-aware registry, применяет loader-pipeline и предоставляет runtime API для feature toggles без БД.
 
-Текущий реализованный срез — **v2.0 core**: контракты, manifest VO, registry/cache, 15 лоадеров (полный loader pipeline), scoped `FeatureRepository`, optimizer-команды и optional bridges для MoonShine/Inertia. Команды установки/обновления модулей, module-aware генераторы и полноценный MoonShine admin-UI остаются roadmap-задачами следующих фаз.
+Текущий реализованный срез — **v2.0 core**: контракты, manifest VO, registry/cache, 15 лоадеров (полный loader pipeline), scoped `FeatureRepository`, optimizer-команды, lifecycle UseCase-классы и Artisan-команды (`make:module`, `modules:install/update/remove/enable/disable/list`), support-сервисы (`ZipExtractor`, `ModuleSourcePreparer`, `ModuleDependencyGuard`, `ModuleDirectoryOperations`, `LifecycleRegistryInvalidator`, `ModuleLifecyclePaths`) и optional bridges для MoonShine/Inertia. Module-aware генераторы `make:* --module` и полноценный MoonShine admin-UI остаются roadmap-задачами следующих фаз.
 
 ## Целевые сценарии
 
@@ -35,16 +35,16 @@
 
 ### Roadmap, не текущий runtime
 
-- `make:module`, `modules:install`, `modules:update`, `modules:remove`, `modules:enable`, `modules:disable`, `modules:list`.
 - Module-aware генераторы `make:* --module`.
 - MoonShine resources/pages для управления модулями и settings forms.
 - Packaging/marketplace/signature flow для коммерческой поставки.
+- Lifecycle events (`ModuleInstalled`, `ModuleEnabled`, etc.).
 
 ## Технологический стек
 
 - **PHP:** 8.3+
 - **Laravel:** 12 / 13
-- **Runtime dependencies:** `composer/semver`, `ext-mbstring`
+- **Runtime dependencies:** `composer/semver`, `ext-mbstring`, `ext-zip`
 - **Optional integrations:** MoonShine 4, Inertia 2
 - **Manifest storage:** `module.json`, без БД
 - **Dependency management между модулями:** Composer SemVer constraints в `meta.dependencies`

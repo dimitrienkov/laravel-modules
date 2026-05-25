@@ -22,9 +22,12 @@ final class ModulesInstallCommand extends Command
         $source = $this->argument('source');
 
         try {
+            /** @var string|null $directory */
+            $directory = $this->option('directory');
+
             $result = $useCase->execute(
                 sourcePath: $source,
-                directory: $this->option('directory'),
+                directory: $directory,
                 disabled: (bool) $this->option('disabled'),
             );
 

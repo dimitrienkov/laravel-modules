@@ -171,7 +171,12 @@ final class UpdateModuleUseCaseTest extends TestCase
         $sourcePreparer = new ModuleSourcePreparer(new ManifestDocumentReader(), $validator, new ZipExtractor());
 
         return new UpdateModuleUseCase(
-            $registry, $manifests, $sourcePreparer, $guard, $directoryOps, $invalidator,
+            $registry,
+            $manifests,
+            $sourcePreparer,
+            $guard,
+            $directoryOps,
+            $invalidator,
         );
     }
 

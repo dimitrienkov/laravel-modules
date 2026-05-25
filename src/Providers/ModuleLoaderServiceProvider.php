@@ -4,8 +4,20 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Providers;
 
+use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesDisableCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesEnableCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesInstallCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesListCommand;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeClearCommand;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesRemoveCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesUpdateCommand;
 use DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
@@ -43,6 +55,7 @@ use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Support\ZipExtractor;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Filesystem\Filesystem;
@@ -83,6 +96,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->registerManifestBindings();
         $this->registerRegistryBindings();
         $this->registerFeatureBindings();
+        $this->registerLifecycleBindings();
         $this->registerDefaultLoaders();
         $this->registerMoonShineBindings();
     }
@@ -93,10 +107,21 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             $this->packageConfigPath() => config_path('modules.php'),
         ], 'modules-config');
 
+        $this->publishes([
+            __DIR__ . '/../../stubs' => base_path('stubs/modules'),
+        ], 'modules-stubs');
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ModulesOptimizeCommand::class,
                 ModulesOptimizeClearCommand::class,
+                ModulesEnableCommand::class,
+                ModulesDisableCommand::class,
+                ModulesListCommand::class,
+                MakeModuleCommand::class,
+                ModulesInstallCommand::class,
+                ModulesUpdateCommand::class,
+                ModulesRemoveCommand::class,
             ]);
 
             $this->optimizes(
@@ -182,6 +207,24 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     private function registerFeatureBindings(): void
     {
         $this->app->scoped(FeatureRepositoryInterface::class, FeatureRepository::class);
+    }
+
+    private function registerLifecycleBindings(): void
+    {
+        $this->app->singleton(ZipExtractor::class);
+        $this->app->singleton(ModuleSourcePreparer::class);
+
+        $this->app->singleton(ModuleLifecyclePaths::class, function (): ModuleLifecyclePaths {
+            return new ModuleLifecyclePaths(
+                config: $this->app->make(Repository::class),
+                basePath: $this->app->basePath(),
+                appPath: $this->app->path(),
+            );
+        });
+
+        $this->app->singleton(LifecycleRegistryInvalidator::class);
+        $this->app->singleton(ModuleDependencyGuard::class);
+        $this->app->singleton(ModuleDirectoryOperations::class);
     }
 
     private function registerDefaultLoaders(): void

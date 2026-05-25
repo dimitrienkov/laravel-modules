@@ -161,8 +161,14 @@ final class InstallModuleUseCaseTest extends TestCase
         );
 
         return new InstallModuleUseCase(
-            $registry, $manifests, $sourcePreparer, $paths,
-            $guard, $directoryOps, $invalidator, $namespaceResolver,
+            $registry,
+            $manifests,
+            $sourcePreparer,
+            $paths,
+            $guard,
+            $directoryOps,
+            $invalidator,
+            $namespaceResolver,
         );
     }
 

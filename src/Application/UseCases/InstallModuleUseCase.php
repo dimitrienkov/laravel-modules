@@ -107,6 +107,7 @@ final readonly class InstallModuleUseCase
     {
         try {
             $this->registry->find($name);
+
             throw ModuleAlreadyExistsException::forName($name);
         } catch (ModuleNotFoundException) {
         }

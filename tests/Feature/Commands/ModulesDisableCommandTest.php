@@ -6,7 +6,6 @@ namespace DimitrienkoV\LaravelModules\Tests\Feature\Commands;
 
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
-use DimitrienkoV\LaravelModules\Application\UseCases\DisableModuleUseCase;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesDisableCommand;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
@@ -154,7 +153,7 @@ final class ModulesDisableCommandTest extends TestCase
     private function artisanCommand(string $command): PendingCommand
     {
         $result = $this->artisan($command);
-        assert($result instanceof PendingCommand);
+        \assert($result instanceof PendingCommand);
 
         return $result;
     }

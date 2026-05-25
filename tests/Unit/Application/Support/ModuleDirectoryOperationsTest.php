@@ -7,8 +7,6 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\Support;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleInstallException;
-use DimitrienkoV\LaravelModules\Exceptions\ModuleRemoveException;
-use DimitrienkoV\LaravelModules\Exceptions\ModuleUpdateException;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;

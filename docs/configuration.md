@@ -25,6 +25,7 @@ return [
             'app/Integrations',
             'app/Subsystems',
         ],
+        'backup' => storage_path('app/module-backups'),
     ],
     'routing' => [
         'types' => [
@@ -59,6 +60,20 @@ return [
 ```
 
 `ModuleDirectoryScanner` сканирует direct child directories и оставляет только директории с `module.json`.
+
+Lifecycle-команды (`make:module`, `modules:install`) принимают `--directory` для явного указания target root. Аргумент должен быть одним из configured roots.
+
+## Backup path
+
+`paths.backup` задаёт директорию для backup при `modules:update` и `modules:remove`. По умолчанию `storage_path('app/module-backups')`. Формат backup: `<name>-<Ymd-His>`.
+
+## Stubs
+
+```bash
+php artisan vendor:publish --tag=modules-stubs
+```
+
+Публикует `module-service-provider.stub` и `module.json.stub` в `stubs/modules/`.
 
 ## Route types
 

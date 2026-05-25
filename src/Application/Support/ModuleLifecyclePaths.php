@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
-use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
 use Illuminate\Contracts\Config\Repository;
 
 final readonly class ModuleLifecyclePaths

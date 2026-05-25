@@ -23,9 +23,12 @@ final class MakeModuleCommand extends Command
         /** @var string $name */
         $name = $this->argument('name');
 
+        /** @var string|null $directory */
+        $directory = $this->option('directory');
+
         $config = new ScaffoldModuleConfig(
             name: $name,
-            directory: $this->option('directory'),
+            directory: $directory,
             disabled: (bool) $this->option('disabled'),
             force: (bool) $this->option('force'),
         );

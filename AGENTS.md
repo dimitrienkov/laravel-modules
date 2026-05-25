@@ -4,9 +4,9 @@
 
 ## Обзор проекта
 
-`dimitrienkov0/laravel-modules` — manifest-driven Laravel-пакет для модульной архитектуры приложений. Текущий срез v2.0 core реализует обнаружение модулей по `module.json`, типизированный manifest layer, dependency-aware `ModuleRegistry`, loader-pipeline, runtime feature toggles, production cache и опциональный MoonShine autoload bridge.
+`dimitrienkov0/laravel-modules` — manifest-driven Laravel-пакет для модульной архитектуры приложений. Текущий срез v2.0 core реализует обнаружение модулей по `module.json`, типизированный manifest layer, dependency-aware `ModuleRegistry`, loader-pipeline, runtime feature toggles, production cache, lifecycle UseCase-классы и Artisan-команды (`make:module`, `modules:install/update/remove/enable/disable/list`), а также опциональный MoonShine autoload bridge.
 
-Команды жизненного цикла установки/обновления модулей, генераторы `make:* --module` и полноценный MoonShine admin-UI описаны в roadmap, но не должны документироваться как уже реализованные.
+Module-aware генераторы `make:* --module` и полноценный MoonShine admin-UI описаны в roadmap, но не должны документироваться как уже реализованные.
 
 ## Технологический стек
 

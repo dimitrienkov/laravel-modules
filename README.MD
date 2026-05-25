@@ -4,7 +4,7 @@
 
 `dimitrienkov0/laravel-modules` помогает Laravel-приложению находить модули в настроенных директориях, валидировать `module.json`, сортировать модули по зависимостям и загружать enabled-модули через предсказуемый loader-pipeline.
 
-Текущий срез v2.0 core покрывает runtime loading (15 loaders), feature values, production registry cache и optional-интеграции MoonShine/Inertia. Lifecycle-команды, генераторы модулей и полноценный admin UI остаются roadmap.
+Текущий срез v2.0 core покрывает runtime loading (15 loaders), feature values, production registry cache, lifecycle-команды (`make:module`, `modules:install/update/remove/enable/disable/list`) и optional-интеграции MoonShine/Inertia. Module-aware генераторы `make:* --module` и полноценный admin UI остаются roadmap.
 
 ## Quick Start
 

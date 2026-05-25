@@ -136,3 +136,33 @@ arch('artisan commands extend Laravel Command')
 arch('manifest enums are string backed enums')
     ->expect('DimitrienkoV\LaravelModules\Manifest\Enums')
     ->toBeStringBackedEnums();
+
+arch('use cases are final readonly')
+    ->expect('DimitrienkoV\LaravelModules\Application\UseCases')
+    ->classes()
+    ->toBeFinal()
+    ->toBeReadonly();
+
+arch('application support classes are final readonly')
+    ->expect('DimitrienkoV\LaravelModules\Application\Support')
+    ->classes()
+    ->toBeFinal()
+    ->toBeReadonly();
+
+arch('application DTOs are final readonly')
+    ->expect('DimitrienkoV\LaravelModules\Application\DTOs')
+    ->classes()
+    ->toBeFinal()
+    ->toBeReadonly();
+
+arch('application layer does not depend on loaders or providers')
+    ->expect('DimitrienkoV\LaravelModules\Application')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Loaders',
+        'DimitrienkoV\LaravelModules\MoonShine',
+    ]);
+
+arch('ZipExtractor is final readonly')
+    ->expect('DimitrienkoV\LaravelModules\Support\ZipExtractor')
+    ->toBeFinal()
+    ->toBeReadonly();

@@ -27,7 +27,7 @@ final readonly class ModuleDirectoryOperations
     public function replaceDirectoryWithBackup(string $target, string $source, string $moduleName): string
     {
         $backupPath = $this->paths->collisionSafeBackupPath($moduleName);
-        $backupRoot = dirname($backupPath);
+        $backupRoot = \dirname($backupPath);
 
         if (! is_dir($backupRoot)) {
             $this->filesystem->makeDirectory($backupRoot, 0755, true);
@@ -49,7 +49,7 @@ final readonly class ModuleDirectoryOperations
     public function moveToBackup(string $target, string $moduleName): string
     {
         $backupPath = $this->paths->collisionSafeBackupPath($moduleName);
-        $backupRoot = dirname($backupPath);
+        $backupRoot = \dirname($backupPath);
 
         if (! is_dir($backupRoot)) {
             $this->filesystem->makeDirectory($backupRoot, 0755, true);

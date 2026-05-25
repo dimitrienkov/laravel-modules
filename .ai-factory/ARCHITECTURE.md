@@ -19,11 +19,39 @@
 
 ```
 src/
+├── Application/
+│   ├── DTOs/
+│   │   ├── InstallModuleResult.php
+│   │   ├── RemoveModuleResult.php
+│   │   ├── ScaffoldModuleConfig.php
+│   │   ├── ScaffoldModuleResult.php
+│   │   └── UpdateModuleResult.php
+│   ├── Support/
+│   │   ├── LifecycleRegistryInvalidator.php
+│   │   ├── ModuleDependencyGuard.php
+│   │   ├── ModuleDirectoryOperations.php
+│   │   ├── ModuleLifecyclePaths.php
+│   │   ├── ModuleSourcePreparer.php
+│   │   └── PreparedSource.php
+│   └── UseCases/
+│       ├── DisableModuleUseCase.php
+│       ├── EnableModuleUseCase.php
+│       ├── InstallModuleUseCase.php
+│       ├── RemoveModuleUseCase.php
+│       ├── ScaffoldModuleUseCase.php
+│       └── UpdateModuleUseCase.php
 ├── Console/
 │   └── Commands/
 │       └── Modules/
+│           ├── MakeModuleCommand.php
+│           ├── ModulesDisableCommand.php
+│           ├── ModulesEnableCommand.php
+│           ├── ModulesInstallCommand.php
+│           ├── ModulesListCommand.php
 │           ├── ModulesOptimizeCommand.php
-│           └── ModulesOptimizeClearCommand.php
+│           ├── ModulesOptimizeClearCommand.php
+│           ├── ModulesRemoveCommand.php
+│           └── ModulesUpdateCommand.php
 ├── Contracts/
 │   ├── FeatureRepositoryInterface.php
 │   ├── LoaderInterface.php
@@ -97,14 +125,18 @@ src/
 - `Loaders` зависят от `Contracts`, `Manifest\VO\Module`, `Support\ModuleLayout` и Laravel services.
 - `Manifest` отвечает за parsing, validation, VO hydration, repository, registry orchestration и runtime feature API.
 - `Registry` отвечает только за directory scan и production cache format.
-- `Support` содержит инфраструктурные утилиты: path layout, atomic writes, namespace resolution, topological sort и container lifecycle hooks.
+- `Support` содержит инфраструктурные утилиты: path layout, atomic writes, namespace resolution, topological sort, zip extraction и container lifecycle hooks.
+- `Application` содержит lifecycle UseCase-классы, support-сервисы и DTOs. `Application/UseCases` → `Contracts + Manifest\VO + Application/Support + Application/DTOs + Support`. `Application/Support` → `Contracts + Manifest\VO + Support + Registry`. `Application/DTOs` → `∅`. `Application` не зависит от `Loaders`, `Providers`, `MoonShine`.
+- `Console/Commands` → `Application/UseCases + Contracts`.
 - `MoonShine` — optional bridge; core runtime не должен требовать MoonShine классы без guard.
 - `Contracts` не зависят от реализаций.
 - В `src/` запрещены Laravel facades, debug/termination calls и mutable static properties.
 
 Разрешённые направления:
 
-- `Provider -> Contracts/Manifest/Registry/Support/Loaders/MoonShine`
+- `Provider -> Contracts/Manifest/Registry/Support/Loaders/MoonShine/Application`
+- `Application -> Contracts + Manifest\VO + Application\Support + Application\DTOs + Support`
+- `Console\Commands -> Application\UseCases + Contracts`
 - `Loaders -> Contracts + Manifest\VO + Support + Laravel abstractions`
 - `Manifest -> Contracts + Registry + Manifest\VO/Parsing/Enums + Support`
 - `Registry -> Manifest\VO + Contracts + Support`
