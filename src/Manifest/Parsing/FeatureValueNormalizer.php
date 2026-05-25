@@ -23,8 +23,8 @@ final readonly class FeatureValueNormalizer
         string $valueName,
     ): bool|int|string {
         return match ($type) {
-            FeatureType::Bool => self::normalizeBool($key, $value, $manifestPath, $valueName),
-            FeatureType::Int => self::normalizeInt($key, $value, $min, $max, $manifestPath, $valueName),
+            FeatureType::Boolean => self::normalizeBool($key, $value, $manifestPath, $valueName),
+            FeatureType::Integer => self::normalizeInt($key, $value, $min, $max, $manifestPath, $valueName),
             FeatureType::String => self::normalizeString($key, $value, $min, $max, $manifestPath, $valueName),
             FeatureType::Enum => self::normalizeEnum($key, $value, $options, $manifestPath, $valueName),
         };

@@ -8,6 +8,8 @@ use DimitrienkoV\LaravelModules\Exceptions\FeatureNotFoundException;
 use DimitrienkoV\LaravelModules\Exceptions\FeatureTypeMismatchException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
+use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
@@ -52,9 +54,9 @@ final class FeatureRepositoryTest extends TestCase
     {
         $features = $this->featureRepository();
 
-        self::assertFalse($features->bool('blog', 'comments_enabled'));
-        self::assertSame(20, $features->int('blog', 'posts_per_page'));
-        self::assertSame('light', $features->string('blog', 'theme'));
+        self::assertFalse($features->getBool('blog', 'comments_enabled'));
+        self::assertSame(20, $features->getInt('blog', 'posts_per_page'));
+        self::assertSame('light', $features->getString('blog', 'theme'));
         self::assertSame('light', $features->get('blog', 'theme'));
     }
 
@@ -73,7 +75,7 @@ final class FeatureRepositoryTest extends TestCase
         $this->expectException(FeatureTypeMismatchException::class);
         $this->expectExceptionMessage('must be [int]');
 
-        $this->featureRepository()->int('blog', 'comments_enabled');
+        $this->featureRepository()->getInt('blog', 'comments_enabled');
     }
 
     #[Test]
@@ -81,12 +83,12 @@ final class FeatureRepositoryTest extends TestCase
     {
         $features = $this->featureRepository();
 
-        self::assertFalse($features->bool('blog', 'comments_enabled'));
+        self::assertFalse($features->getBool('blog', 'comments_enabled'));
 
         $this->updateValues(['comments_enabled' => true, 'posts_per_page' => 20]);
 
-        self::assertFalse($features->bool('blog', 'comments_enabled'));
-        self::assertTrue($this->featureRepository()->bool('blog', 'comments_enabled'));
+        self::assertFalse($features->getBool('blog', 'comments_enabled'));
+        self::assertTrue($this->featureRepository()->getBool('blog', 'comments_enabled'));
     }
 
     #[Test]
@@ -94,7 +96,7 @@ final class FeatureRepositoryTest extends TestCase
     {
         $features = $this->featureRepository();
 
-        self::assertSame('light', $features->string('blog', 'theme'));
+        self::assertSame('light', $features->getString('blog', 'theme'));
     }
 
     #[Test]
@@ -103,7 +105,7 @@ final class FeatureRepositoryTest extends TestCase
         $this->expectException(FeatureTypeMismatchException::class);
         $this->expectExceptionMessage('must be [string]');
 
-        $this->featureRepository()->string('blog', 'comments_enabled');
+        $this->featureRepository()->getString('blog', 'comments_enabled');
     }
 
     #[Test]
@@ -126,7 +128,7 @@ final class FeatureRepositoryTest extends TestCase
     private function registry(): ModuleRegistry
     {
         $layout = new ModuleLayout();
-        $validator = new ManifestValidator();
+        $validator = new ManifestValidator(new ManifestSettingsValidator());
         $config = new Repository([
             'modules' => [
                 'paths' => [
@@ -143,6 +145,7 @@ final class FeatureRepositoryTest extends TestCase
                 filesystem: new Filesystem(),
                 layout: $layout,
                 basePath: $this->tempDir,
+                appPath: $this->tempDir . '/app',
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,
@@ -159,8 +162,9 @@ final class FeatureRepositoryTest extends TestCase
         return new ModuleManifestRepository(
             layout: $layout,
             writer: new AtomicJsonWriter(),
-            validator: new ManifestValidator(),
+            validator: new ManifestValidator(new ManifestSettingsValidator()),
             namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+            documentReader: new ManifestDocumentReader(),
         );
     }
 
@@ -171,7 +175,7 @@ final class FeatureRepositoryTest extends TestCase
     {
         $repository = $this->manifestRepository();
         $module = $repository->load($this->modulePath);
-        $repository->updateFeatureValues(
+        $repository->saveValues(
             $module,
             FeatureValues::fromArray($values, $module->features, $module->name, $module->manifestPath()),
         );

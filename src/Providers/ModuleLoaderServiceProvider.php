@@ -29,6 +29,8 @@ use DimitrienkoV\LaravelModules\Loaders\RouteLoader;
 use DimitrienkoV\LaravelModules\Loaders\ServiceProviderLoader;
 use DimitrienkoV\LaravelModules\Loaders\ViewLoader;
 use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
+use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
@@ -40,6 +42,7 @@ use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\ServiceProvider;
 use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
@@ -75,7 +78,10 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom($this->packageConfigPath(), 'modules');
 
-        $this->registerCoreBindings();
+        $this->registerManifestBindings();
+        $this->registerRegistryBindings();
+        $this->registerRuntimeBindings();
+        $this->registerFeatureBindings();
         $this->registerDefaultLoaders();
         $this->registerMoonShineIntegration();
     }
@@ -101,11 +107,12 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->pipeline()->boot();
     }
 
-    private function registerCoreBindings(): void
+    private function registerManifestBindings(): void
     {
         $this->app->singleton(ModuleLayout::class);
         $this->app->singleton(AtomicJsonWriter::class);
-        $this->app->singleton(TopologicalSorter::class);
+        $this->app->singleton(ManifestDocumentReader::class);
+        $this->app->singleton(ManifestSettingsValidator::class);
         $this->app->singleton(ManifestValidator::class);
         $this->app->singleton(
             ManifestValidatorInterface::class,
@@ -124,12 +131,18 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 writer: $this->app->make(AtomicJsonWriter::class),
                 validator: $this->app->make(ManifestValidatorInterface::class),
                 namespaceResolver: $this->app->make(NamespaceResolverInterface::class),
+                documentReader: $this->app->make(ManifestDocumentReader::class),
             );
         });
         $this->app->singleton(
             ModuleManifestRepositoryInterface::class,
             fn (): ModuleManifestRepository => $this->app->make(ModuleManifestRepository::class),
         );
+    }
+
+    private function registerRegistryBindings(): void
+    {
+        $this->app->singleton(TopologicalSorter::class);
 
         $this->app->singleton(ModuleDirectoryScanner::class, function (): ModuleDirectoryScanner {
             return new ModuleDirectoryScanner(
@@ -137,6 +150,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 filesystem: $this->app->make(Filesystem::class),
                 layout: $this->app->make(ModuleLayout::class),
                 basePath: $this->app->basePath(),
+                appPath: $this->app->path(),
             );
         });
 
@@ -160,7 +174,14 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             ModuleRegistryInterface::class,
             fn (): ModuleRegistry => $this->app->make(ModuleRegistry::class),
         );
+    }
 
+    private function registerRuntimeBindings(): void
+    {
+    }
+
+    private function registerFeatureBindings(): void
+    {
         $this->app->scoped(FeatureRepositoryInterface::class, FeatureRepository::class);
     }
 
@@ -190,7 +211,10 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         );
     }
 
-    private function pipeline(): ModuleLoaderPipeline
+    /**
+     * @return array<int, LoaderInterface>
+     */
+    private function resolveTaggedLoaders(): array
     {
         $loaders = [];
         foreach ($this->app->tagged(self::LOADER_TAG) as $tagged) {
@@ -199,10 +223,15 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             }
         }
 
+        return $loaders;
+    }
+
+    private function pipeline(): ModuleLoaderPipeline
+    {
         return new ModuleLoaderPipeline(
             registry: $this->app->make(ModuleRegistryInterface::class),
-            loaders: $loaders,
-            exceptionHandler: $this->app->make(\Illuminate\Contracts\Debug\ExceptionHandler::class),
+            loaders: $this->resolveTaggedLoaders(),
+            exceptionHandler: $this->app->make(ExceptionHandler::class),
         );
     }
 

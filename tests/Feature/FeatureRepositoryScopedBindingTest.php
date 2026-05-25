@@ -8,6 +8,8 @@ use DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
+use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
@@ -54,23 +56,23 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
     {
         $firstRequest = $this->application()->make(FeatureRepositoryInterface::class);
 
-        self::assertFalse($firstRequest->bool('blog', 'comments_enabled'));
+        self::assertFalse($firstRequest->getBool('blog', 'comments_enabled'));
 
         $this->updateValues(['comments_enabled' => true]);
 
-        self::assertFalse($firstRequest->bool('blog', 'comments_enabled'));
+        self::assertFalse($firstRequest->getBool('blog', 'comments_enabled'));
 
         $this->application()->forgetScopedInstances();
         $secondRequest = $this->application()->make(FeatureRepositoryInterface::class);
 
-        self::assertTrue($secondRequest->bool('blog', 'comments_enabled'));
+        self::assertTrue($secondRequest->getBool('blog', 'comments_enabled'));
     }
 
     private function bindFeatureServices(): void
     {
         $app = $this->application();
         $layout = new ModuleLayout();
-        $validator = new ManifestValidator();
+        $validator = new ManifestValidator(new ManifestSettingsValidator());
 
         $config = new Repository([
             'modules' => [
@@ -85,6 +87,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
             writer: new AtomicJsonWriter(),
             validator: $validator,
             namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+            documentReader: new ManifestDocumentReader(),
         ));
 
         $app->instance(ModuleRegistryInterface::class, new ModuleRegistry(
@@ -95,6 +98,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
                 filesystem: new Filesystem(),
                 layout: $layout,
                 basePath: $this->tempDir,
+                appPath: $this->tempDir . '/app',
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,
@@ -113,7 +117,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
     {
         $repository = $this->application()->make(ModuleManifestRepositoryInterface::class);
         $module = $repository->load($this->modulePath);
-        $repository->updateFeatureValues(
+        $repository->saveValues(
             $module,
             FeatureValues::fromArray($values, $module->features, $module->name, $module->manifestPath()),
         );

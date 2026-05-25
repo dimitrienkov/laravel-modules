@@ -6,6 +6,8 @@ namespace DimitrienkoV\LaravelModules\Tests\Feature;
 
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeClearCommand;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeCommand;
+use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
@@ -85,7 +87,7 @@ final class ModulesOptimizeCommandTest extends TestCase
     private function registryCache(): ModuleRegistryCache
     {
         return new ModuleRegistryCache(
-            validator: new ManifestValidator(),
+            validator: new ManifestValidator(new ManifestSettingsValidator()),
             layout: new ModuleLayout(),
             basePath: $this->tempDir,
         );
@@ -94,7 +96,7 @@ final class ModulesOptimizeCommandTest extends TestCase
     private function registry(): ModuleRegistry
     {
         $layout = new ModuleLayout();
-        $validator = new ManifestValidator();
+        $validator = new ManifestValidator(new ManifestSettingsValidator());
         $config = new Repository([
             'modules' => [
                 'paths' => [
@@ -109,6 +111,7 @@ final class ModulesOptimizeCommandTest extends TestCase
                 writer: new AtomicJsonWriter(),
                 validator: $validator,
                 namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+                documentReader: new ManifestDocumentReader(),
             ),
             sorter: new TopologicalSorter(),
             scanner: new ModuleDirectoryScanner(
@@ -116,6 +119,7 @@ final class ModulesOptimizeCommandTest extends TestCase
                 filesystem: new Filesystem(),
                 layout: $layout,
                 basePath: $this->tempDir,
+                appPath: $this->tempDir . '/app',
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,

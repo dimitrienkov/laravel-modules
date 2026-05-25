@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
+use DimitrienkoV\LaravelModules\Exceptions\ModuleCacheWriteException;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use Illuminate\Console\Command;
@@ -19,14 +20,22 @@ final class ModulesOptimizeClearCommand extends Command
     ): int {
         $this->components->info('Clearing cached module registry...');
 
-        if ($cache->exists()) {
+        if (! $cache->exists()) {
+            $this->components->info('No cache to clear.');
+
+            return self::SUCCESS;
+        }
+
+        try {
             $cache->forget();
             $registry->reset();
             $this->components->info('Module registry cache cleared.');
-        } else {
-            $this->components->info('No cache to clear.');
-        }
 
-        return self::SUCCESS;
+            return self::SUCCESS;
+        } catch (ModuleCacheWriteException $exception) {
+            $this->components->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
     }
 }

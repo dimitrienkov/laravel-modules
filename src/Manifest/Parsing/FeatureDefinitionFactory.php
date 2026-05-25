@@ -121,6 +121,7 @@ final readonly class FeatureDefinitionFactory
         }
 
         $options = [];
+        $seen = [];
         foreach ($definition['options'] as $option) {
             if (! \is_string($option) || $option === '') {
                 throw InvalidManifestException::forPath(
@@ -129,6 +130,14 @@ final readonly class FeatureDefinitionFactory
                 );
             }
 
+            if (isset($seen[$option])) {
+                throw InvalidManifestException::forPath(
+                    $manifestPath,
+                    "settings.schema.{$key}.options contains duplicate entry [{$option}].",
+                );
+            }
+
+            $seen[$option] = true;
             $options[] = $option;
         }
 
@@ -139,7 +148,7 @@ final readonly class FeatureDefinitionFactory
             );
         }
 
-        return array_values(array_unique($options));
+        return $options;
     }
 
     /**
@@ -153,7 +162,7 @@ final readonly class FeatureDefinitionFactory
         array $options,
         string $manifestPath,
     ): void {
-        if ($type === FeatureType::Bool && ($min !== null || $max !== null || $options !== [])) {
+        if ($type === FeatureType::Boolean && ($min !== null || $max !== null || $options !== [])) {
             throw InvalidManifestException::forPath(
                 $manifestPath,
                 "settings.schema.{$key} bool features cannot define min, max or options.",
@@ -167,7 +176,7 @@ final readonly class FeatureDefinitionFactory
             );
         }
 
-        if (($type === FeatureType::Int || $type === FeatureType::String) && $options !== []) {
+        if (($type === FeatureType::Integer || $type === FeatureType::String) && $options !== []) {
             throw InvalidManifestException::forPath(
                 $manifestPath,
                 "settings.schema.{$key} {$type->value} features cannot define options.",

@@ -14,9 +14,7 @@ interface ModuleManifestRepositoryInterface
 
     public function readValues(Module $module): FeatureValues;
 
-    public function save(Module $module, FeatureValues $values): void;
+    public function saveValues(Module $module, FeatureValues $values): void;
 
     public function updateState(Module $module, ManifestState $state): Module;
-
-    public function updateFeatureValues(Module $module, FeatureValues $values): void;
 }

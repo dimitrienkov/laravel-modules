@@ -9,6 +9,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependency;
 
 final readonly class ModuleFactory
 {
@@ -38,7 +39,16 @@ final readonly class ModuleFactory
                 author: null,
                 description: null,
                 license: null,
-                dependencies: new ModuleDependencies($dependencies),
+                dependencies: new ModuleDependencies(
+                    array_combine(
+                        array_keys($dependencies),
+                        array_map(
+                            static fn (string $constraint, string $name): ModuleDependency => new ModuleDependency($name, $constraint),
+                            $dependencies,
+                            array_keys($dependencies),
+                        ),
+                    ),
+                ),
             ),
             state: new ManifestState($enabled, null),
             features: new FeatureSchema([]),

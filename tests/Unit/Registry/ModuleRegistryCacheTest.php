@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Registry;
 
-use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
+use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleCacheException;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -39,10 +40,24 @@ final class ModuleRegistryCacheTest extends TestCase
 
         $payload = $cache->buildPayload([$module]);
 
-        self::assertSame(2, $payload['version']);
-        self::assertSame(['blog'], $payload['load_order']);
-        self::assertArrayHasKey('blog', $payload['modules']);
-        self::assertArrayNotHasKey('values', $payload['modules']['blog']['manifest']['settings']);
+        self::assertSame(2, $payload->version);
+        self::assertSame(['blog'], $payload->loadOrder);
+        self::assertArrayHasKey('blog', $payload->modules);
+        self::assertArrayNotHasKey('values', $payload->modules['blog']->manifest['settings']);
+    }
+
+    #[Test]
+    public function it_writes_and_reads_cache_round_trip(): void
+    {
+        $cache = $this->cache();
+        $module = ModuleFactory::make(name: 'blog', path: $this->tempDir . '/app/Modules/Blog');
+        mkdir($this->tempDir . '/app/Modules/Blog', 0755, true);
+        file_put_contents($this->tempDir . '/app/Modules/Blog/module.json', '{}');
+
+        $cachePath = $cache->write([$module]);
+
+        self::assertFileExists($cachePath);
+        self::assertTrue($cache->exists());
     }
 
     #[Test]
@@ -88,7 +103,7 @@ final class ModuleRegistryCacheTest extends TestCase
             'load_order' => [],
         ], true) . ';');
 
-        $this->expectException(InvalidManifestException::class);
+        $this->expectException(InvalidModuleCacheException::class);
         $this->expectExceptionMessage('version is not supported');
 
         $cache->load();
@@ -104,8 +119,45 @@ final class ModuleRegistryCacheTest extends TestCase
             'load_order' => ['missing'],
         ], true) . ';');
 
-        $this->expectException(InvalidManifestException::class);
+        $this->expectException(InvalidModuleCacheException::class);
         $this->expectExceptionMessage('references missing module [missing]');
+
+        $cache->load();
+    }
+
+    #[Test]
+    public function it_throws_when_load_order_contains_duplicates(): void
+    {
+        $cache = $this->cache();
+        file_put_contents($cache->cachePath(), '<?php return ' . var_export([
+            'version' => 2,
+            'modules' => [
+                'blog' => ['path' => '/tmp/blog', 'namespace' => 'App\\Blog', 'manifest' => []],
+            ],
+            'load_order' => ['blog', 'blog'],
+        ], true) . ';');
+
+        $this->expectException(InvalidModuleCacheException::class);
+        $this->expectExceptionMessage('duplicate name [blog]');
+
+        $cache->load();
+    }
+
+    #[Test]
+    public function it_throws_when_module_absent_from_load_order(): void
+    {
+        $cache = $this->cache();
+        file_put_contents($cache->cachePath(), '<?php return ' . var_export([
+            'version' => 2,
+            'modules' => [
+                'blog' => ['path' => '/tmp/blog', 'namespace' => 'App\\Blog', 'manifest' => []],
+                'users' => ['path' => '/tmp/users', 'namespace' => 'App\\Users', 'manifest' => []],
+            ],
+            'load_order' => ['blog'],
+        ], true) . ';');
+
+        $this->expectException(InvalidModuleCacheException::class);
+        $this->expectExceptionMessage('absent from load_order');
 
         $cache->load();
     }
@@ -113,7 +165,7 @@ final class ModuleRegistryCacheTest extends TestCase
     private function cache(): ModuleRegistryCache
     {
         return new ModuleRegistryCache(
-            validator: new ManifestValidator(),
+            validator: new ManifestValidator(new ManifestSettingsValidator()),
             layout: new ModuleLayout(),
             basePath: $this->tempDir,
         );

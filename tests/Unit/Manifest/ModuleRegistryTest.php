@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
 
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
+use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
@@ -104,22 +106,25 @@ final class ModuleRegistryTest extends TestCase
     }
 
     #[Test]
-    public function it_builds_v2_cache_payload_from_scanned_modules(): void
+    public function it_writes_v2_cache_from_scanned_modules(): void
     {
         $this->writeModule('Users', $this->manifest('users', '1.0.0'));
 
-        $payload = $this->registry()->buildCachePayload();
+        $result = $this->registry()->writeCache();
 
+        self::assertFileExists($result['path']);
+        self::assertSame(1, $result['count']);
+
+        $payload = require $result['path'];
         self::assertSame(2, $payload['version']);
         self::assertSame(['users'], $payload['load_order']);
-        self::assertArrayHasKey('users', $payload['modules']);
         self::assertSame('App\\Modules\\Users', $payload['modules']['users']['namespace']);
     }
 
     private function registry(): ModuleRegistry
     {
         $layout = new ModuleLayout();
-        $validator = new ManifestValidator();
+        $validator = new ManifestValidator(new ManifestSettingsValidator());
         $config = new Repository([
             'modules' => [
                 'paths' => [
@@ -134,6 +139,7 @@ final class ModuleRegistryTest extends TestCase
                 writer: new AtomicJsonWriter(),
                 validator: $validator,
                 namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+                documentReader: new ManifestDocumentReader(),
             ),
             sorter: new TopologicalSorter(),
             scanner: new ModuleDirectoryScanner(
@@ -141,6 +147,7 @@ final class ModuleRegistryTest extends TestCase
                 filesystem: new Filesystem(),
                 layout: $layout,
                 basePath: $this->tempDir,
+                appPath: $this->tempDir . '/app',
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,

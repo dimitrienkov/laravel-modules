@@ -6,8 +6,8 @@ namespace DimitrienkoV\LaravelModules\Manifest\Enums;
 
 enum FeatureType: string
 {
-    case Bool = 'bool';
-    case Int = 'int';
+    case Boolean = 'bool';
+    case Integer = 'int';
     case String = 'string';
     case Enum = 'enum';
 }

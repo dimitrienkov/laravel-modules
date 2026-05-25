@@ -45,6 +45,33 @@ final class ModuleLoaderPipelineTest extends TestCase
     }
 
     #[Test]
+    public function it_preserves_registration_order_for_equal_priorities(): void
+    {
+        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new \ArrayObject();
+
+        $pipeline = new ModuleLoaderPipeline(
+            registry: new PipelineFakeRegistry([
+                ModuleFactory::make(name: 'blog'),
+            ]),
+            loaders: [
+                new PipelineRecordingLoader($calls, 50, 'first'),
+                new PipelineRecordingLoader($calls, 50, 'second'),
+                new PipelineRecordingLoader($calls, 50, 'third'),
+            ],
+            exceptionHandler: $this->fakeExceptionHandler(),
+        );
+
+        $pipeline->boot();
+
+        self::assertSame([
+            ['first', 'blog'],
+            ['second', 'blog'],
+            ['third', 'blog'],
+        ], $calls->getArrayCopy());
+    }
+
+    #[Test]
     public function it_skips_disabled_modules(): void
     {
         /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */

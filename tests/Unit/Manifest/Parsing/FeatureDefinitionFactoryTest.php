@@ -22,7 +22,7 @@ final class FeatureDefinitionFactoryTest extends TestCase
         );
 
         self::assertSame('enabled', $definition->key);
-        self::assertSame(FeatureType::Bool, $definition->type);
+        self::assertSame(FeatureType::Boolean, $definition->type);
         self::assertTrue($definition->hasDefault);
         self::assertTrue($definition->default);
     }
@@ -36,7 +36,7 @@ final class FeatureDefinitionFactoryTest extends TestCase
             '/tmp/module.json',
         );
 
-        self::assertSame(FeatureType::Int, $definition->type);
+        self::assertSame(FeatureType::Integer, $definition->type);
         self::assertSame(1, $definition->min);
         self::assertSame(100, $definition->max);
         self::assertSame(10, $definition->default);

@@ -4,31 +4,31 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
+use DimitrienkoV\LaravelModules\Exceptions\ModuleCacheWriteException;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use Illuminate\Console\Command;
-use Illuminate\Filesystem\Filesystem;
 
 final class ModulesOptimizeCommand extends Command
 {
     protected $signature = 'modules:optimize';
     protected $description = 'Cache module registry for production';
 
-    public function handle(
-        ModuleRegistry $registry,
-        Filesystem $filesystem,
-    ): int {
+    public function handle(ModuleRegistry $registry): int
+    {
         $this->components->info('Caching module registry...');
 
-        $payload = $registry->buildCachePayload();
-        $cachePath = $registry->cachePath();
+        try {
+            $result = $registry->writeCache();
 
-        $filesystem->ensureDirectoryExists(\dirname($cachePath));
-        $filesystem->put($cachePath, '<?php return ' . var_export($payload, true) . ';' . PHP_EOL);
+            $this->components->twoColumnDetail('Cache path', $result['path']);
+            $this->components->twoColumnDetail('Modules cached', (string) $result['count']);
+            $this->components->info('Module registry cached successfully.');
 
-        $this->components->twoColumnDetail('Cache path', $cachePath);
-        $this->components->twoColumnDetail('Modules cached', (string) \count($payload['modules']));
-        $this->components->info('Module registry cached successfully.');
+            return self::SUCCESS;
+        } catch (ModuleCacheWriteException $exception) {
+            $this->components->error($exception->getMessage());
 
-        return self::SUCCESS;
+            return self::FAILURE;
+        }
     }
 }

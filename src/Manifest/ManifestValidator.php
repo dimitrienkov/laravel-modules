@@ -7,8 +7,6 @@ namespace DimitrienkoV\LaravelModules\Manifest;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
-use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
-use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 
@@ -20,10 +18,10 @@ final readonly class ManifestValidator implements ManifestValidatorInterface
         'settings' => true,
     ];
 
-    private const array ALLOWED_SETTINGS_KEYS = [
-        'schema' => true,
-        'values' => true,
-    ];
+    public function __construct(
+        private ManifestSettingsValidator $settingsValidator,
+    ) {
+    }
 
     /**
      * @param array<string, mixed> $manifest
@@ -33,28 +31,16 @@ final readonly class ManifestValidator implements ManifestValidatorInterface
         $this->assertTopLevelKeys($manifest, $manifestPath);
 
         $metaRaw = ManifestFieldReader::requiredObject($manifest, 'meta', $manifestPath);
+        /** @var array<string, mixed> $metaRaw */
         $meta = ManifestMeta::fromArray($metaRaw, $manifestPath);
 
         $state = ManifestFieldReader::requiredObject($manifest, 'state', $manifestPath);
+        /** @var array<string, mixed> $state */
         ManifestState::fromArray($state, $manifestPath);
 
         $settings = ManifestFieldReader::requiredObject($manifest, 'settings', $manifestPath);
-        ManifestFieldReader::assertAllowedKeys($settings, self::ALLOWED_SETTINGS_KEYS, 'settings', $manifestPath);
-
-        $schemaRaw = $settings['schema'] ?? [];
-        if (! \is_array($schemaRaw)) {
-            throw InvalidManifestException::forPath($manifestPath, 'settings.schema must be an object.');
-        }
-
-        $valuesRaw = $settings['values'] ?? [];
-        if (! \is_array($valuesRaw)) {
-            throw InvalidManifestException::forPath($manifestPath, 'settings.values must be an object.');
-        }
-
-        /** @var array<string, mixed> $schemaRaw */
-        $schema = FeatureSchema::fromArray($schemaRaw, $manifestPath);
-        /** @var array<string, mixed> $valuesRaw */
-        FeatureValues::fromArray($valuesRaw, $schema, $meta->name, $manifestPath);
+        /** @var array<string, mixed> $settings */
+        $this->settingsValidator->validate($settings, $meta->name, $manifestPath);
     }
 
     /**
