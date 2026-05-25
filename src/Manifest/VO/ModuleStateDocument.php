@@ -18,9 +18,7 @@ final readonly class ModuleStateDocument
     public function toArray(): array
     {
         return [
-            'enabled' => $this->state->enabled,
-            'installed_at' => $this->state->installedAt,
-            'updated_at' => $this->state->updatedAt,
+            ...$this->state->toArray(),
             'settings' => [
                 'values' => $this->values->toArray(),
             ],

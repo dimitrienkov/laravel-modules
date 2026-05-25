@@ -107,11 +107,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             return;
         }
 
-        $statePath = $this->paths->stateFile($moduleName);
-        if (is_file($statePath)) {
-            @unlink($statePath);
-        }
-
+        @unlink($this->paths->stateFile($moduleName));
         @rmdir($stateDir);
     }
 
