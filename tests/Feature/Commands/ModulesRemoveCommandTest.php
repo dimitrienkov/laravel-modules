@@ -82,6 +82,17 @@ final class ModulesRemoveCommandTest extends TestCase
             ->expectsOutputToContain('permanently deleted');
     }
 
+    #[Test]
+    public function cancelledRemoveReturnsFailure(): void
+    {
+        $this->installModule('blog');
+
+        $this->artisan('modules:remove', ['name' => 'blog'])
+            ->expectsConfirmation('Remove module [blog]?', 'no')
+            ->assertFailed()
+            ->expectsOutputToContain('Cancelled');
+    }
+
     private function installModule(string $name): void
     {
         $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, schema: new \stdClass());

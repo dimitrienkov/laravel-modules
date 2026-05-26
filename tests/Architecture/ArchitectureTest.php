@@ -185,6 +185,13 @@ arch('optimize clear command does not depend on concrete registry or cache class
         'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
     ]);
 
+arch('list command does not depend on concrete registry')
+    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesListCommand')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface',
+        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+    ]);
+
 test('direct filesystem I/O is only allowed in specialized infrastructure classes', function (): void {
     $srcDir = realpath(__DIR__ . '/../../src');
     expect($srcDir)->not->toBeFalse();

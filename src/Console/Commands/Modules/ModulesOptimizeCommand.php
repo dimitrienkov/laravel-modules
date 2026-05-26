@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
 use DimitrienkoV\LaravelModules\Application\UseCases\OptimizeModulesUseCase;
-use DimitrienkoV\LaravelModules\Exceptions\ModuleCacheWriteException;
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use Illuminate\Console\Command;
 
 final class ModulesOptimizeCommand extends Command
@@ -25,8 +25,8 @@ final class ModulesOptimizeCommand extends Command
             $this->components->info('Module registry cached successfully.');
 
             return self::SUCCESS;
-        } catch (ModuleCacheWriteException $exception) {
-            $this->components->error($exception->getMessage());
+        } catch (ModuleExceptionInterface $e) {
+            $this->components->error($e->getMessage());
 
             return self::FAILURE;
         }

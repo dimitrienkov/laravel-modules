@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Feature\Commands;
 
+use DimitrienkoV\LaravelModules\Application\UseCases\ListModulesUseCase;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesListCommand;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
@@ -96,6 +97,7 @@ final class ModulesListCommandTest extends TestCase
         $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
 
         $this->app->instance(ModuleRegistryInterface::class, $registry);
+        $this->app->instance(ListModulesUseCase::class, new ListModulesUseCase($registry));
         $this->registerArtisanCommand(ModulesListCommand::class);
     }
 

@@ -15,6 +15,7 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
+use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
@@ -25,6 +26,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
+use DimitrienkoV\LaravelModules\Support\PathNormalizer;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -56,7 +58,11 @@ final readonly class ScaffoldModuleUseCase
         $this->assertNotExists($config->name, $targetPath, $config->force);
 
         if ($config->force && $this->directoryOps->exists($targetPath)) {
-            $this->directoryOps->tryDeleteDirectory($targetPath);
+            try {
+                $this->directoryOps->deleteDirectory($targetPath);
+            } catch (DirectoryOperationException $e) {
+                throw ModuleScaffoldException::forModule($config->name, "failed to remove existing directory [{$targetPath}].", $e);
+            }
         }
 
         $namespace = $this->namespaceResolver->resolve($targetPath);
@@ -132,10 +138,8 @@ final readonly class ScaffoldModuleUseCase
             }
 
             $existing = $this->registry->find($name);
-            $normalizedExisting = rtrim(str_replace('\\', '/', $existing->path), '/');
-            $normalizedTarget = rtrim(str_replace('\\', '/', $targetPath), '/');
 
-            if ($normalizedExisting !== $normalizedTarget) {
+            if (PathNormalizer::normalize($existing->path) !== PathNormalizer::normalize($targetPath)) {
                 throw ModuleAlreadyExistsException::forName($name);
             }
         }

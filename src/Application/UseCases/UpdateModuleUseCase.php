@@ -111,6 +111,8 @@ final readonly class UpdateModuleUseCase
 
             $this->invalidator->flushAndReset();
 
+            $this->directoryOps->tryDeleteDirectory($backupPath);
+
             return new UpdateModuleResult(
                 name: $moduleName,
                 oldVersion: $existingModule->meta->version,

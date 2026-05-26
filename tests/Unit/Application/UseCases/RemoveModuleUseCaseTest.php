@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\UseCases\RemoveModuleUseCase;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\DependentModulesExistException;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleRemoveException;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use Illuminate\Filesystem\Filesystem;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -16,6 +22,7 @@ final class RemoveModuleUseCaseTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
+    use MockeryPHPUnitIntegration;
 
     private string $tempDir;
 
@@ -112,6 +119,148 @@ final class RemoveModuleUseCaseTest extends TestCase
         $result = $useCase->execute('blog');
 
         $this->assertSame('blog', $result->name);
+    }
+
+    #[Test]
+    public function permanentDeleteRestoresStateWhenDirectoryRemovalFails(): void
+    {
+        $this->createModule('blog');
+        $config = $this->lifecycleConfig(backupPath: $this->tempDir . '/backups');
+        $stateRepo = $this->lifecycleStateRepository($config);
+        $manifests = $this->lifecycleManifestRepository($stateRepo);
+        $cache = $this->lifecycleRegistryCache($stateRepo);
+        $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
+
+        /** @var Filesystem&Mockery\MockInterface $failingFs */
+        $failingFs = Mockery::mock(Filesystem::class)->makePartial();
+        $failingFs->shouldReceive('deleteDirectory')->andReturn(false);
+        $failingFs->shouldReceive('isDirectory')->andReturn(true);
+
+        $failingDirOps = new ModuleDirectoryOperations(
+            new LocalFilesystem($failingFs),
+            $this->lifecycleDirectoryPaths($config),
+        );
+
+        $useCase = new RemoveModuleUseCase(
+            $registry,
+            $stateRepo,
+            $this->lifecycleDependencyGuard($registry),
+            $failingDirOps,
+            $this->lifecycleInvalidator($cache, $registry),
+        );
+
+        try {
+            $useCase->execute('blog', deletePermanently: true);
+            $this->fail('Expected ModuleRemoveException');
+        } catch (ModuleRemoveException $e) {
+            $this->assertStringContainsString('directory removal failed, restored state', $e->getMessage());
+        }
+
+        $this->assertFileExists($this->stateRoot . '/blog/state.json');
+    }
+
+    #[Test]
+    public function permanentDeleteDoubleFaultWhenStateRestoreAlsoFails(): void
+    {
+        $this->createModule('blog');
+        $config = $this->lifecycleConfig(backupPath: $this->tempDir . '/backups');
+        $realStateRepo = $this->lifecycleStateRepository($config);
+        $manifests = $this->lifecycleManifestRepository($realStateRepo);
+        $cache = $this->lifecycleRegistryCache($realStateRepo);
+        $registry = $this->lifecycleRegistry($manifests, $realStateRepo, $config);
+
+        $savedDocument = $realStateRepo->read('blog', $registry->find('blog'));
+
+        /** @var Filesystem&Mockery\MockInterface $failingFs */
+        $failingFs = Mockery::mock(Filesystem::class)->makePartial();
+        $failingFs->shouldReceive('deleteDirectory')->andReturn(false);
+        $failingFs->shouldReceive('isDirectory')->andReturn(true);
+
+        $failingDirOps = new ModuleDirectoryOperations(
+            new LocalFilesystem($failingFs),
+            $this->lifecycleDirectoryPaths($config),
+        );
+
+        /** @var ModuleStateRepositoryInterface&Mockery\MockInterface $failingStateRepo */
+        $failingStateRepo = Mockery::mock(ModuleStateRepositoryInterface::class);
+        $failingStateRepo->shouldReceive('read')->andReturn($savedDocument);
+        $failingStateRepo->shouldReceive('delete')->once();
+        $failingStateRepo->shouldReceive('writeDocument')
+            ->andThrow(new \RuntimeException('state write failed'));
+
+        $useCase = new RemoveModuleUseCase(
+            $registry,
+            $failingStateRepo,
+            $this->lifecycleDependencyGuard($registry),
+            $failingDirOps,
+            $this->lifecycleInvalidator($cache, $registry),
+        );
+
+        try {
+            $useCase->execute('blog', deletePermanently: true);
+            $this->fail('Expected ModuleRemoveException');
+        } catch (ModuleRemoveException $e) {
+            $this->assertStringContainsString('state restore also failed', $e->getMessage());
+            $this->assertStringContainsString('Restore error:', $e->getMessage());
+            $this->assertInstanceOf(\RuntimeException::class, $e->getPrevious());
+        }
+    }
+
+    #[Test]
+    public function backupModeDoubleFaultPreservesRestoreErrorInChain(): void
+    {
+        $this->createModule('blog');
+        $config = $this->lifecycleConfig(backupPath: $this->tempDir . '/backups');
+        $stateRepo = $this->lifecycleStateRepository($config);
+        $manifests = $this->lifecycleManifestRepository($stateRepo);
+        $cache = $this->lifecycleRegistryCache($stateRepo);
+        $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
+
+        /** @var ModuleStateRepositoryInterface&Mockery\MockInterface $failingStateRepo */
+        $failingStateRepo = Mockery::mock(ModuleStateRepositoryInterface::class);
+        $failingStateRepo->shouldReceive('moveToBackup')
+            ->andThrow(new \RuntimeException('state backup failed'));
+
+        $moveCount = 0;
+        /** @var Filesystem&Mockery\MockInterface $failingFs */
+        $failingFs = Mockery::mock(Filesystem::class)->makePartial();
+        $failingFs->shouldReceive('moveDirectory')
+            ->andReturnUsing(function (string $source, string $target) use (&$moveCount): bool {
+                $moveCount++;
+                if ($moveCount > 1) {
+                    return false;
+                }
+
+                return (new Filesystem())->moveDirectory($source, $target);
+            });
+        $failingFs->shouldReceive('isDirectory')->andReturnUsing(
+            fn (string $path): bool => (new Filesystem())->isDirectory($path),
+        );
+        $failingFs->shouldReceive('makeDirectory')->andReturnUsing(
+            fn (string $path, int $mode, bool $recursive): bool => (new Filesystem())->makeDirectory($path, $mode, $recursive),
+        );
+
+        $failingDirOps = new ModuleDirectoryOperations(
+            new LocalFilesystem($failingFs),
+            $this->lifecycleDirectoryPaths($config),
+        );
+
+        $useCase = new RemoveModuleUseCase(
+            $registry,
+            $failingStateRepo,
+            $this->lifecycleDependencyGuard($registry),
+            $failingDirOps,
+            $this->lifecycleInvalidator($cache, $registry),
+        );
+
+        try {
+            $useCase->execute('blog', deletePermanently: false);
+            $this->fail('Expected ModuleRemoveException');
+        } catch (ModuleRemoveException $e) {
+            $this->assertStringContainsString('restore also failed', $e->getMessage());
+            $restoreError = $e->getPrevious();
+            $this->assertNotNull($restoreError);
+        }
     }
 
     private function makeUseCase(): RemoveModuleUseCase

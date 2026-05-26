@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
+use DimitrienkoV\LaravelModules\Application\UseCases\ListModulesUseCase;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
-use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use Illuminate\Console\Command;
 
@@ -17,23 +17,23 @@ final class ModulesListCommand extends Command
 
     protected $description = 'List all registered modules';
 
-    public function handle(ModuleRegistryInterface $registry): int
+    public function handle(ListModulesUseCase $useCase): int
     {
         try {
-            $modules = $registry->all();
+            $enabledFilter = match (true) {
+                (bool) $this->option('enabled') => true,
+                (bool) $this->option('disabled') => false,
+                default => null,
+            };
+
+            $result = $useCase->execute($enabledFilter);
         } catch (ModuleExceptionInterface $e) {
             $this->components->error($e->getMessage());
 
             return self::FAILURE;
         }
 
-        if ($this->option('enabled')) {
-            $modules = array_filter($modules, static fn (Module $m): bool => $m->isEnabled());
-        } elseif ($this->option('disabled')) {
-            $modules = array_filter($modules, static fn (Module $m): bool => ! $m->isEnabled());
-        }
-
-        if ($modules === []) {
+        if ($result->modules === []) {
             $this->components->info('No modules found.');
 
             return self::SUCCESS;
@@ -45,7 +45,7 @@ final class ModulesListCommand extends Command
             $m->meta->version,
             $m->isEnabled() ? '<info>Yes</info>' : '<comment>No</comment>',
             $m->path,
-        ], array_values($modules));
+        ], $result->modules);
 
         $this->table(
             ['Name', 'Display Name', 'Version', 'Enabled', 'Path'],

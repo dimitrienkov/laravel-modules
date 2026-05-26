@@ -7,15 +7,11 @@ namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 use DimitrienkoV\LaravelModules\Application\UseCases\RemoveModuleUseCase;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use Illuminate\Console\Command;
-use Illuminate\Console\ConfirmableTrait;
 
 final class ModulesRemoveCommand extends Command
 {
-    use ConfirmableTrait;
-
     protected $signature = 'modules:remove
         {name : The module name to remove}
-        {--force : Force the operation to run in production}
         {--yes : Skip confirmation prompt}
         {--delete-permanently : Delete permanently without backup}';
 
@@ -23,10 +19,6 @@ final class ModulesRemoveCommand extends Command
 
     public function handle(RemoveModuleUseCase $useCase): int
     {
-        if (! $this->confirmToProceed()) {
-            return self::FAILURE;
-        }
-
         /** @var string $name */
         $name = $this->argument('name');
 
@@ -35,7 +27,7 @@ final class ModulesRemoveCommand extends Command
         if (! $this->option('yes') && ! $this->components->confirm("Remove module [{$name}]?")) {
             $this->components->info('Cancelled.');
 
-            return self::SUCCESS;
+            return self::FAILURE;
         }
 
         try {

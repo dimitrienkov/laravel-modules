@@ -47,6 +47,8 @@ final readonly class RemoveModuleUseCase
 
     private function removePermanently(Module $module): null
     {
+        $existingStateDocument = $this->stateRepository->read($module->name, $module);
+
         try {
             $this->stateRepository->delete($module->name);
         } catch (Throwable $e) {
@@ -60,9 +62,19 @@ final readonly class RemoveModuleUseCase
         try {
             $this->directoryOps->deleteDirectory($module->path);
         } catch (DirectoryOperationException $e) {
+            try {
+                $this->stateRepository->writeDocument($module->name, $existingStateDocument);
+            } catch (Throwable $restoreError) {
+                throw ModuleRemoveException::forModule(
+                    $module->name,
+                    "state deleted and directory removal failed, state restore also failed. Orphaned directory at [{$module->path}]. Restore error: {$restoreError->getMessage()}",
+                    $restoreError,
+                );
+            }
+
             throw ModuleRemoveException::forModule(
                 $module->name,
-                "state deleted but directory removal failed. Orphaned directory at [{$module->path}].",
+                "directory removal failed, restored state. Directory at [{$module->path}].",
                 $e,
             );
         }
@@ -86,8 +98,8 @@ final readonly class RemoveModuleUseCase
             } catch (Throwable $restoreError) {
                 throw ModuleRemoveException::forModule(
                     $module->name,
-                    "state backup failed and restore also failed. Module backup at [{$backupPath}]. Restore error: {$restoreError->getMessage()}",
-                    $e,
+                    "state backup failed and restore also failed. Module backup at [{$backupPath}]. Original error: {$e->getMessage()}. Restore error: {$restoreError->getMessage()}",
+                    $restoreError,
                 );
             }
 

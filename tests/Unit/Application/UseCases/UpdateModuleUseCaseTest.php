@@ -225,6 +225,19 @@ final class UpdateModuleUseCaseTest extends TestCase
         }
     }
 
+    #[Test]
+    public function successfulUpdateCleansUpBackup(): void
+    {
+        $this->createInstalledModule('blog', '1.0.0');
+        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+        $useCase = $this->makeUseCase();
+
+        $useCase->execute('blog', $sourceDir);
+
+        $backupDirs = glob($this->tempDir . '/backups/blog-*');
+        $this->assertEmpty($backupDirs, 'Backup directory should be cleaned up after successful update');
+    }
+
     private function makeUseCase(
         ?\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface $manifestRepository = null,
     ): UpdateModuleUseCase {

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\DTOs\ScaffoldModuleConfig;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
+use DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback;
 use DimitrienkoV\LaravelModules\Application\UseCases\ScaffoldModuleUseCase;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
@@ -13,12 +15,15 @@ use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use Illuminate\Filesystem\Filesystem;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 final class ScaffoldModuleUseCaseTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
+    use MockeryPHPUnitIntegration;
 
     private string $tempDir;
 
@@ -135,6 +140,45 @@ final class ScaffoldModuleUseCaseTest extends TestCase
 
         $state = json_decode(file_get_contents($this->stateRoot . '/user_auth/state.json'), true);
         $this->assertNotNull($state['installed_at']);
+    }
+
+    #[Test]
+    public function scaffoldForceThrowsWhenDirectoryCannotBeDeleted(): void
+    {
+        $useCase = $this->makeUseCase();
+        $useCase->execute(new ScaffoldModuleConfig(name: 'blog'));
+
+        /** @var Filesystem&Mockery\MockInterface $failingFs */
+        $failingFs = Mockery::mock(Filesystem::class)->makePartial();
+        $failingFs->shouldReceive('deleteDirectory')->andReturn(false);
+        $failingFs->shouldReceive('isDirectory')->andReturn(true);
+
+        $failingLocalFs = new LocalFilesystem($failingFs);
+        $config = $this->lifecycleConfig();
+        $paths = $this->lifecycleDirectoryPaths($config);
+        $failingDirOps = new ModuleDirectoryOperations($failingLocalFs, $paths);
+
+        $stateRepo = $this->lifecycleStateRepository($config);
+        $manifests = $this->lifecycleManifestRepository($stateRepo);
+        $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
+        $cache = $this->lifecycleRegistryCache($stateRepo);
+
+        $useCase2 = new ScaffoldModuleUseCase(
+            registry: $registry,
+            manifestRepository: $manifests,
+            stateRepository: $stateRepo,
+            namespaceResolver: $this->lifecycleNamespaceResolver(),
+            paths: $paths,
+            invalidator: $this->lifecycleInvalidator($cache, $registry),
+            skeletonBuilder: new ModuleSkeletonBuilder(new LocalFilesystem(new Filesystem()), new AtomicFileWriter()),
+            directoryOps: $failingDirOps,
+            rollback: new PartialModuleRollback($failingDirOps, $stateRepo),
+        );
+
+        $this->expectException(ModuleScaffoldException::class);
+        $this->expectExceptionMessageMatches('/failed to remove existing directory/');
+
+        $useCase2->execute(new ScaffoldModuleConfig(name: 'blog', force: true));
     }
 
     #[Test]
