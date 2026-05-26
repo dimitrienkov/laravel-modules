@@ -15,6 +15,7 @@ final class ModulesRemoveCommand extends Command
 
     protected $signature = 'modules:remove
         {name : The module name to remove}
+        {--force : Force the operation to run in production}
         {--yes : Skip confirmation prompt}
         {--delete-permanently : Delete permanently without backup}';
 

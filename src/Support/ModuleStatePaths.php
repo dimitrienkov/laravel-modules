@@ -15,7 +15,7 @@ final readonly class ModuleStatePaths
     ) {
     }
 
-    public function stateRoot(): string
+    public function root(): string
     {
         $stateRoot = $this->config->get('modules.paths.state');
 
@@ -26,19 +26,19 @@ final readonly class ModuleStatePaths
         return $this->basePath . '/storage/app/private/modules';
     }
 
-    public function stateDirectory(string $moduleName): string
+    public function directory(string $moduleName): string
     {
-        return $this->stateRoot() . '/' . $moduleName;
+        return $this->root() . '/' . $moduleName;
     }
 
-    public function stateFile(string $moduleName): string
+    public function file(string $moduleName): string
     {
-        return $this->stateDirectory($moduleName) . '/' . ModuleFileNames::STATE;
+        return $this->directory($moduleName) . '/' . ModuleFileNames::STATE;
     }
 
     public function validate(): void
     {
-        $stateRoot = $this->stateRoot();
+        $stateRoot = $this->root();
 
         $directories = $this->config->get('modules.paths.directories', []);
         if (! \is_array($directories)) {

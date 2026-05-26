@@ -10,6 +10,7 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
+use DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
@@ -34,6 +35,7 @@ final readonly class InstallModuleUseCase
         private ModuleDirectoryOperations $directoryOps,
         private LifecycleRegistryInvalidator $invalidator,
         private NamespaceResolverInterface $namespaceResolver,
+        private PartialModuleRollback $rollback,
     ) {
     }
 
@@ -52,7 +54,7 @@ final readonly class InstallModuleUseCase
 
             $targetPath = $this->paths->targetModulePath($targetRoot, $moduleName);
 
-            if ($this->directoryOps->directoryExists($targetPath)) {
+            if ($this->directoryOps->exists($targetPath)) {
                 throw ModuleAlreadyExistsException::forPath($moduleName, $targetPath);
             }
 
@@ -87,15 +89,7 @@ final readonly class InstallModuleUseCase
                     new ModuleStateDocument($candidateState, $values),
                 );
             } catch (\Throwable $e) {
-                $this->directoryOps->tryDeleteDirectory($targetPath);
-
-                $cleanupNote = '';
-
-                try {
-                    $this->stateRepository->delete($candidate->name);
-                } catch (\Throwable $cleanupError) {
-                    $cleanupNote = ' State cleanup also failed: ' . $cleanupError->getMessage();
-                }
+                $cleanupNote = $this->rollback->rollback($moduleName, $targetPath);
 
                 throw ModuleInstallException::forModule(
                     $moduleName,

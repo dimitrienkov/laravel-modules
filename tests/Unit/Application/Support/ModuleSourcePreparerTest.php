@@ -9,7 +9,9 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleSourceException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
+use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -17,28 +19,27 @@ use ZipArchive;
 
 final class ModuleSourcePreparerTest extends TestCase
 {
-    private string $tempDir;
+    use UsesTempDirectory;
 
     private ModuleSourcePreparer $preparer;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->tempDir = sys_get_temp_dir() . '/source_preparer_' . uniqid();
-        mkdir($this->tempDir, 0755, true);
+        $this->createTempDirectory('source_preparer');
 
-        $filesystem = new Filesystem();
+        $localFs = new LocalFilesystem(new Filesystem());
         $this->preparer = new ModuleSourcePreparer(
             documentReader: new ManifestDocumentReader(),
             validator: new ManifestValidator(new ManifestSettingsValidator()),
-            zipExtractor: new ZipExtractor($filesystem),
-            filesystem: $filesystem,
+            zipExtractor: new ZipExtractor($localFs),
+            filesystem: $localFs,
         );
     }
 
     protected function tearDown(): void
     {
-        $this->removeDir($this->tempDir);
+        $this->deleteTempDirectory();
         parent::tearDown();
     }
 
@@ -186,25 +187,4 @@ final class ModuleSourcePreparerTest extends TestCase
         return $zipPath;
     }
 
-    private function removeDir(string $path): void
-    {
-        if (! is_dir($path)) {
-            return;
-        }
-
-        $items = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($items as $item) {
-            if ($item->isDir()) {
-                @rmdir($item->getPathname());
-            } else {
-                @unlink($item->getPathname());
-            }
-        }
-
-        @rmdir($path);
-    }
 }

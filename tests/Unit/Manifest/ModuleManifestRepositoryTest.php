@@ -13,9 +13,11 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -192,6 +194,7 @@ final class ModuleManifestRepositoryTest extends TestCase
             namespaceResolver: new FakeNamespaceResolver($this->tempDir),
             documentReader: new ManifestDocumentReader(),
             stateRepository: $stateRepo,
+            filesystem: new LocalFilesystem(new Filesystem()),
         );
     }
 

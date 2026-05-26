@@ -8,9 +8,9 @@ use DimitrienkoV\LaravelModules\Application\Enums\ModuleSourceKind;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleSourceException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleFileNames;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
-use Illuminate\Filesystem\Filesystem;
 
 final readonly class ModuleSourcePreparer
 {
@@ -18,17 +18,17 @@ final readonly class ModuleSourcePreparer
         private ManifestDocumentReader $documentReader,
         private ManifestValidatorInterface $validator,
         private ZipExtractor $zipExtractor,
-        private Filesystem $filesystem,
+        private LocalFilesystem $filesystem,
     ) {
     }
 
     public function prepare(string $sourcePath): PreparedSource
     {
-        if (is_dir($sourcePath)) {
+        if ($this->filesystem->isDirectory($sourcePath)) {
             return $this->prepareFromDirectory($sourcePath);
         }
 
-        if (is_file($sourcePath) && str_ends_with(strtolower($sourcePath), '.zip')) {
+        if ($this->filesystem->isFile($sourcePath) && str_ends_with(strtolower($sourcePath), '.zip')) {
             return $this->prepareFromZip($sourcePath);
         }
 
@@ -39,7 +39,7 @@ final readonly class ModuleSourcePreparer
     {
         $manifestPath = $sourcePath . '/' . ModuleFileNames::MANIFEST;
 
-        if (! is_file($manifestPath)) {
+        if (! $this->filesystem->isFile($manifestPath)) {
             throw ModuleSourceException::forPath($sourcePath, 'module.json not found in source directory.');
         }
 
@@ -65,7 +65,7 @@ final readonly class ModuleSourcePreparer
         try {
             $manifestPath = $tempDir . '/' . ModuleFileNames::MANIFEST;
 
-            if (! is_file($manifestPath)) {
+            if (! $this->filesystem->isFile($manifestPath)) {
                 throw ModuleSourceException::forPath($sourcePath, 'module.json not found in archive.');
             }
 
@@ -91,7 +91,7 @@ final readonly class ModuleSourcePreparer
 
     private function assertNoStateFile(string $sourceRoot): void
     {
-        if (is_file($sourceRoot . '/' . ModuleFileNames::STATE)) {
+        if ($this->filesystem->isFile($sourceRoot . '/' . ModuleFileNames::STATE)) {
             throw ModuleSourceException::forPath(
                 $sourceRoot,
                 'source contains state.json which belongs to host private storage, not module artifact.',

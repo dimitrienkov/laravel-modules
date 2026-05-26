@@ -19,6 +19,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
@@ -91,7 +92,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $stateRepository = new ModuleStateRepository(
             paths: $statePaths,
             writer: new AtomicJsonWriter(),
-            filesystem: new Filesystem(),
+            filesystem: new LocalFilesystem(new Filesystem()),
         );
 
         $app->instance(ModuleStateRepositoryInterface::class, $stateRepository);
@@ -103,6 +104,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
             namespaceResolver: new FakeNamespaceResolver($this->tempDir),
             documentReader: new ManifestDocumentReader(),
             stateRepository: $stateRepository,
+            filesystem: new LocalFilesystem(new Filesystem()),
         ));
 
         $app->instance(ModuleRegistryInterface::class, new ModuleRegistry(
@@ -110,7 +112,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
             sorter: new TopologicalSorter(),
             scanner: new ModuleDirectoryScanner(
                 config: $config,
-                filesystem: new Filesystem(),
+                filesystem: new LocalFilesystem(new Filesystem()),
                 layout: $layout,
                 basePath: $this->tempDir,
                 appPath: $this->tempDir . '/app',

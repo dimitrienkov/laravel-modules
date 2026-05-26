@@ -7,6 +7,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\Support;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
@@ -44,7 +45,7 @@ final class ModuleDirectoryOperationsTest extends TestCase
             appPath: $this->tempDir . '/app',
         );
 
-        $this->ops = new ModuleDirectoryOperations($this->filesystem, $paths);
+        $this->ops = new ModuleDirectoryOperations(new LocalFilesystem($this->filesystem), $paths);
     }
 
     protected function tearDown(): void

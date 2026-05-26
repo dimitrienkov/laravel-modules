@@ -141,6 +141,8 @@ final class InstallModuleUseCaseTest extends TestCase
         $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
         $paths = $this->lifecycleDirectoryPaths($config);
 
+        $directoryOps = $this->lifecycleDirectoryOps($paths);
+
         return new InstallModuleUseCase(
             $registry,
             $manifestRepository ?? $manifests,
@@ -148,9 +150,10 @@ final class InstallModuleUseCaseTest extends TestCase
             $this->lifecycleSourcePreparer(),
             $paths,
             $this->lifecycleDependencyGuard($registry),
-            $this->lifecycleDirectoryOps($paths),
+            $directoryOps,
             $this->lifecycleInvalidator($cache, $registry),
             $this->lifecycleNamespaceResolver(),
+            new \DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback($directoryOps, $stateRepo),
         );
     }
 

@@ -15,6 +15,7 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
@@ -126,7 +127,7 @@ final class ModulesOptimizeCommandTest extends TestCase
         return new ModuleStateRepository(
             paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
             writer: new AtomicJsonWriter(),
-            filesystem: new Filesystem(),
+            filesystem: new LocalFilesystem(new Filesystem()),
         );
     }
 
@@ -162,11 +163,12 @@ final class ModulesOptimizeCommandTest extends TestCase
                 namespaceResolver: new FakeNamespaceResolver($this->tempDir),
                 documentReader: new ManifestDocumentReader(),
                 stateRepository: $stateRepository,
+                filesystem: new LocalFilesystem(new Filesystem()),
             ),
             sorter: new TopologicalSorter(),
             scanner: new ModuleDirectoryScanner(
                 config: $config,
-                filesystem: new Filesystem(),
+                filesystem: new LocalFilesystem(new Filesystem()),
                 layout: $layout,
                 basePath: $this->tempDir,
                 appPath: $this->tempDir . '/app',

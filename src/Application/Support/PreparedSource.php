@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\Support;
 
 use DimitrienkoV\LaravelModules\Application\Enums\ModuleSourceKind;
-use Illuminate\Filesystem\Filesystem;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleSourceException;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 
 final readonly class PreparedSource
 {
@@ -18,18 +19,29 @@ final readonly class PreparedSource
         public array $manifest,
         public ?string $temporaryRoot,
         public ModuleSourceKind $sourceKind,
-        private Filesystem $filesystem,
+        private LocalFilesystem $filesystem,
     ) {
     }
 
     public function moduleName(): string
     {
+        if (
+            ! \is_array($this->manifest['meta'] ?? null)
+            || ! \is_string($this->manifest['meta']['name'] ?? null)
+            || trim($this->manifest['meta']['name']) === ''
+        ) {
+            throw ModuleSourceException::forPath(
+                $this->manifestPath,
+                'manifest is missing a valid meta.name string.',
+            );
+        }
+
         return $this->manifest['meta']['name'];
     }
 
     public function cleanup(): void
     {
-        if ($this->temporaryRoot !== null && is_dir($this->temporaryRoot)) {
+        if ($this->temporaryRoot !== null && $this->filesystem->isDirectory($this->temporaryRoot)) {
             $this->filesystem->deleteDirectory($this->temporaryRoot);
         }
     }

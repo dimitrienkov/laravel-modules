@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Support;
 
-final class ModuleFileNames
+final readonly class ModuleFileNames
 {
     public const string MANIFEST = 'module.json';
 

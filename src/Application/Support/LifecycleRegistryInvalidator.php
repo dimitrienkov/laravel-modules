@@ -17,7 +17,10 @@ final readonly class LifecycleRegistryInvalidator
 
     public function flushAndReset(): void
     {
-        $this->cache->forget();
-        $this->registry->reset();
+        try {
+            $this->cache->forget();
+        } finally {
+            $this->registry->reset();
+        }
     }
 }

@@ -13,10 +13,33 @@ final readonly class PathNormalizer
 
     public static function resolveAbsolute(string $path, string $basePath): string
     {
-        if (str_starts_with($path, '/')) {
-            return $path;
+        $absolute = str_starts_with($path, '/')
+            ? $path
+            : $basePath . '/' . trim($path, '/\\');
+
+        return self::collapse($absolute);
+    }
+
+    private static function collapse(string $path): string
+    {
+        $normalized = str_replace('\\', '/', $path);
+        $segments = explode('/', $normalized);
+        $result = [];
+
+        foreach ($segments as $segment) {
+            if ($segment === '.') {
+                continue;
+            }
+
+            if ($segment === '..' && $result !== [] && end($result) !== '') {
+                array_pop($result);
+
+                continue;
+            }
+
+            $result[] = $segment;
         }
 
-        return $basePath . '/' . trim($path, '/\\');
+        return implode('/', $result) ?: '/';
     }
 }

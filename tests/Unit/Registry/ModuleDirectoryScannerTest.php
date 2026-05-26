@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Registry;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
@@ -83,7 +84,7 @@ final class ModuleDirectoryScannerTest extends TestCase
             config: new Repository([
                 'modules' => ['paths' => ['directories' => 'not-an-array']],
             ]),
-            filesystem: new Filesystem(),
+            filesystem: new LocalFilesystem(new Filesystem()),
             layout: new ModuleLayout(),
             basePath: $this->tempDir,
             appPath: $this->tempDir . '/app',
@@ -134,7 +135,7 @@ final class ModuleDirectoryScannerTest extends TestCase
             config: new Repository([
                 'modules' => ['paths' => ['directories' => $directories]],
             ]),
-            filesystem: new Filesystem(),
+            filesystem: new LocalFilesystem(new Filesystem()),
             layout: new ModuleLayout(),
             basePath: $this->tempDir,
             appPath: $this->tempDir . '/app',

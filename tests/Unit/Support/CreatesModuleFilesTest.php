@@ -31,7 +31,7 @@ final class CreatesModuleFilesTest extends TestCase
     }
 
     #[Test]
-    public function writeModuleManifest_creates_directory_and_json(): void
+    public function writeModuleManifestCreatesDirectoryAndJson(): void
     {
         $path = $this->writeModuleManifest($this->tempDir, 'blog');
 
@@ -46,7 +46,7 @@ final class CreatesModuleFilesTest extends TestCase
     }
 
     #[Test]
-    public function writeModuleManifest_includes_dependencies_when_provided(): void
+    public function writeModuleManifestIncludesDependenciesWhenProvided(): void
     {
         $path = $this->writeModuleManifest($this->tempDir, 'blog', dependencies: ['users' => '^1.0']);
 
@@ -55,7 +55,7 @@ final class CreatesModuleFilesTest extends TestCase
     }
 
     #[Test]
-    public function writeModuleManifest_omits_dependencies_when_empty(): void
+    public function writeModuleManifestOmitsDependenciesWhenEmpty(): void
     {
         $path = $this->writeModuleManifest($this->tempDir, 'blog');
 
@@ -64,7 +64,7 @@ final class CreatesModuleFilesTest extends TestCase
     }
 
     #[Test]
-    public function writeModuleManifest_accepts_custom_schema(): void
+    public function writeModuleManifestAcceptsCustomSchema(): void
     {
         $schema = ['enable_comments' => ['type' => 'bool', 'default' => true]];
         $path = $this->writeModuleManifest($this->tempDir, 'blog', schema: $schema);
@@ -74,7 +74,7 @@ final class CreatesModuleFilesTest extends TestCase
     }
 
     #[Test]
-    public function writeModuleState_creates_state_json(): void
+    public function writeModuleStateCreatesStateJson(): void
     {
         $this->writeModuleState($this->tempDir, 'blog');
 
@@ -88,7 +88,7 @@ final class CreatesModuleFilesTest extends TestCase
     }
 
     #[Test]
-    public function writeModuleState_with_disabled_and_values(): void
+    public function writeModuleStateWithDisabledAndValues(): void
     {
         $this->writeModuleState($this->tempDir, 'blog', enabled: false, values: ['key' => 'val']);
 
@@ -102,7 +102,7 @@ final class CreatesModuleFilesTest extends TestCase
     }
 
     #[Test]
-    public function writeModuleState_with_installed_at(): void
+    public function writeModuleStateWithInstalledAt(): void
     {
         $this->writeModuleState($this->tempDir, 'blog', installedAt: '2026-05-25T00:00:00+00:00');
 
@@ -115,7 +115,7 @@ final class CreatesModuleFilesTest extends TestCase
     }
 
     #[Test]
-    public function writeModuleState_with_empty_values_object(): void
+    public function writeModuleStateWithEmptyValuesObject(): void
     {
         $this->writeModuleState($this->tempDir, 'blog', values: new \stdClass());
 
@@ -128,7 +128,7 @@ final class CreatesModuleFilesTest extends TestCase
     }
 
     #[Test]
-    public function readStateFile_returns_parsed_state(): void
+    public function readStateFileReturnsParsedState(): void
     {
         $this->writeModuleState($this->tempDir, 'blog', installedAt: '2026-05-25T00:00:00+00:00', values: ['x' => 1]);
 
@@ -140,7 +140,7 @@ final class CreatesModuleFilesTest extends TestCase
     }
 
     #[Test]
-    public function writeModuleState_is_idempotent(): void
+    public function writeModuleStateIsIdempotent(): void
     {
         $this->writeModuleState($this->tempDir, 'blog', enabled: true);
         $this->writeModuleState($this->tempDir, 'blog', enabled: false);

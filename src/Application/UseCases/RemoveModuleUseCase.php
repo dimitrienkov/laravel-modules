@@ -32,8 +32,8 @@ final readonly class RemoveModuleUseCase
         $this->dependencyGuard->assertCanRemove($module);
 
         $backupPath = $deletePermanently
-            ? $this->performPermanentDelete($module)
-            : $this->performSoftRemove($module);
+            ? $this->removePermanently($module)
+            : $this->removeWithBackup($module);
 
         $this->invalidator->flushAndReset();
 
@@ -44,7 +44,7 @@ final readonly class RemoveModuleUseCase
         );
     }
 
-    private function performPermanentDelete(Module $module): null
+    private function removePermanently(Module $module): null
     {
         try {
             $this->stateRepository->delete($module->name);
@@ -69,7 +69,7 @@ final readonly class RemoveModuleUseCase
         return null;
     }
 
-    private function performSoftRemove(Module $module): string
+    private function removeWithBackup(Module $module): string
     {
         try {
             $backupPath = $this->directoryOps->moveToBackup($module->path, $module->name);

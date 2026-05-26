@@ -58,13 +58,13 @@ use DimitrienkoV\LaravelModules\Support\ApplicationNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Debug\ExceptionHandler;
-use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\ServiceProvider;
 use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
 
@@ -143,6 +143,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
 
     private function registerManifestBindings(): void
     {
+        $this->app->singleton(LocalFilesystem::class);
         $this->app->singleton(ModuleLayout::class);
         $this->app->singleton(AtomicJsonWriter::class);
         $this->app->singleton(ContainerLifecycleHooks::class);
@@ -168,6 +169,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 namespaceResolver: $this->app->make(NamespaceResolverInterface::class),
                 documentReader: $this->app->make(ManifestDocumentReader::class),
                 stateRepository: $this->app->make(ModuleStateRepositoryInterface::class),
+                filesystem: $this->app->make(LocalFilesystem::class),
             );
         });
         $this->app->singleton(
@@ -189,7 +191,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             return new ModuleStateRepository(
                 paths: $this->app->make(ModuleStatePaths::class),
                 writer: $this->app->make(AtomicJsonWriter::class),
-                filesystem: $this->app->make(Filesystem::class),
+                filesystem: $this->app->make(LocalFilesystem::class),
             );
         });
         $this->app->singleton(
@@ -205,7 +207,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->app->singleton(ModuleDirectoryScanner::class, function (): ModuleDirectoryScanner {
             return new ModuleDirectoryScanner(
                 config: $this->app->make(Repository::class),
-                filesystem: $this->app->make(Filesystem::class),
+                filesystem: $this->app->make(LocalFilesystem::class),
                 layout: $this->app->make(ModuleLayout::class),
                 basePath: $this->app->basePath(),
                 appPath: $this->app->path(),

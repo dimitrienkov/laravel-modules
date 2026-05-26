@@ -14,10 +14,10 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleFileNames;
 use DimitrienkoV\LaravelModules\Support\ModulePermissions;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
-use Illuminate\Filesystem\Filesystem;
 
 final readonly class ModuleStateRepository implements ModuleStateRepositoryInterface
 {
@@ -28,24 +28,20 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
         'settings' => true,
     ];
 
-    private const array STATE_FIELD_KEYS = [
-        'enabled' => true,
-        'installed_at' => true,
-        'updated_at' => true,
-    ];
+    private const array ALLOWED_SETTINGS_KEYS = ['values' => true];
 
     public function __construct(
         private ModuleStatePaths $paths,
         private AtomicJsonWriter $writer,
-        private Filesystem $filesystem,
+        private LocalFilesystem $filesystem,
     ) {
     }
 
     public function read(string $moduleName, Module $module): ModuleStateDocument
     {
-        $statePath = $this->paths->stateFile($moduleName);
+        $statePath = $this->paths->file($moduleName);
 
-        if (! is_file($statePath)) {
+        if (! $this->filesystem->isFile($statePath)) {
             return new ModuleStateDocument(
                 ModuleState::defaultDisabled(),
                 new FeatureValues($module->features, []),
@@ -80,7 +76,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
 
     public function writeDocument(string $moduleName, ModuleStateDocument $document): void
     {
-        $statePath = $this->paths->stateFile($moduleName);
+        $statePath = $this->paths->file($moduleName);
 
         try {
             $this->writer->write($statePath, $document->toArray());
@@ -100,9 +96,9 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
 
     public function writeValues(Module $module, FeatureValues $values): void
     {
-        $statePath = $this->paths->stateFile($module->name);
+        $statePath = $this->paths->file($module->name);
 
-        $state = is_file($statePath)
+        $state = $this->filesystem->isFile($statePath)
             ? $this->readState($module->name, $module)
             : $module->state;
 
@@ -111,15 +107,15 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
 
     public function delete(string $moduleName): void
     {
-        $stateDir = $this->paths->stateDirectory($moduleName);
+        $stateDir = $this->paths->directory($moduleName);
 
-        if (! is_dir($stateDir)) {
+        if (! $this->filesystem->isDirectory($stateDir)) {
             return;
         }
 
-        $stateFile = $this->paths->stateFile($moduleName);
+        $stateFile = $this->paths->file($moduleName);
 
-        if (is_file($stateFile) && ! $this->filesystem->delete($stateFile)) {
+        if ($this->filesystem->isFile($stateFile) && ! $this->filesystem->delete($stateFile)) {
             throw ModuleStateWriteException::forPath(
                 $stateFile,
                 'state file could not be deleted.',
@@ -136,23 +132,23 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
 
     public function moveToBackup(string $moduleName, string $backupPath): ?string
     {
-        $statePath = $this->paths->stateFile($moduleName);
+        $statePath = $this->paths->file($moduleName);
 
-        if (! is_file($statePath)) {
+        if (! $this->filesystem->isFile($statePath)) {
             return null;
         }
 
         $backupStatePath = $backupPath . '/' . ModuleFileNames::STATE;
         $backupDir = \dirname($backupStatePath);
 
-        if (! is_dir($backupDir) && ! $this->filesystem->makeDirectory($backupDir, ModulePermissions::DIRECTORY, true)) {
+        if (! $this->filesystem->isDirectory($backupDir) && ! $this->filesystem->makeDirectory($backupDir, ModulePermissions::DIRECTORY, true)) {
             throw ModuleStateWriteException::forPath(
                 $backupStatePath,
                 "backup directory [{$backupDir}] could not be created.",
             );
         }
 
-        if (! $this->filesystem->copy($statePath, $backupStatePath)) {
+        if (! $this->filesystem->copyFile($statePath, $backupStatePath)) {
             throw ModuleStateWriteException::forPath(
                 $backupStatePath,
                 'state file could not be copied to backup.',
@@ -166,7 +162,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
 
     public function exists(string $moduleName): bool
     {
-        return is_file($this->paths->stateFile($moduleName));
+        return $this->filesystem->isFile($this->paths->file($moduleName));
     }
 
     /**
@@ -215,7 +211,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
      */
     private function extractStateFields(array $raw): array
     {
-        return array_intersect_key($raw, self::STATE_FIELD_KEYS);
+        return array_intersect_key($raw, ModuleState::ALLOWED_KEYS);
     }
 
     /**
@@ -234,9 +230,8 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             return [];
         }
 
-        $allowedSettingsKeys = ['values' => true];
         foreach (array_keys($settings) as $key) {
-            if (! isset($allowedSettingsKeys[$key])) {
+            if (! isset(self::ALLOWED_SETTINGS_KEYS[$key])) {
                 throw InvalidModuleStateException::forPath(
                     $statePath,
                     "settings contains unknown key [{$key}], only 'values' is allowed.",

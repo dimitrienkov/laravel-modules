@@ -10,6 +10,7 @@ use DimitrienkoV\LaravelModules\Application\UseCases\ScaffoldModuleUseCase;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
@@ -163,6 +164,8 @@ final class ScaffoldModuleUseCaseTest extends TestCase
         $cache = $this->lifecycleRegistryCache($stateRepo);
         $paths = $this->lifecycleDirectoryPaths($config);
 
+        $directoryOps = $this->lifecycleDirectoryOps($paths);
+
         return new ScaffoldModuleUseCase(
             registry: $registry,
             manifestRepository: $manifests,
@@ -170,8 +173,9 @@ final class ScaffoldModuleUseCaseTest extends TestCase
             namespaceResolver: $this->lifecycleNamespaceResolver(),
             paths: $paths,
             invalidator: $this->lifecycleInvalidator($cache, $registry),
-            skeletonBuilder: new ModuleSkeletonBuilder(new Filesystem(), new AtomicFileWriter()),
-            directoryOps: $this->lifecycleDirectoryOps($paths),
+            skeletonBuilder: new ModuleSkeletonBuilder(new LocalFilesystem(new Filesystem()), new AtomicFileWriter()),
+            directoryOps: $directoryOps,
+            rollback: new \DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback($directoryOps, $stateRepo),
         );
     }
 

@@ -8,7 +8,7 @@ use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 
 final readonly class ModuleState
 {
-    private const array ALLOWED_KEYS = [
+    public const array ALLOWED_KEYS = [
         'enabled' => true,
         'installed_at' => true,
         'updated_at' => true,

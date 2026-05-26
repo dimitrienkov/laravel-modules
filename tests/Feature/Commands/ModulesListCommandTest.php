@@ -8,9 +8,8 @@ use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesListCommand;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
-use Illuminate\Contracts\Console\Kernel;
+use DimitrienkoV\LaravelModules\Tests\Support\RegistersLifecycleCommands;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Testing\PendingCommand;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -18,6 +17,7 @@ final class ModulesListCommandTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
+    use RegistersLifecycleCommands;
 
     private string $tempDir;
 
@@ -44,7 +44,7 @@ final class ModulesListCommandTest extends TestCase
     {
         $this->writeManifest('blog', enabled: true);
         $this->writeManifest('users', enabled: false);
-        $this->registerServices();
+        $this->registerListCommand();
 
         $this->artisanCommand('modules:list')
             ->assertSuccessful()
@@ -57,7 +57,7 @@ final class ModulesListCommandTest extends TestCase
     {
         $this->writeManifest('blog', enabled: true);
         $this->writeManifest('users', enabled: false);
-        $this->registerServices();
+        $this->registerListCommand();
 
         $this->artisanCommand('modules:list --enabled')
             ->assertSuccessful()
@@ -70,7 +70,7 @@ final class ModulesListCommandTest extends TestCase
     {
         $this->writeManifest('blog', enabled: true);
         $this->writeManifest('users', enabled: false);
-        $this->registerServices();
+        $this->registerListCommand();
 
         $this->artisanCommand('modules:list --disabled')
             ->assertSuccessful()
@@ -81,14 +81,14 @@ final class ModulesListCommandTest extends TestCase
     #[Test]
     public function listShowsNoModulesMessage(): void
     {
-        $this->registerServices();
+        $this->registerListCommand();
 
         $this->artisanCommand('modules:list')
             ->assertSuccessful()
             ->expectsOutputToContain('No modules found');
     }
 
-    private function registerServices(): void
+    private function registerListCommand(): void
     {
         $config = $this->lifecycleConfig();
         $stateRepo = $this->lifecycleStateRepository($config);
@@ -96,21 +96,12 @@ final class ModulesListCommandTest extends TestCase
         $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
 
         $this->app->instance(ModuleRegistryInterface::class, $registry);
-
-        $this->app->make(Kernel::class)->registerCommand($this->app->make(ModulesListCommand::class));
+        $this->registerArtisanCommand(ModulesListCommand::class);
     }
 
     private function writeManifest(string $name, bool $enabled = true): void
     {
         $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, schema: []);
         $this->writeModuleState($this->stateRoot, $name, $enabled);
-    }
-
-    private function artisanCommand(string $command): PendingCommand
-    {
-        $result = $this->artisan($command);
-        \assert($result instanceof PendingCommand);
-
-        return $result;
     }
 }

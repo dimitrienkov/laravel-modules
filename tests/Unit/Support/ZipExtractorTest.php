@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\ModuleArchiveException;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
+use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -13,21 +15,20 @@ use ZipArchive;
 
 final class ZipExtractorTest extends TestCase
 {
-    private string $tempDir;
+    use UsesTempDirectory;
 
     private ZipExtractor $extractor;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->tempDir = sys_get_temp_dir() . '/zip_extractor_test_' . uniqid();
-        mkdir($this->tempDir, 0755, true);
-        $this->extractor = new ZipExtractor(new Filesystem());
+        $this->createTempDirectory('zip_extractor');
+        $this->extractor = new ZipExtractor(new LocalFilesystem(new Filesystem()));
     }
 
     protected function tearDown(): void
     {
-        $this->removeDir($this->tempDir);
+        $this->deleteTempDirectory();
         parent::tearDown();
     }
 
@@ -54,7 +55,7 @@ final class ZipExtractorTest extends TestCase
             $this->assertDirectoryExists($tempDir);
             $this->assertFileExists($tempDir . '/module.json');
         } finally {
-            $this->removeDir($tempDir);
+            $this->deleteDirectory($tempDir);
         }
     }
 
@@ -130,25 +131,4 @@ final class ZipExtractorTest extends TestCase
         return $zipPath;
     }
 
-    private function removeDir(string $path): void
-    {
-        if (! is_dir($path)) {
-            return;
-        }
-
-        $items = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($items as $item) {
-            if ($item->isDir()) {
-                @rmdir($item->getPathname());
-            } else {
-                @unlink($item->getPathname());
-            }
-        }
-
-        @rmdir($path);
-    }
 }

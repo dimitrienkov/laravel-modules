@@ -15,7 +15,8 @@ final class ModulesUpdateCommand extends Command
 
     protected $signature = 'modules:update
         {name : The module name to update}
-        {source : Path to updated module directory or .zip archive}';
+        {source : Path to updated module directory or .zip archive}
+        {--force : Force the operation to run in production}';
 
     protected $description = 'Update a module from a directory or archive';
 

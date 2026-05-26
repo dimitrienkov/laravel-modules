@@ -185,11 +185,17 @@ test('direct filesystem I/O is only allowed in specialized infrastructure classe
         'mkdir(',
         'copy(',
         'rename(',
+        'is_file(',
+        'is_dir(',
+        'file_exists(',
     ];
 
     $allowedClasses = [
         'AtomicFileWriter.php',
         'ManifestDocumentReader.php',
+        'LocalFilesystem.php',
+        'ModuleRegistryCache.php',
+        'FactoryLoader.php',
     ];
 
     $iterator = new RecursiveIteratorIterator(

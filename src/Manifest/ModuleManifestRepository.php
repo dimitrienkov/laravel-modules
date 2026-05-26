@@ -11,6 +11,7 @@ use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 
 final readonly class ModuleManifestRepository implements ModuleManifestRepositoryInterface
@@ -22,6 +23,7 @@ final readonly class ModuleManifestRepository implements ModuleManifestRepositor
         private NamespaceResolverInterface $namespaceResolver,
         private ManifestDocumentReader $documentReader,
         private ModuleStateRepositoryInterface $stateRepository,
+        private LocalFilesystem $filesystem,
     ) {
     }
 
@@ -30,7 +32,7 @@ final readonly class ModuleManifestRepository implements ModuleManifestRepositor
         $normalizedModulePath = rtrim($modulePath, '/\\');
         $manifestPath = $this->layout->manifestFilePath($normalizedModulePath);
 
-        if (! is_file($manifestPath)) {
+        if (! $this->filesystem->isFile($manifestPath)) {
             throw ModuleNotFoundException::forPath($normalizedModulePath);
         }
 

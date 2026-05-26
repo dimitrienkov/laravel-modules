@@ -12,6 +12,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
@@ -43,7 +44,7 @@ final class ModuleStateRepositoryTest extends TestCase
         $this->repository = new ModuleStateRepository(
             paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
             writer: new AtomicJsonWriter(),
-            filesystem: new Filesystem(),
+            filesystem: new LocalFilesystem(new Filesystem()),
         );
     }
 

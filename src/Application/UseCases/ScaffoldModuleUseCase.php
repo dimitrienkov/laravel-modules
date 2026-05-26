@@ -10,6 +10,7 @@ use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
+use DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
@@ -37,6 +38,7 @@ final readonly class ScaffoldModuleUseCase
         private LifecycleRegistryInvalidator $invalidator,
         private ModuleSkeletonBuilder $skeletonBuilder,
         private ModuleDirectoryOperations $directoryOps,
+        private PartialModuleRollback $rollback,
     ) {
     }
 
@@ -52,7 +54,7 @@ final readonly class ScaffoldModuleUseCase
 
         $this->assertNotExists($config->name, $targetPath, $config->force);
 
-        if ($config->force && $this->directoryOps->directoryExists($targetPath)) {
+        if ($config->force && $this->directoryOps->exists($targetPath)) {
             $this->directoryOps->tryDeleteDirectory($targetPath);
         }
 
@@ -87,15 +89,7 @@ final readonly class ScaffoldModuleUseCase
             $values = new FeatureValues($module->features, []);
             $this->stateRepository->writeDocument($config->name, new ModuleStateDocument($state, $values));
         } catch (\Throwable $e) {
-            $this->directoryOps->tryDeleteDirectory($targetPath);
-
-            $cleanupNote = '';
-
-            try {
-                $this->stateRepository->delete($config->name);
-            } catch (\Throwable $cleanupError) {
-                $cleanupNote = ' State cleanup also failed: ' . $cleanupError->getMessage();
-            }
+            $cleanupNote = $this->rollback->rollback($config->name, $targetPath);
 
             if ($e instanceof ModuleScaffoldException) {
                 throw $e;
@@ -145,7 +139,7 @@ final readonly class ScaffoldModuleUseCase
             }
         }
 
-        if (! $force && $this->directoryOps->directoryExists($targetPath)) {
+        if (! $force && $this->directoryOps->exists($targetPath)) {
             throw ModuleAlreadyExistsException::forPath($name, $targetPath);
         }
     }

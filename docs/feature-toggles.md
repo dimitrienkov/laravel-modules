@@ -91,7 +91,7 @@ Typed methods бросают `FeatureTypeMismatchException`, если resolved v
 
 ## Write boundary
 
-Записывайте feature values через `ModuleStateRepository::saveValues()`. Метод валидирует values против schema и использует `AtomicJsonWriter`.
+Записывайте feature values через `ModuleStateRepository::writeValues()`. Метод валидирует values против schema и использует `AtomicJsonWriter`.
 
 `module.json` иммутабелен в runtime — не пишите в него из application code.
 

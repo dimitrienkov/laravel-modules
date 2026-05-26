@@ -68,11 +68,6 @@ final readonly class ModuleDirectoryPaths
         return $this->backupRoot() . '/' . $moduleName . '-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4));
     }
 
-    public function collisionSafeBackupPath(string $moduleName): string
-    {
-        return $this->backupPath($moduleName);
-    }
-
     /**
      * @return list<string>
      */

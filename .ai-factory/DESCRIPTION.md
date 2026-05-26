@@ -26,7 +26,7 @@
 - Отдельное state-хранилище: `state.json` в `storage/app/private/modules/{module-name}/` содержит `enabled`, `installed_at`, `updated_at` и `settings.values`.
 - Value objects и parser layer: `Module`, `ManifestMeta`, `ModuleState`, `ModuleStateDocument`, `ModuleDependencies`, `FeatureSchema`, `FeatureDefinition`, `FeatureValues`.
 - `ModuleManifestRepository` с методами `load()` и `writeManifest()` — единственная точка чтения/валидации/записи immutable `module.json`.
-- `ModuleStateRepositoryInterface` и `ModuleStateRepository` — чтение/запись mutable `state.json` (read, readState, readValues, write, updateState, saveValues, delete, moveToBackup, exists).
+- `ModuleStateRepositoryInterface` и `ModuleStateRepository` — чтение/запись mutable `state.json` (read, readState, readValues, writeDocument, writeState, writeValues, delete, moveToBackup, exists).
 - `ModuleStatePaths` — резолвинг путей state-файлов из конфига `modules.paths.state`.
 - `ModuleDirectoryScanner`, `ModuleRegistry`, `ModuleRegistryCache`, `TopologicalSorter`, `ApplicationNamespaceResolver`.
 - Support-утилиты: `AtomicFileWriter` (shared atomic write), `AtomicJsonWriter` (JSON-обёртка), `ContainerLifecycleHooks` (safe `callAfterResolving`), `ModuleLayout` (пути и namespaces модуля), `ZipExtractor`.

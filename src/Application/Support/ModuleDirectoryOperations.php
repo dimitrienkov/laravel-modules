@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModulePermissions;
-use Illuminate\Filesystem\Filesystem;
 
 final readonly class ModuleDirectoryOperations
 {
     public function __construct(
-        private Filesystem $filesystem,
+        private LocalFilesystem $filesystem,
         private ModuleDirectoryPaths $paths,
     ) {
     }
 
-    public function directoryExists(string $path): bool
+    public function exists(string $path): bool
     {
         return $this->filesystem->isDirectory($path);
     }
@@ -30,12 +30,8 @@ final readonly class ModuleDirectoryOperations
 
     public function replaceDirectoryWithBackup(string $existingPath, string $replacementPath, string $moduleName): string
     {
-        $backupPath = $this->paths->collisionSafeBackupPath($moduleName);
-        $backupRoot = \dirname($backupPath);
-
-        if (! is_dir($backupRoot) && ! $this->filesystem->makeDirectory($backupRoot, ModulePermissions::DIRECTORY, true)) {
-            throw DirectoryOperationException::forPath($backupRoot, 'backup directory could not be created.');
-        }
+        $backupPath = $this->paths->backupPath($moduleName);
+        $this->ensureBackupRootExists($backupPath);
 
         if (! $this->filesystem->moveDirectory($existingPath, $backupPath)) {
             throw DirectoryOperationException::forPath($existingPath, "failed to move target to backup [{$backupPath}].");
@@ -52,7 +48,7 @@ final readonly class ModuleDirectoryOperations
 
     public function restoreBackup(string $backupPath, string $targetPath, string $moduleName): void
     {
-        if (is_dir($targetPath)) {
+        if ($this->filesystem->isDirectory($targetPath)) {
             $this->filesystem->deleteDirectory($targetPath);
         }
 
@@ -66,12 +62,8 @@ final readonly class ModuleDirectoryOperations
 
     public function moveToBackup(string $target, string $moduleName): string
     {
-        $backupPath = $this->paths->collisionSafeBackupPath($moduleName);
-        $backupRoot = \dirname($backupPath);
-
-        if (! is_dir($backupRoot) && ! $this->filesystem->makeDirectory($backupRoot, ModulePermissions::DIRECTORY, true)) {
-            throw DirectoryOperationException::forPath($backupRoot, 'backup directory could not be created.');
-        }
+        $backupPath = $this->paths->backupPath($moduleName);
+        $this->ensureBackupRootExists($backupPath);
 
         if (! $this->filesystem->moveDirectory($target, $backupPath)) {
             throw DirectoryOperationException::forPath($target, "failed to move directory to backup [{$backupPath}].");
@@ -89,10 +81,19 @@ final readonly class ModuleDirectoryOperations
 
     public function tryDeleteDirectory(string $path): bool
     {
-        if (! is_dir($path)) {
+        if (! $this->filesystem->isDirectory($path)) {
             return true;
         }
 
         return $this->filesystem->deleteDirectory($path);
+    }
+
+    private function ensureBackupRootExists(string $backupPath): void
+    {
+        $backupRoot = \dirname($backupPath);
+
+        if (! $this->filesystem->isDirectory($backupRoot) && ! $this->filesystem->makeDirectory($backupRoot, ModulePermissions::DIRECTORY, true)) {
+            throw DirectoryOperationException::forPath($backupRoot, 'backup directory could not be created.');
+        }
     }
 }

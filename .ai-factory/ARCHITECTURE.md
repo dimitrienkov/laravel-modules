@@ -276,11 +276,11 @@ interface ModuleStateRepositoryInterface
 
     public function readValues(Module $module): FeatureValues;
 
-    public function write(string $moduleName, ModuleStateDocument $document): void;
+    public function writeDocument(string $moduleName, ModuleStateDocument $document): void;
 
-    public function updateState(Module $module, ModuleState $state): Module;
+    public function writeState(Module $module, ModuleState $state): Module;
 
-    public function saveValues(Module $module, FeatureValues $values): void;
+    public function writeValues(Module $module, FeatureValues $values): void;
 
     public function delete(string $moduleName): void;
 
@@ -370,9 +370,9 @@ Mutable state отделён от immutable manifest:
 - **`state.json`** (в `storage/app/private/modules/{module-name}/`) — mutable; содержит `enabled`, `installed_at`, `updated_at` и `settings.values`. Создаётся хост-приложением при install, НЕ поставляется с модулем.
 
 `ModuleStatePaths` резолвит пути state-файлов:
-- `stateRoot()` — корневая директория (из конфига `modules.paths.state` или default `storage/app/private/modules`)
-- `stateDirectory(string $moduleName)` — директория state модуля
-- `stateFile(string $moduleName)` — путь к `state.json`
+- `root()` — корневая директория (из конфига `modules.paths.state` или default `storage/app/private/modules`)
+- `directory(string $moduleName)` — директория state модуля
+- `file(string $moduleName)` — путь к `state.json`
 - `validate()` — проверяет, что state root не находится внутри директории модулей
 
 `ModuleStateDocument` — VO, оборачивающий `ModuleState` + `FeatureValues` для атомарного чтения/записи полного state-документа.
@@ -504,9 +504,9 @@ $core->autoload($module->namespace);
 
 `ModuleStatePaths` — единая точка формирования путей state-хранилища:
 
-- `stateRoot()` — корневая директория из `modules.paths.state` или default `storage/app/private/modules`
-- `stateDirectory(string $moduleName)` — директория state конкретного модуля
-- `stateFile(string $moduleName)` — путь к `state.json`
+- `root()` — корневая директория из `modules.paths.state` или default `storage/app/private/modules`
+- `directory(string $moduleName)` — директория state конкретного модуля
+- `file(string $moduleName)` — путь к `state.json`
 - `validate()` — проверяет, что state root не пересекается с директориями модулей
 
 ## Quality architecture

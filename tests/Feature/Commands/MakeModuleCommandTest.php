@@ -4,26 +4,22 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Feature\Commands;
 
-use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
-use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
-use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
-use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
-use Illuminate\Contracts\Console\Kernel;
+use DimitrienkoV\LaravelModules\Tests\Support\RegistersLifecycleCommands;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Testing\PendingCommand;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 
 final class MakeModuleCommandTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
+    use RegistersLifecycleCommands;
 
     private string $tempDir;
 
@@ -38,7 +34,7 @@ final class MakeModuleCommandTest extends TestCase
         mkdir($this->tempDir . '/app/Modules', 0755, true);
         mkdir($this->tempDir . '/bootstrap/cache', 0755, true);
 
-        $this->registerServices();
+        $this->registerMakeCommand();
     }
 
     protected function tearDown(): void
@@ -86,7 +82,7 @@ final class MakeModuleCommandTest extends TestCase
     {
         $this->artisanCommand('make:module blog')->assertSuccessful();
 
-        $this->registerServices();
+        $this->registerMakeCommand();
 
         $this->artisanCommand('make:module blog')
             ->assertFailed()
@@ -98,36 +94,18 @@ final class MakeModuleCommandTest extends TestCase
     {
         $this->artisanCommand('make:module blog')->assertSuccessful();
 
-        $this->registerServices();
+        $this->registerMakeCommand();
 
         $this->artisanCommand('make:module blog --force')
             ->assertSuccessful();
     }
 
-    private function registerServices(): void
+    private function registerMakeCommand(): void
     {
-        $config = $this->lifecycleConfig();
-        $stateRepo = $this->lifecycleStateRepository($config);
-        $manifests = $this->lifecycleManifestRepository($stateRepo);
-        $cache = $this->lifecycleRegistryCache($stateRepo);
-        $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
-
-        $this->app->instance(ModuleRegistryInterface::class, $registry);
-        $this->app->instance(ModuleManifestRepositoryInterface::class, $manifests);
-        $this->app->instance(ModuleStateRepositoryInterface::class, $stateRepo);
+        $services = $this->registerCoreLifecycleServices();
         $this->app->instance(ManifestValidatorInterface::class, new ManifestValidator(new ManifestSettingsValidator()));
         $this->app->instance(NamespaceResolverInterface::class, $this->lifecycleNamespaceResolver());
-        $this->app->instance(ModuleDirectoryPaths::class, $this->lifecycleDirectoryPaths($config));
-        $this->app->instance(LifecycleRegistryInvalidator::class, $this->lifecycleInvalidator($cache, $registry));
-
-        $this->app->make(Kernel::class)->registerCommand($this->app->make(MakeModuleCommand::class));
-    }
-
-    private function artisanCommand(string $command): PendingCommand
-    {
-        $result = $this->artisan($command);
-        \assert($result instanceof PendingCommand);
-
-        return $result;
+        $this->app->instance(ModuleDirectoryPaths::class, $this->lifecycleDirectoryPaths($services['config']));
+        $this->registerArtisanCommand(MakeModuleCommand::class);
     }
 }

@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\ModuleArchiveException;
-use Illuminate\Filesystem\Filesystem;
 use ZipArchive;
 
 final readonly class ZipExtractor
 {
     public function __construct(
-        private Filesystem $filesystem,
+        private LocalFilesystem $filesystem,
     ) {
     }
 
@@ -29,7 +28,7 @@ final readonly class ZipExtractor
         try {
             $this->assertNoPathTraversal($zip, $zipPath);
 
-            if (! is_dir($targetDir) && ! $this->filesystem->makeDirectory($targetDir, ModulePermissions::DIRECTORY, true)) {
+            if (! $this->filesystem->isDirectory($targetDir) && ! $this->filesystem->makeDirectory($targetDir, ModulePermissions::DIRECTORY, true)) {
                 throw ModuleArchiveException::forPath($zipPath, "failed to create target directory [{$targetDir}].");
             }
 
@@ -47,8 +46,8 @@ final readonly class ZipExtractor
 
         try {
             $this->extract($zipPath, $tempDir);
-        } catch (ModuleArchiveException $e) {
-            if (is_dir($tempDir)) {
+        } catch (\Throwable $e) {
+            if ($this->filesystem->isDirectory($tempDir)) {
                 $this->filesystem->deleteDirectory($tempDir);
             }
 
@@ -60,7 +59,7 @@ final readonly class ZipExtractor
 
     private function assertExtensionLoaded(): void
     {
-        if (! class_exists(ZipArchive::class)) {
+        if (! \extension_loaded('zip')) {
             throw ModuleArchiveException::extensionMissing();
         }
     }
