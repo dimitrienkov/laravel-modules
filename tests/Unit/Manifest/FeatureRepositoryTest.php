@@ -13,12 +13,16 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
-use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
@@ -27,9 +31,12 @@ use PHPUnit\Framework\TestCase;
 
 final class FeatureRepositoryTest extends TestCase
 {
+    use CreatesModuleFiles;
     private string $modulePath;
 
     private string $tempDir;
+
+    private string $stateRoot;
 
     protected function setUp(): void
     {
@@ -37,14 +44,16 @@ final class FeatureRepositoryTest extends TestCase
 
         $this->tempDir = sys_get_temp_dir() . '/laravel-modules-features-' . bin2hex(random_bytes(6));
         $this->modulePath = $this->tempDir . '/app/Modules/Blog';
+        $this->stateRoot = $this->tempDir . '/storage/app/private/modules';
 
         mkdir($this->modulePath, 0755, true);
-        $this->writeManifest(['comments_enabled' => false, 'posts_per_page' => 20]);
+        $this->writeManifest();
+        $this->writeState(['comments_enabled' => false, 'posts_per_page' => 20]);
     }
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->tempDir);
+        (new Filesystem())->deleteDirectory($this->tempDir);
 
         parent::tearDown();
     }
@@ -85,7 +94,7 @@ final class FeatureRepositoryTest extends TestCase
 
         self::assertFalse($features->getBool('blog', 'comments_enabled'));
 
-        $this->updateValues(['comments_enabled' => true, 'posts_per_page' => 20]);
+        $this->writeState(['comments_enabled' => true, 'posts_per_page' => 20]);
 
         self::assertFalse($features->getBool('blog', 'comments_enabled'));
         self::assertTrue($this->featureRepository()->getBool('blog', 'comments_enabled'));
@@ -121,7 +130,28 @@ final class FeatureRepositoryTest extends TestCase
     {
         return new FeatureRepository(
             registry: $this->registry(),
-            manifests: $this->manifestRepository(),
+            stateRepository: $this->stateRepository(),
+        );
+    }
+
+    private function stateRepository(): ModuleStateRepository
+    {
+        $config = new Repository([
+            'modules' => [
+                'paths' => [
+                    'directories' => ['app/Modules'],
+                    'state' => $this->stateRoot,
+                ],
+            ],
+        ]);
+
+        return new ModuleStateRepository(
+            paths: new ModuleStatePaths(
+                config: $config,
+                basePath: $this->tempDir,
+            ),
+            writer: new AtomicJsonWriter(),
+            filesystem: new LocalFilesystem(new Filesystem()),
         );
     }
 
@@ -129,62 +159,48 @@ final class FeatureRepositoryTest extends TestCase
     {
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
+        $stateRepo = $this->stateRepository();
         $config = new Repository([
             'modules' => [
                 'paths' => [
                     'directories' => ['app/Modules'],
+                    'state' => $this->stateRoot,
                 ],
             ],
         ]);
 
+        $manifests = new ModuleManifestRepository(
+            layout: $layout,
+            writer: new AtomicJsonWriter(),
+            validator: $validator,
+            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+            documentReader: new ManifestDocumentReader(),
+            stateRepository: $stateRepo,
+            filesystem: new LocalFilesystem(new Filesystem()),
+        );
+
         return new ModuleRegistry(
-            manifests: $this->manifestRepository(),
-            sorter: new TopologicalSorter(),
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new Filesystem(),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
+            builder: new ModuleRegistrySnapshotBuilder(
+                scanner: new ModuleDirectoryScanner(
+                    config: $config,
+                    filesystem: new LocalFilesystem(new Filesystem()),
+                    layout: $layout,
+                    basePath: $this->tempDir,
+                    appPath: $this->tempDir . '/app',
+                ),
+                manifests: $manifests,
+                sorter: new TopologicalSorter(),
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,
                 layout: $layout,
+                stateRepository: $stateRepo,
                 basePath: $this->tempDir,
             ),
         );
     }
 
-    private function manifestRepository(): ModuleManifestRepository
-    {
-        $layout = new ModuleLayout();
-
-        return new ModuleManifestRepository(
-            layout: $layout,
-            writer: new AtomicJsonWriter(),
-            validator: new ManifestValidator(new ManifestSettingsValidator()),
-            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
-            documentReader: new ManifestDocumentReader(),
-        );
-    }
-
-    /**
-     * @param array<string, bool|int|string> $values
-     */
-    private function updateValues(array $values): void
-    {
-        $repository = $this->manifestRepository();
-        $module = $repository->load($this->modulePath);
-        $repository->saveValues(
-            $module,
-            FeatureValues::fromArray($values, $module->features, $module->name, $module->manifestPath()),
-        );
-    }
-
-    /**
-     * @param array<string, bool|int|string> $values
-     */
-    private function writeManifest(array $values): void
+    private function writeManifest(): void
     {
         file_put_contents(
             $this->modulePath . '/module.json',
@@ -194,9 +210,6 @@ final class FeatureRepositoryTest extends TestCase
                     'display_name' => 'Blog',
                     'version' => '1.0.0',
                     'dependencies' => [],
-                ],
-                'state' => [
-                    'enabled' => true,
                 ],
                 'settings' => [
                     'schema' => [
@@ -215,33 +228,17 @@ final class FeatureRepositoryTest extends TestCase
                             'default' => 'light',
                         ],
                     ],
-                    'values' => $values,
                 ],
             ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
         );
     }
 
-    private function deleteDirectory(string $directory): void
+    /**
+     * @param array<string, bool|int|string> $values
+     */
+    private function writeState(array $values): void
     {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
+        $this->writeModuleState($this->stateRoot, 'blog', installedAt: '2026-05-25T00:00:00+00:00', values: $values);
     }
+
 }

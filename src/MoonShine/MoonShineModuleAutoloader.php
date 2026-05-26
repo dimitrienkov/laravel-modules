@@ -16,7 +16,7 @@ final readonly class MoonShineModuleAutoloader
 
     public function autoload(CoreContract $core): void
     {
-        foreach ($this->registry->loadOrder() as $module) {
+        foreach ($this->registry->all() as $module) {
             if ($module->isEnabled()) {
                 $core->autoload($module->namespace);
             }

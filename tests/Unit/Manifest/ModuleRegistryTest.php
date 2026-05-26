@@ -10,11 +10,16 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
@@ -23,19 +28,23 @@ use PHPUnit\Framework\TestCase;
 
 final class ModuleRegistryTest extends TestCase
 {
+    use CreatesModuleFiles;
     private string $tempDir;
+
+    private string $stateRoot;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->tempDir = sys_get_temp_dir() . '/laravel-modules-registry-' . bin2hex(random_bytes(6));
+        $this->stateRoot = $this->tempDir . '/storage/app/private/modules';
         mkdir($this->tempDir . '/app/Modules', 0755, true);
     }
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->tempDir);
+        (new Filesystem())->deleteDirectory($this->tempDir);
 
         parent::tearDown();
     }
@@ -44,26 +53,26 @@ final class ModuleRegistryTest extends TestCase
     public function it_scans_configured_directories_and_sorts_by_dependencies(): void
     {
         mkdir($this->tempDir . '/app/Modules/Empty');
-        $this->writeModule('Users', $this->manifest('users', '1.2.0'));
-        $this->writeModule('Blog', $this->manifest('blog', '1.0.0', ['users' => '^1.0']));
+        $this->writeModule('Users', 'users', '1.2.0');
+        $this->writeModule('Blog', 'blog', '1.0.0', ['users' => '^1.0']);
 
         $registry = $this->registry();
 
         self::assertSame(['users', 'blog'], array_map(
             static fn ($module): string => $module->name,
-            $registry->loadOrder(),
+            $registry->all(),
         ));
         self::assertCount(2, $registry->all());
         self::assertSame('App\\Modules\\Blog', $registry->find('blog')->namespace);
     }
 
     #[Test]
-    public function it_reads_v2_cache_when_present(): void
+    public function it_reads_v3_cache_when_present(): void
     {
         $cachePath = $this->tempDir . '/bootstrap/cache/modules.php';
         mkdir(\dirname($cachePath), 0755, true);
         file_put_contents($cachePath, '<?php return ' . var_export([
-            'version' => 2,
+            'version' => 3,
             'modules' => [
                 'cached' => [
                     'path' => $this->tempDir . '/missing/Cached',
@@ -78,7 +87,7 @@ final class ModuleRegistryTest extends TestCase
 
         self::assertSame(['cached'], array_map(
             static fn ($module): string => $module->name,
-            $registry->loadOrder(),
+            $registry->all(),
         ));
         self::assertSame('App\\Cached', $registry->find('cached')->namespace);
     }
@@ -88,11 +97,11 @@ final class ModuleRegistryTest extends TestCase
     {
         mkdir($this->tempDir . '/bootstrap/cache', 0755, true);
         file_put_contents($this->tempDir . '/bootstrap/cache/modules-providers.php', '<?php return ["Legacy\\\\Provider"];');
-        $this->writeModule('Users', $this->manifest('users', '1.0.0'));
+        $this->writeModule('Users', 'users', '1.0.0');
 
         self::assertSame(['users'], array_map(
             static fn ($module): string => $module->name,
-            $this->registry()->loadOrder(),
+            $this->registry()->all(),
         ));
     }
 
@@ -105,53 +114,64 @@ final class ModuleRegistryTest extends TestCase
         $this->registry()->find('missing');
     }
 
-    #[Test]
-    public function it_writes_v2_cache_from_scanned_modules(): void
+    private function stateRepository(): ModuleStateRepository
     {
-        $this->writeModule('Users', $this->manifest('users', '1.0.0'));
+        $config = new Repository([
+            'modules' => [
+                'paths' => [
+                    'directories' => ['app/Modules'],
+                    'state' => $this->stateRoot,
+                ],
+            ],
+        ]);
 
-        $result = $this->registry()->writeCache();
-
-        self::assertFileExists($result['path']);
-        self::assertSame(1, $result['count']);
-
-        $payload = require $result['path'];
-        self::assertSame(2, $payload['version']);
-        self::assertSame(['users'], $payload['load_order']);
-        self::assertSame('App\\Modules\\Users', $payload['modules']['users']['namespace']);
+        return new ModuleStateRepository(
+            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
+            writer: new AtomicJsonWriter(),
+            filesystem: new LocalFilesystem(new Filesystem()),
+        );
     }
 
     private function registry(): ModuleRegistry
     {
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
+        $stateRepo = $this->stateRepository();
         $config = new Repository([
             'modules' => [
                 'paths' => [
                     'directories' => ['app/Modules'],
+                    'state' => $this->stateRoot,
                 ],
             ],
         ]);
 
+        $manifests = new ModuleManifestRepository(
+            layout: $layout,
+            writer: new AtomicJsonWriter(),
+            validator: $validator,
+            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+            documentReader: new ManifestDocumentReader(),
+            stateRepository: $stateRepo,
+            filesystem: new LocalFilesystem(new Filesystem()),
+        );
+
         return new ModuleRegistry(
-            manifests: new ModuleManifestRepository(
-                layout: $layout,
-                writer: new AtomicJsonWriter(),
-                validator: $validator,
-                namespaceResolver: new FakeNamespaceResolver($this->tempDir),
-                documentReader: new ManifestDocumentReader(),
-            ),
-            sorter: new TopologicalSorter(),
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new Filesystem(),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
+            builder: new ModuleRegistrySnapshotBuilder(
+                scanner: new ModuleDirectoryScanner(
+                    config: $config,
+                    filesystem: new LocalFilesystem(new Filesystem()),
+                    layout: $layout,
+                    basePath: $this->tempDir,
+                    appPath: $this->tempDir . '/app',
+                ),
+                manifests: $manifests,
+                sorter: new TopologicalSorter(),
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,
                 layout: $layout,
+                stateRepository: $stateRepo,
                 basePath: $this->tempDir,
             ),
         );
@@ -171,50 +191,19 @@ final class ModuleRegistryTest extends TestCase
                 'version' => $version,
                 'dependencies' => $dependencies,
             ],
-            'state' => [
-                'enabled' => true,
-            ],
             'settings' => [
                 'schema' => [],
-                'values' => [],
             ],
         ];
     }
 
     /**
-     * @param array<string, mixed> $manifest
+     * @param array<string, string> $dependencies
      */
-    private function writeModule(string $directory, array $manifest): void
+    private function writeModule(string $directory, string $name, string $version, array $dependencies = []): void
     {
-        $modulePath = $this->tempDir . '/app/Modules/' . $directory;
-        mkdir($modulePath, 0755, true);
-        file_put_contents(
-            $modulePath . '/module.json',
-            json_encode($manifest, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
-        );
+        $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, $version, $dependencies, schema: []);
+        $this->writeModuleState($this->stateRoot, $name, values: new \stdClass());
     }
 
-    private function deleteDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
-    }
 }

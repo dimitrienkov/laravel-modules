@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Registry;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
@@ -26,7 +27,7 @@ final class ModuleDirectoryScannerTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->tempDir);
+        (new Filesystem())->deleteDirectory($this->tempDir);
 
         parent::tearDown();
     }
@@ -83,7 +84,7 @@ final class ModuleDirectoryScannerTest extends TestCase
             config: new Repository([
                 'modules' => ['paths' => ['directories' => 'not-an-array']],
             ]),
-            filesystem: new Filesystem(),
+            filesystem: new LocalFilesystem(new Filesystem()),
             layout: new ModuleLayout(),
             basePath: $this->tempDir,
             appPath: $this->tempDir . '/app',
@@ -134,7 +135,7 @@ final class ModuleDirectoryScannerTest extends TestCase
             config: new Repository([
                 'modules' => ['paths' => ['directories' => $directories]],
             ]),
-            filesystem: new Filesystem(),
+            filesystem: new LocalFilesystem(new Filesystem()),
             layout: new ModuleLayout(),
             basePath: $this->tempDir,
             appPath: $this->tempDir . '/app',
@@ -148,27 +149,4 @@ final class ModuleDirectoryScannerTest extends TestCase
         file_put_contents($path . '/module.json', '{}');
     }
 
-    private function deleteDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
-    }
 }

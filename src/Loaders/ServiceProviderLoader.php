@@ -53,8 +53,10 @@ final readonly class ServiceProviderLoader implements LoaderInterface
             }
 
             $class = $module->namespace . '\\Providers\\' . basename($file, '.php');
-
-            if (! class_exists($class) || ! is_subclass_of($class, ServiceProvider::class)) {
+            if (! class_exists($class)) {
+                continue;
+            }
+            if (! is_subclass_of($class, ServiceProvider::class)) {
                 continue;
             }
 

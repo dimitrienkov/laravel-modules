@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
-use DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
-use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
-use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -38,7 +39,7 @@ final class ModuleManifestRepositoryTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->tempDir);
+        (new Filesystem())->deleteDirectory($this->tempDir);
 
         parent::tearDown();
     }
@@ -53,21 +54,29 @@ final class ModuleManifestRepositoryTest extends TestCase
         self::assertSame('blog', $module->name);
         self::assertSame('Blog', $module->displayName);
         self::assertSame('App\\Modules\\Blog', $module->namespace);
-        self::assertTrue($module->isEnabled());
         self::assertSame('^1.0', $module->meta->dependencies->constraintFor('users'));
     }
 
     #[Test]
-    public function it_reads_values_separately_from_module_descriptor(): void
+    public function it_loads_module_with_state_from_state_repository(): void
     {
         $this->writeManifest($this->validManifest());
 
-        $repo = $this->repository();
-        $module = $repo->load($this->modulePath);
-        $values = $repo->readValues($module);
+        $state = new ModuleState(true, '2026-05-25T00:00:00+00:00');
+        $module = $this->repository($state)->load($this->modulePath);
 
-        self::assertSame(20, $values->get('blog', 'posts_per_page'));
-        self::assertSame(true, $values->get('blog', 'comments_enabled'));
+        self::assertTrue($module->isEnabled());
+        self::assertSame('2026-05-25T00:00:00+00:00', $module->state->installedAt);
+    }
+
+    #[Test]
+    public function it_loads_module_with_disabled_default_when_no_state(): void
+    {
+        $this->writeManifest($this->validManifest());
+
+        $module = $this->repository()->load($this->modulePath);
+
+        self::assertFalse($module->isEnabled());
     }
 
     #[Test]
@@ -91,76 +100,26 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_saves_canonical_manifest_without_persisting_feature_defaults(): void
+    public function it_writes_immutable_manifest_without_state_or_values(): void
     {
         $this->writeManifest($this->validManifest());
-        $repo = $this->repository();
-        $module = $repo->load($this->modulePath);
-        $values = $repo->readValues($module);
 
-        $repo->saveValues($module, $values);
+        $module = ModuleFactory::make(path: $this->modulePath);
+        $this->repository()->writeManifest($module);
 
         $stored = $this->readStoredManifest();
 
-        self::assertSame(['posts_per_page' => 20], $stored['settings']['values']);
-        self::assertSame(['users' => '^1.0'], $stored['meta']['dependencies']);
-        self::assertFileDoesNotExist($this->modulePath . '/module.json.lock');
-    }
-
-    #[Test]
-    public function it_updates_state_through_typed_value_object(): void
-    {
-        $this->writeManifest($this->validManifest());
-        $module = $this->repository()->load($this->modulePath);
-
-        $updated = $this->repository()->updateState($module, new ManifestState(false, '2026-05-24T00:00:00+00:00'));
-        $stored = $this->readStoredManifest();
-
-        self::assertFalse($updated->isEnabled());
-        self::assertFalse($stored['state']['enabled']);
-        self::assertSame('2026-05-24T00:00:00+00:00', $stored['state']['installed_at']);
-    }
-
-    #[Test]
-    public function it_saves_feature_values_through_typed_value_object(): void
-    {
-        $this->writeManifest($this->validManifest());
-        $repo = $this->repository();
-        $module = $repo->load($this->modulePath);
-        $values = FeatureValues::fromArray(
-            ['comments_enabled' => false, 'posts_per_page' => 30],
-            $module->features,
-            $module->name,
-            $module->manifestPath(),
-        );
-
-        $repo->saveValues($module, $values);
-        $stored = $this->readStoredManifest();
-
-        self::assertFalse($stored['settings']['values']['comments_enabled']);
-        self::assertSame(30, $stored['settings']['values']['posts_per_page']);
-    }
-
-    #[Test]
-    public function feature_values_are_validated_before_update(): void
-    {
-        $this->writeManifest($this->validManifest());
-        $module = $this->repository()->load($this->modulePath);
-
-        $this->expectException(InvalidManifestException::class);
-        $this->expectExceptionMessage('less than or equal to 50');
-
-        FeatureValues::fromArray(['posts_per_page' => 100], $module->features, $module->name, $module->manifestPath());
+        self::assertArrayHasKey('meta', $stored);
+        self::assertArrayHasKey('settings', $stored);
+        self::assertArrayNotHasKey('state', $stored);
+        self::assertArrayNotHasKey('values', $stored['settings']);
     }
 
     #[Test]
     public function it_accepts_empty_settings_object(): void
     {
         $manifest = $this->validManifest();
-        $manifest['settings'] = [
-            'schema' => [],
-            'values' => [],
-        ];
+        $manifest['settings'] = ['schema' => []];
         $this->writeManifest($manifest);
 
         $module = $this->repository()->load($this->modulePath);
@@ -183,10 +142,6 @@ final class ModuleManifestRepositoryTest extends TestCase
         self::assertSame('Включить комментарии', $definition->label);
         self::assertSame('Когда включено, пользователи могут оставлять комментарии', $definition->description);
         self::assertSame('Фичи', $definition->group);
-
-        $serialized = $definition->toArray();
-        self::assertSame('Включить комментарии', $serialized['label']);
-        self::assertSame('Фичи', $serialized['group']);
     }
 
     #[Test]
@@ -202,38 +157,44 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_accepts_updated_at_in_state(): void
+    public function it_rejects_manifest_with_state_section(): void
     {
         $manifest = $this->validManifest();
-        $manifest['state']['updated_at'] = '2026-05-24T12:00:00+00:00';
+        $manifest['state'] = ['enabled' => true];
         $this->writeManifest($manifest);
 
-        $module = $this->repository()->load($this->modulePath);
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('unknown top-level key [state]');
 
-        self::assertSame('2026-05-24T12:00:00+00:00', $module->state->updatedAt);
+        $this->repository()->load($this->modulePath);
     }
 
     #[Test]
-    public function it_uses_atomic_writer_errors_for_failed_manifest_writes(): void
+    public function it_rejects_manifest_with_settings_values(): void
     {
-        mkdir($this->modulePath . '/module.json');
+        $manifest = $this->validManifest();
+        $manifest['settings']['values'] = [];
+        $this->writeManifest($manifest);
 
-        $this->expectException(ManifestWriteException::class);
-        $this->expectExceptionMessage('temporary file could not be renamed atomically');
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('settings contains unknown key [values]');
 
-        $module = ModuleFactory::make(path: $this->modulePath);
-        $values = new FeatureValues($module->features, []);
-        $this->repository()->saveValues($module, $values);
+        $this->repository()->load($this->modulePath);
     }
 
-    private function repository(): ModuleManifestRepository
+    private function repository(?ModuleState $state = null): ModuleManifestRepository
     {
+        $stateRepo = $this->createMock(ModuleStateRepositoryInterface::class);
+        $stateRepo->method('readState')->willReturn($state ?? ModuleState::defaultDisabled());
+
         return new ModuleManifestRepository(
             layout: new ModuleLayout(),
             writer: new AtomicJsonWriter(),
             validator: new ManifestValidator(new ManifestSettingsValidator()),
             namespaceResolver: new FakeNamespaceResolver($this->tempDir),
             documentReader: new ManifestDocumentReader(),
+            stateRepository: $stateRepo,
+            filesystem: new LocalFilesystem(new Filesystem()),
         );
     }
 
@@ -249,9 +210,6 @@ final class ModuleManifestRepositoryTest extends TestCase
                 'version' => '1.0.0',
                 'dependencies' => ['users' => '^1.0'],
             ],
-            'state' => [
-                'enabled' => true,
-            ],
             'settings' => [
                 'schema' => [
                     'comments_enabled' => [
@@ -264,9 +222,6 @@ final class ModuleManifestRepositoryTest extends TestCase
                         'min' => 1,
                         'max' => 50,
                     ],
-                ],
-                'values' => [
-                    'posts_per_page' => 20,
                 ],
             ],
         ];
@@ -296,27 +251,4 @@ final class ModuleManifestRepositoryTest extends TestCase
         );
     }
 
-    private function deleteDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
-    }
 }

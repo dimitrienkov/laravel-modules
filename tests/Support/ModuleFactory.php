@@ -6,10 +6,10 @@ namespace DimitrienkoV\LaravelModules\Tests\Support;
 
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
-use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependency;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 
 final readonly class ModuleFactory
 {
@@ -50,7 +50,7 @@ final readonly class ModuleFactory
                     ),
                 ),
             ),
-            state: new ManifestState($enabled, null),
+            state: new ModuleState($enabled, null),
             features: new FeatureSchema([]),
         );
     }

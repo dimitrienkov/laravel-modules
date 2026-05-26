@@ -136,3 +136,140 @@ arch('artisan commands extend Laravel Command')
 arch('manifest enums are string backed enums')
     ->expect('DimitrienkoV\LaravelModules\Manifest\Enums')
     ->toBeStringBackedEnums();
+
+arch('use cases are final readonly')
+    ->expect('DimitrienkoV\LaravelModules\Application\UseCases')
+    ->classes()
+    ->toBeFinal()
+    ->toBeReadonly();
+
+arch('application support classes are final readonly')
+    ->expect('DimitrienkoV\LaravelModules\Application\Support')
+    ->classes()
+    ->toBeFinal()
+    ->toBeReadonly();
+
+arch('application DTOs are final readonly')
+    ->expect('DimitrienkoV\LaravelModules\Application\DTOs')
+    ->classes()
+    ->toBeFinal()
+    ->toBeReadonly();
+
+arch('application layer does not depend on loaders or moonshine')
+    ->expect('DimitrienkoV\LaravelModules\Application')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Loaders',
+        'DimitrienkoV\LaravelModules\MoonShine',
+    ]);
+
+arch('ZipExtractor is final readonly')
+    ->expect('DimitrienkoV\LaravelModules\Support\ZipExtractor')
+    ->toBeFinal()
+    ->toBeReadonly();
+
+arch('application enums are string backed enums')
+    ->expect('DimitrienkoV\LaravelModules\Application\Enums')
+    ->toBeStringBackedEnums();
+
+arch('optimize commands do not depend on concrete registry or cache classes')
+    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeCommand')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
+    ]);
+
+arch('optimize clear command does not depend on concrete registry or cache classes')
+    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeClearCommand')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
+    ]);
+
+arch('list command does not depend on concrete registry')
+    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesListCommand')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface',
+        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+    ]);
+
+arch('lifecycle commands do not depend on concrete infrastructure classes')
+    ->expect([
+        'DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand',
+        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesInstallCommand',
+        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesUpdateCommand',
+        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesRemoveCommand',
+        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesEnableCommand',
+        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesDisableCommand',
+    ])
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
+        'DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository',
+        'DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository',
+        'DimitrienkoV\LaravelModules\Support\LocalFilesystem',
+        'DimitrienkoV\LaravelModules\Support\AtomicFileWriter',
+        'DimitrienkoV\LaravelModules\Support\AtomicJsonWriter',
+    ]);
+
+arch('exceptions implement ModuleExceptionInterface')
+    ->expect('DimitrienkoV\LaravelModules\Exceptions')
+    ->classes()
+    ->toImplement('DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface');
+
+arch('application layer does not depend on providers')
+    ->expect('DimitrienkoV\LaravelModules\Application')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Providers',
+    ]);
+
+test('direct filesystem I/O is only allowed in specialized infrastructure classes', function (): void {
+    $srcDir = realpath(__DIR__ . '/../../src');
+    expect($srcDir)->not->toBeFalse();
+
+    $forbiddenFunctions = [
+        'file_get_contents(',
+        'file_put_contents(',
+        'fopen(',
+        'fwrite(',
+        'unlink(',
+        'rmdir(',
+        'mkdir(',
+        'copy(',
+        'rename(',
+        'is_file(',
+        'is_dir(',
+        'file_exists(',
+    ];
+
+    $allowedClasses = [
+        'AtomicFileWriter.php',
+        'ManifestDocumentReader.php',
+        'LocalFilesystem.php',
+        'ModuleRegistryCache.php',
+        'FactoryLoader.php',
+    ];
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($srcDir, FilesystemIterator::SKIP_DOTS),
+    );
+
+    foreach ($iterator as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $basename = $file->getBasename();
+
+        if (\in_array($basename, $allowedClasses, true)) {
+            continue;
+        }
+
+        $contents = (string) file_get_contents($file->getPathname());
+        foreach ($forbiddenFunctions as $fn) {
+            expect($contents)->not->toContain(
+                $fn,
+                "Direct filesystem I/O [{$fn}] found in {$file->getPathname()} — use a specialized infrastructure class instead.",
+            );
+        }
+    }
+});

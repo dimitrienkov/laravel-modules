@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Registry;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\PathNormalizer;
 use Illuminate\Contracts\Config\Repository;
-use Illuminate\Filesystem\Filesystem;
 
 final readonly class ModuleDirectoryScanner
 {
     public function __construct(
         private Repository $config,
-        private Filesystem $filesystem,
+        private LocalFilesystem $filesystem,
         private ModuleLayout $layout,
         private string $basePath,
         private string $appPath,
@@ -34,7 +35,7 @@ final readonly class ModuleDirectoryScanner
             );
         }
 
-        $normalizedAppPath = $this->normalizePath($this->appPath);
+        $normalizedAppPath = PathNormalizer::normalize($this->appPath);
         $moduleDirectories = [];
 
         foreach ($directories as $directory) {
@@ -52,7 +53,7 @@ final readonly class ModuleDirectoryScanner
                 continue;
             }
 
-            $normalizedRoot = $this->normalizePath($realRoot);
+            $normalizedRoot = PathNormalizer::normalize($realRoot);
 
             if (! str_starts_with($normalizedRoot, $normalizedAppPath)) {
                 throw InvalidConfigurationException::forKey(
@@ -62,7 +63,7 @@ final readonly class ModuleDirectoryScanner
             }
 
             foreach ($this->filesystem->directories($realRoot) as $modulePath) {
-                if (is_file($this->layout->manifestFilePath($modulePath))) {
+                if ($this->filesystem->isFile($this->layout->manifestFilePath($modulePath))) {
                     $moduleDirectories[] = $modulePath;
                 }
             }
@@ -73,8 +74,4 @@ final readonly class ModuleDirectoryScanner
         return $moduleDirectories;
     }
 
-    private function normalizePath(string $path): string
-    {
-        return rtrim(str_replace('\\', '/', $path), '/') . '/';
-    }
 }

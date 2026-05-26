@@ -8,13 +8,11 @@ use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
-use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 
 final readonly class ManifestValidator implements ManifestValidatorInterface
 {
     private const array ALLOWED_TOP_LEVEL_KEYS = [
         'meta' => true,
-        'state' => true,
         'settings' => true,
     ];
 
@@ -33,10 +31,6 @@ final readonly class ManifestValidator implements ManifestValidatorInterface
         $metaRaw = ManifestFieldReader::requiredObject($manifest, 'meta', $manifestPath);
         /** @var array<string, mixed> $metaRaw */
         $meta = ManifestMeta::fromArray($metaRaw, $manifestPath);
-
-        $state = ManifestFieldReader::requiredObject($manifest, 'state', $manifestPath);
-        /** @var array<string, mixed> $state */
-        ManifestState::fromArray($state, $manifestPath);
 
         $settings = ManifestFieldReader::requiredObject($manifest, 'settings', $manifestPath);
         /** @var array<string, mixed> $settings */

@@ -55,7 +55,13 @@ return [
 
 ## Минимальный модуль
 
-Текущий пакет не реализует `make:module`. Создайте директорию модуля вручную или через собственный scaffolding host-приложения.
+Используйте `make:module` для создания структуры модуля:
+
+```bash
+php artisan make:module blog
+```
+
+Или создайте директорию вручную:
 
 ```text
 app/Modules/Blog/
@@ -64,7 +70,7 @@ app/Modules/Blog/
 `-- module.json
 ```
 
-Минимальный `module.json`:
+Минимальный `module.json` (immutable manifest):
 
 ```json
 {
@@ -72,15 +78,27 @@ app/Modules/Blog/
     "name": "blog",
     "version": "1.0.0"
   },
-  "state": {
-    "enabled": true
-  },
   "settings": {
-    "schema": {},
-    "values": {}
+    "schema": {}
   }
 }
 ```
+
+Mutable state хранится отдельно в `state.json`. При использовании `make:module` state создаётся автоматически. При ручной настройке создайте файл в state-хранилище:
+
+```text
+storage/app/private/modules/blog/state.json
+```
+
+```json
+{
+  "enabled": true
+}
+```
+
+Если `state.json` отсутствует, модуль остаётся registered, но получает default disabled state. Pipeline не применит loaders к такому модулю, пока state не будет создан через lifecycle-команду или `ModuleStateRepository`.
+
+Source-артефакты модулей для `modules:install` и `modules:update` не должны содержать `state.json`: этот файл принадлежит приватному storage host-приложения.
 
 ## Проверка discovery cache
 

@@ -221,8 +221,19 @@ final readonly class FakeRegistry implements ModuleRegistryInterface
         throw new \RuntimeException("Module [{$name}] was not registered in fake registry.");
     }
 
-    public function loadOrder(): array
+    public function has(string $name): bool
     {
-        return $this->modules;
+        foreach ($this->modules as $module) {
+            if ($module->name === $name) {
+                return true;
+            }
+        }
+
+        return false;
     }
+
+    public function reset(): void
+    {
+    }
+
 }

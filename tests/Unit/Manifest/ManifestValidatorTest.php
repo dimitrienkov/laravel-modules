@@ -30,18 +30,12 @@ final class ManifestValidatorTest extends TestCase
                 'version' => '1.0.0',
                 'dependencies' => [],
             ],
-            'state' => [
-                'enabled' => true,
-            ],
             'settings' => [
                 'schema' => [
                     'comments_enabled' => [
                         'type' => 'bool',
                         'default' => true,
                     ],
-                ],
-                'values' => [
-                    'comments_enabled' => false,
                 ],
             ],
         ], '/tmp/module.json');
@@ -57,8 +51,7 @@ final class ManifestValidatorTest extends TestCase
 
         $this->validator->validate([
             'meta' => ['name' => 'blog', 'version' => '1.0.0', 'dependencies' => []],
-            'state' => ['enabled' => true],
-            'settings' => ['schema' => [], 'values' => []],
+            'settings' => ['schema' => []],
             'autoload' => ['psr-4' => []],
         ], '/tmp/module.json');
     }
@@ -71,9 +64,21 @@ final class ManifestValidatorTest extends TestCase
 
         $this->validator->validate([
             'meta' => ['name' => 'blog', 'version' => '1.0.0', 'dependencies' => []],
-            'state' => ['enabled' => true],
-            'settings' => ['schema' => [], 'values' => []],
+            'settings' => ['schema' => []],
             'plugins' => [],
+        ], '/tmp/module.json');
+    }
+
+    #[Test]
+    public function it_rejects_manifest_with_state_section(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('unknown top-level key [state]');
+
+        $this->validator->validate([
+            'meta' => ['name' => 'blog', 'version' => '1.0.0', 'dependencies' => []],
+            'settings' => ['schema' => []],
+            'state' => ['enabled' => true],
         ], '/tmp/module.json');
     }
 
@@ -85,21 +90,19 @@ final class ManifestValidatorTest extends TestCase
 
         $this->validator->validate([
             'meta' => ['name' => 'blog', 'version' => '1.0.0', 'dependencies' => []],
-            'state' => ['enabled' => true],
-            'settings' => ['schema' => 'not-an-object', 'values' => []],
+            'settings' => ['schema' => 'not-an-object'],
         ], '/tmp/module.json');
     }
 
     #[Test]
-    public function it_rejects_settings_values_as_non_object(): void
+    public function it_rejects_settings_values_key(): void
     {
         $this->expectException(InvalidManifestException::class);
-        $this->expectExceptionMessage('settings.values must be an object');
+        $this->expectExceptionMessage('settings contains unknown key [values]');
 
         $this->validator->validate([
             'meta' => ['name' => 'blog', 'version' => '1.0.0', 'dependencies' => []],
-            'state' => ['enabled' => true],
-            'settings' => ['schema' => [], 'values' => 'not-an-object'],
+            'settings' => ['schema' => [], 'values' => []],
         ], '/tmp/module.json');
     }
 
@@ -111,21 +114,7 @@ final class ManifestValidatorTest extends TestCase
 
         $this->validator->validate([
             'meta' => ['name' => '', 'version' => '1.0.0', 'dependencies' => []],
-            'state' => ['enabled' => true],
-            'settings' => ['schema' => [], 'values' => []],
-        ], '/tmp/module.json');
-    }
-
-    #[Test]
-    public function it_propagates_state_validation_errors(): void
-    {
-        $this->expectException(InvalidManifestException::class);
-        $this->expectExceptionMessage('state.enabled must be a boolean');
-
-        $this->validator->validate([
-            'meta' => ['name' => 'blog', 'version' => '1.0.0', 'dependencies' => []],
-            'state' => ['enabled' => 'yes'],
-            'settings' => ['schema' => [], 'values' => []],
+            'settings' => ['schema' => []],
         ], '/tmp/module.json');
     }
 }

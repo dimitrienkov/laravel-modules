@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
+use DimitrienkoV\LaravelModules\Support\ModuleFileNames;
 
 final readonly class Module
 {
@@ -15,7 +16,7 @@ final readonly class Module
         public string $namespace,
         public string $path,
         public ManifestMeta $meta,
-        public ManifestState $state,
+        public ModuleState $state,
         public FeatureSchema $features,
     ) {
     }
@@ -28,9 +29,9 @@ final readonly class Module
         string $namespace,
         array $manifest,
         string $manifestPath,
+        ModuleState $state,
     ): self {
         $metaRaw = ManifestFieldReader::requiredObject($manifest, 'meta', $manifestPath);
-        $stateRaw = ManifestFieldReader::requiredObject($manifest, 'state', $manifestPath);
 
         $settingsRaw = $manifest['settings'] ?? null;
         if (! \is_array($settingsRaw)) {
@@ -44,8 +45,6 @@ final readonly class Module
 
         /** @var array<string, mixed> $metaRaw */
         $meta = ManifestMeta::fromArray($metaRaw, $manifestPath);
-        /** @var array<string, mixed> $stateRaw */
-        $state = ManifestState::fromArray($stateRaw, $manifestPath);
         /** @var array<string, mixed> $schemaRaw */
         $features = FeatureSchema::fromArray($schemaRaw, $manifestPath);
 
@@ -67,10 +66,10 @@ final readonly class Module
 
     public function manifestPath(): string
     {
-        return $this->path . '/module.json';
+        return $this->path . '/' . ModuleFileNames::MANIFEST;
     }
 
-    public function withState(ManifestState $state): self
+    public function withState(ModuleState $state): self
     {
         return new self(
             name: $this->name,
@@ -90,25 +89,10 @@ final readonly class Module
     {
         return [
             'meta' => $this->meta->toArray(),
-            'state' => $this->state->toArray(),
             'settings' => [
                 'schema' => $this->features->toArray(),
             ],
         ];
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function toManifestArray(FeatureValues $values): array
-    {
-        return [
-            'meta' => $this->meta->toArray(),
-            'state' => $this->state->toArray(),
-            'settings' => [
-                'schema' => $this->features->toArray(),
-                'values' => $values->toArray(),
-            ],
-        ];
-    }
 }

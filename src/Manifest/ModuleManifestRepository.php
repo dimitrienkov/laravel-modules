@@ -6,13 +6,13 @@ namespace DimitrienkoV\LaravelModules\Manifest;
 
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
-use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
-use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
-use DimitrienkoV\LaravelModules\Manifest\VO\ManifestState;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 
 final readonly class ModuleManifestRepository implements ModuleManifestRepositoryInterface
@@ -23,6 +23,8 @@ final readonly class ModuleManifestRepository implements ModuleManifestRepositor
         private ManifestValidatorInterface $validator,
         private NamespaceResolverInterface $namespaceResolver,
         private ManifestDocumentReader $documentReader,
+        private ModuleStateRepositoryInterface $stateRepository,
+        private LocalFilesystem $filesystem,
     ) {
     }
 
@@ -31,50 +33,34 @@ final readonly class ModuleManifestRepository implements ModuleManifestRepositor
         $normalizedModulePath = rtrim($modulePath, '/\\');
         $manifestPath = $this->layout->manifestFilePath($normalizedModulePath);
 
-        if (! is_file($manifestPath)) {
+        if (! $this->filesystem->isFile($manifestPath)) {
             throw ModuleNotFoundException::forPath($normalizedModulePath);
         }
 
         $manifest = $this->documentReader->read($manifestPath);
         $this->validator->validate($manifest, $manifestPath);
 
-        return Module::fromManifest(
+        $namespace = $this->namespaceResolver->resolve($normalizedModulePath);
+
+        $manifestModule = Module::fromManifest(
             path: $normalizedModulePath,
-            namespace: $this->namespaceResolver->resolve($normalizedModulePath),
+            namespace: $namespace,
             manifest: $manifest,
             manifestPath: $manifestPath,
+            state: ModuleState::defaultDisabled(),
         );
+
+        $state = $this->stateRepository->readState($manifestModule->name, $manifestModule);
+
+        return $manifestModule->withState($state);
     }
 
-    public function readValues(Module $module): FeatureValues
+    public function writeManifest(Module $module): void
     {
         $manifestPath = $this->layout->manifestFile($module);
-        $manifest = $this->documentReader->read($manifestPath);
-
-        $valuesRaw = $manifest['settings']['values'] ?? [];
-        if (! \is_array($valuesRaw)) {
-            throw InvalidManifestException::forPath($manifestPath, 'settings.values must be an object.');
-        }
-
-        /** @var array<string, mixed> $valuesRaw */
-        return FeatureValues::fromArray($valuesRaw, $module->features, $module->name, $manifestPath);
-    }
-
-    public function saveValues(Module $module, FeatureValues $values): void
-    {
-        $manifestPath = $this->layout->manifestFile($module);
-        $manifest = $module->toManifestArray($values);
+        $manifest = $module->toDescriptorArray();
 
         $this->validator->validate($manifest, $manifestPath);
         $this->writer->write($manifestPath, $manifest);
-    }
-
-    public function updateState(Module $module, ManifestState $state): Module
-    {
-        $updated = $module->withState($state);
-        $currentValues = $this->readValues($module);
-        $this->saveValues($updated, $currentValues);
-
-        return $updated;
     }
 }

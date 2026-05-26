@@ -79,17 +79,20 @@ Namespaces модулей вычисляются из `Application::getNamespace
 
 ## Enabled state
 
-Pipeline загружает только enabled-модули:
+Pipeline загружает только enabled-модули. Enabled-state хранится в `state.json`, а не в `module.json`:
+
+```text
+storage/app/private/modules/blog/state.json
+```
 
 ```json
 {
-  "state": {
-    "enabled": true
-  }
+  "enabled": true,
+  "installed_at": "2026-05-23T14:12:00+00:00"
 }
 ```
 
-Disabled-модули могут быть обнаружены registry, но default loaders к ним не применяются.
+Disabled-модули обнаруживаются registry, но default loaders к ним не применяются. `make:module` автоматически создаёт `state.json` с `enabled: true` (или `false` при `--disabled`).
 
 ## Roadmap-only пути
 

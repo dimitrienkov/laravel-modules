@@ -5,22 +5,26 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Registry;
 
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryCacheInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\AtomicWriteException;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleCacheException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleCacheWriteException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Registry\VO\ModuleRegistryCachePayload;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Throwable;
 
-final readonly class ModuleRegistryCache
+final readonly class ModuleRegistryCache implements ModuleRegistryCacheInterface
 {
     private const string CACHE_FILE = 'bootstrap/cache/modules.php';
 
     public function __construct(
         private ManifestValidatorInterface $validator,
         private ModuleLayout $layout,
+        private ModuleStateRepositoryInterface $stateRepository,
         private string $basePath,
         private AtomicFileWriter $fileWriter = new AtomicFileWriter(),
     ) {
@@ -71,12 +75,17 @@ final readonly class ModuleRegistryCache
         foreach ($payload->modules as $name => $descriptor) {
             $manifestPath = $this->layout->manifestFilePath($descriptor->path);
             $this->validator->validate($descriptor->manifest, $manifestPath);
-            $modules[$name] = Module::fromManifest(
+
+            $manifestModule = Module::fromManifest(
                 path: $descriptor->path,
                 namespace: $descriptor->namespace,
                 manifest: $descriptor->manifest,
                 manifestPath: $manifestPath,
+                state: ModuleState::defaultDisabled(),
             );
+
+            $state = $this->stateRepository->readState($name, $manifestModule);
+            $modules[$name] = $manifestModule->withState($state);
         }
 
         $loadOrder = [];

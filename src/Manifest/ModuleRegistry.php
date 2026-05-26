@@ -4,31 +4,19 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Manifest;
 
-use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryCacheInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
-use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
-use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
-use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
-use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
+use DimitrienkoV\LaravelModules\Registry\VO\ModuleRegistrySnapshot;
 
 final class ModuleRegistry implements ModuleRegistryInterface
 {
-    /**
-     * @var array<string, Module>|null
-     */
-    private ?array $modules = null;
-
-    /**
-     * @var array<int, Module>|null
-     */
-    private ?array $orderedModules = null;
+    private ?ModuleRegistrySnapshot $snapshot = null;
 
     public function __construct(
-        private readonly ModuleManifestRepositoryInterface $manifests,
-        private readonly TopologicalSorter $sorter,
-        private readonly ModuleDirectoryScanner $scanner,
-        private readonly ModuleRegistryCache $cache,
+        private readonly ModuleRegistrySnapshotBuilder $builder,
+        private readonly ModuleRegistryCacheInterface $cache,
     ) {
     }
 
@@ -37,92 +25,41 @@ final class ModuleRegistry implements ModuleRegistryInterface
      */
     public function all(): array
     {
-        $this->ensureLoaded();
-
-        /** @var array<string, Module> $modules */
-        $modules = $this->modules;
-
-        return array_values($modules);
-    }
-
-    /**
-     * @return array{path: string, count: int}
-     */
-    public function writeCache(): array
-    {
-        $loaded = $this->scan();
-        $cachePath = $this->cache->write($loaded['loadOrder']);
-
-        return [
-            'path' => $cachePath,
-            'count' => \count($loaded['loadOrder']),
-        ];
+        return $this->ensureLoaded()->all();
     }
 
     public function find(string $name): Module
     {
-        $this->ensureLoaded();
-
-        /** @var array<string, Module> $modules */
-        $modules = $this->modules;
-
-        return $modules[$name] ?? throw ModuleNotFoundException::forName($name);
+        return $this->ensureLoaded()->find($name);
     }
 
-    /**
-     * @return array<int, Module>
-     */
-    public function loadOrder(): array
+    public function has(string $name): bool
     {
-        $this->ensureLoaded();
-
-        /** @var array<int, Module> $orderedModules */
-        $orderedModules = $this->orderedModules;
-
-        return $orderedModules;
+        return $this->ensureLoaded()->has($name);
     }
 
     public function reset(): void
     {
-        $this->modules = null;
-        $this->orderedModules = null;
+        $this->snapshot = null;
     }
 
-    private function ensureLoaded(): void
+    private function ensureLoaded(): ModuleRegistrySnapshot
     {
-        if ($this->modules !== null && $this->orderedModules !== null) {
-            return;
+        if ($this->snapshot instanceof ModuleRegistrySnapshot) {
+            return $this->snapshot;
         }
 
-        $loaded = $this->cache->exists()
-            ? $this->cache->load()
-            : $this->scan();
+        $this->snapshot = $this->cache->exists()
+            ? $this->loadFromCache()
+            : $this->builder->build();
 
-        $this->modules = $loaded['modules'];
-        $this->orderedModules = $loaded['loadOrder'];
+        return $this->snapshot;
     }
 
-    /**
-     * @return array{modules: array<string, Module>, loadOrder: array<int, Module>}
-     */
-    private function scan(): array
+    private function loadFromCache(): ModuleRegistrySnapshot
     {
-        $modules = [];
+        $loaded = $this->cache->load();
 
-        foreach ($this->scanner->scan() as $modulePath) {
-            $modules[] = $this->manifests->load($modulePath);
-        }
-
-        $loadOrder = $this->sorter->sort($modules);
-        $moduleMap = [];
-
-        foreach ($loadOrder as $module) {
-            $moduleMap[$module->name] = $module;
-        }
-
-        return [
-            'modules' => $moduleMap,
-            'loadOrder' => $loadOrder,
-        ];
+        return new ModuleRegistrySnapshot($loaded['loadOrder']);
     }
 }

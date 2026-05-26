@@ -140,8 +140,13 @@ final readonly class MoonShineFakeRegistry implements ModuleRegistryInterface
         throw new \RuntimeException("Module [{$name}] was not registered in fake registry.");
     }
 
-    public function loadOrder(): array
+    public function has(string $name): bool
     {
-        return $this->modules;
+        return false;
     }
+
+    public function reset(): void
+    {
+    }
+
 }

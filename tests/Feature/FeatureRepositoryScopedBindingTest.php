@@ -7,18 +7,24 @@ namespace DimitrienkoV\LaravelModules\Tests\Feature;
 use DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
@@ -28,6 +34,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 final class FeatureRepositoryScopedBindingTest extends TestCase
 {
+    use CreatesModuleFiles;
     private string $modulePath;
 
     private string $tempDir;
@@ -46,7 +53,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->tempDir);
+        (new Filesystem())->deleteDirectory($this->tempDir);
 
         parent::tearDown();
     }
@@ -82,27 +89,41 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
             ],
         ]);
 
+        $statePaths = new ModuleStatePaths(config: $config, basePath: $this->tempDir);
+        $stateRepository = new ModuleStateRepository(
+            paths: $statePaths,
+            writer: new AtomicJsonWriter(),
+            filesystem: new LocalFilesystem(new Filesystem()),
+        );
+
+        $app->instance(ModuleStateRepositoryInterface::class, $stateRepository);
+
         $app->instance(ModuleManifestRepositoryInterface::class, new ModuleManifestRepository(
             layout: $layout,
             writer: new AtomicJsonWriter(),
             validator: $validator,
             namespaceResolver: new FakeNamespaceResolver($this->tempDir),
             documentReader: new ManifestDocumentReader(),
+            stateRepository: $stateRepository,
+            filesystem: new LocalFilesystem(new Filesystem()),
         ));
 
         $app->instance(ModuleRegistryInterface::class, new ModuleRegistry(
-            manifests: $app->make(ModuleManifestRepositoryInterface::class),
-            sorter: new TopologicalSorter(),
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new Filesystem(),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
+            builder: new ModuleRegistrySnapshotBuilder(
+                scanner: new ModuleDirectoryScanner(
+                    config: $config,
+                    filesystem: new LocalFilesystem(new Filesystem()),
+                    layout: $layout,
+                    basePath: $this->tempDir,
+                    appPath: $this->tempDir . '/app',
+                ),
+                manifests: $app->make(ModuleManifestRepositoryInterface::class),
+                sorter: new TopologicalSorter(),
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,
                 layout: $layout,
+                stateRepository: $stateRepository,
                 basePath: $this->tempDir,
             ),
         ));
@@ -115,9 +136,10 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
      */
     private function updateValues(array $values): void
     {
-        $repository = $this->application()->make(ModuleManifestRepositoryInterface::class);
-        $module = $repository->load($this->modulePath);
-        $repository->saveValues(
+        $manifestRepository = $this->application()->make(ModuleManifestRepositoryInterface::class);
+        $stateRepository = $this->application()->make(ModuleStateRepositoryInterface::class);
+        $module = $manifestRepository->load($this->modulePath);
+        $stateRepository->writeValues(
             $module,
             FeatureValues::fromArray($values, $module->features, $module->name, $module->manifestPath()),
         );
@@ -128,29 +150,10 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
      */
     private function writeManifest(array $values): void
     {
-        file_put_contents(
-            $this->modulePath . '/module.json',
-            json_encode([
-                'meta' => [
-                    'name' => 'blog',
-                    'display_name' => 'Blog',
-                    'version' => '1.0.0',
-                    'dependencies' => [],
-                ],
-                'state' => [
-                    'enabled' => true,
-                ],
-                'settings' => [
-                    'schema' => [
-                        'comments_enabled' => [
-                            'type' => 'bool',
-                            'default' => false,
-                        ],
-                    ],
-                    'values' => $values,
-                ],
-            ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR),
-        );
+        $this->writeModuleManifest($this->tempDir . '/app/Modules', 'blog', schema: [
+            'comments_enabled' => ['type' => 'bool', 'default' => false],
+        ]);
+        $this->writeModuleState($this->tempDir . '/storage/app/private/modules', 'blog', values: $values);
     }
 
     private function application(): Application
@@ -162,27 +165,4 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         return $this->app;
     }
 
-    private function deleteDirectory(string $directory): void
-    {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($iterator as $fileInfo) {
-            if ($fileInfo->isDir()) {
-                rmdir($fileInfo->getPathname());
-
-                continue;
-            }
-
-            unlink($fileInfo->getPathname());
-        }
-
-        rmdir($directory);
-    }
 }

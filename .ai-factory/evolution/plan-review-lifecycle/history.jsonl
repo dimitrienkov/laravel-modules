@@ -1,0 +1,9 @@
+{"ts":"2026-05-25T22:00:00Z","run_id":"plan-review-lifecycle-20260525-220000","iteration":1,"phase":"A","step":"INIT","event":"run_started","status":"ok","payload":{"max_iterations":3,"rules_count":8}}
+{"ts":"2026-05-25T22:00:30Z","run_id":"plan-review-lifecycle-20260525-220000","iteration":1,"phase":"A","step":"PLAN","event":"plan_created","status":"ok","payload":{"steps":5}}
+{"ts":"2026-05-25T22:01:00Z","run_id":"plan-review-lifecycle-20260525-220000","iteration":1,"phase":"A","step":"PRODUCE","event":"artifact_created","status":"ok","payload":{"hash":"344e75f9"}}
+{"ts":"2026-05-25T22:01:30Z","run_id":"plan-review-lifecycle-20260525-220000","iteration":1,"phase":"A","step":"EVALUATE","event":"evaluation_done","status":"ok","payload":{"score":1.0,"passed":true}}
+{"ts":"2026-05-25T22:01:30Z","run_id":"plan-review-lifecycle-20260525-220000","iteration":1,"phase":"A","step":"EVALUATE","event":"phase_switched","status":"ok","payload":{"from":"A","to":"B"}}
+{"ts":"2026-05-25T22:02:00Z","run_id":"plan-review-lifecycle-20260525-220000","iteration":1,"phase":"B","step":"EVALUATE","event":"evaluation_done","status":"ok","payload":{"score":0.818,"passed":false,"failed":["b.completeness.edge-cases","b.completeness.dependency-impact"]}}
+{"ts":"2026-05-25T22:02:30Z","run_id":"plan-review-lifecycle-20260525-220000","iteration":1,"phase":"B","step":"REFINE","event":"refinement_done","status":"ok","payload":{"previous_artifact_hash":"344e75f9","new_hash":"2845111b"}}
+{"ts":"2026-05-25T22:03:00Z","run_id":"plan-review-lifecycle-20260525-220000","iteration":1,"phase":"B","step":"EVALUATE","event":"evaluation_done","status":"ok","payload":{"score":1.0,"passed":true}}
+{"ts":"2026-05-25T22:03:00Z","run_id":"plan-review-lifecycle-20260525-220000","iteration":1,"phase":"B","step":"EVALUATE","event":"stopped","status":"ok","payload":{"reason":"threshold_reached"}}

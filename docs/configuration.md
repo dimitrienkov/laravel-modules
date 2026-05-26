@@ -25,6 +25,8 @@ return [
             'app/Integrations',
             'app/Subsystems',
         ],
+        'backup' => storage_path('app/module-backups'),
+        'state' => storage_path('app/private/modules'),
     ],
     'routing' => [
         'types' => [
@@ -59,6 +61,34 @@ return [
 ```
 
 `ModuleDirectoryScanner` сканирует direct child directories и оставляет только директории с `module.json`.
+
+Lifecycle-команды (`make:module`, `modules:install`) принимают `--directory` для явного указания target root. Аргумент должен быть одним из configured roots.
+
+## Backup path
+
+`paths.backup` задаёт директорию для backup при `modules:update` и `modules:remove`. По умолчанию `storage_path('app/module-backups')`. Формат backup: `<name>-<Ymd-His>-<random-hex>`.
+
+## State path
+
+`paths.state` задаёт корневую директорию для mutable state файлов модулей. По умолчанию `storage_path('app/private/modules')`. Каждый модуль получает поддиректорию `{name}/state.json`:
+
+```
+storage/app/private/modules/
+├── blog/
+│   └── state.json
+└── users/
+    └── state.json
+```
+
+`state.json` хранит `enabled`, `installed_at`, `updated_at` и `settings.values`. `ModuleStatePaths` валидирует, что state root не пересекается с module directories.
+
+## Stubs
+
+```bash
+php artisan vendor:publish --tag=modules-stubs
+```
+
+Публикует `module-service-provider.stub` и `module.json.stub` в `stubs/modules/`.
 
 ## Route types
 

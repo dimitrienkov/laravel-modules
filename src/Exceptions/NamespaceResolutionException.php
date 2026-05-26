@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Exceptions;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use RuntimeException;
 
-final class NamespaceResolutionException extends RuntimeException
+final class NamespaceResolutionException extends RuntimeException implements ModuleExceptionInterface
 {
     public static function missingComposerJson(string $composerPath): self
     {

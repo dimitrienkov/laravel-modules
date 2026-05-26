@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Exceptions;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use RuntimeException;
 
-final class CyclicDependencyException extends RuntimeException
+final class CyclicDependencyException extends RuntimeException implements ModuleExceptionInterface
 {
     /**
      * @param array<int, string> $cycle

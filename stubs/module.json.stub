@@ -1,0 +1,10 @@
+{
+    "meta": {
+        "name": "{{ name }}",
+        "display_name": "{{ displayName }}",
+        "version": "1.0.0"
+    },
+    "settings": {
+        "schema": {}
+    }
+}

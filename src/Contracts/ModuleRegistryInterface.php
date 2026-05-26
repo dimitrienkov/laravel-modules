@@ -13,10 +13,9 @@ interface ModuleRegistryInterface
      */
     public function all(): array;
 
-    /**
-     * @return array<int, Module>
-     */
-    public function loadOrder(): array;
-
     public function find(string $name): Module;
+
+    public function has(string $name): bool;
+
+    public function reset(): void;
 }

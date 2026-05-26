@@ -25,3 +25,5 @@ yarn-error.log
 .rnd
 .composer.lock
 .ai-factory/*.log
+/.agent
+/.antigravitycli

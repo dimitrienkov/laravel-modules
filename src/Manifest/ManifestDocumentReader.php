@@ -23,7 +23,7 @@ final readonly class ManifestDocumentReader
         try {
             $manifest = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
-            throw InvalidManifestException::forPath($manifestPath, $exception->getMessage());
+            throw InvalidManifestException::forPath($manifestPath, $exception->getMessage(), $exception);
         }
 
         if (! \is_array($manifest) || array_is_list($manifest)) {
