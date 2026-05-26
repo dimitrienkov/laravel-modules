@@ -215,6 +215,8 @@ final class UpdateModuleUseCaseTest extends TestCase
 
         $useCase = $this->makeUseCase(manifestRepository: $failingManifests);
 
+        set_error_handler(static fn (): bool => true, E_WARNING);
+
         try {
             $useCase->execute('blog', $sourceDir);
             $this->fail('Expected ModuleUpdateException');
@@ -222,6 +224,8 @@ final class UpdateModuleUseCaseTest extends TestCase
             $this->assertStringContainsString('restore also failed', $e->getMessage());
             $this->assertStringContainsString('Backup remains at', $e->getMessage());
             $this->assertInstanceOf(\DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException::class, $e->getPrevious());
+        } finally {
+            restore_error_handler();
         }
     }
 

@@ -41,8 +41,13 @@ final readonly class PreparedSource
 
     public function cleanup(): void
     {
-        if ($this->temporaryRoot !== null && $this->filesystem->isDirectory($this->temporaryRoot)) {
+        if ($this->temporaryRoot === null) {
+            return;
+        }
+
+        try {
             $this->filesystem->deleteDirectory($this->temporaryRoot);
+        } catch (\Throwable) {
         }
     }
 }

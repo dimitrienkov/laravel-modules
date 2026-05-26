@@ -59,7 +59,15 @@ final readonly class ModuleSkeletonBuilder
             );
         }
 
-        $content = $this->filesystem->get($stubPath);
+        try {
+            $content = $this->filesystem->get($stubPath);
+        } catch (\Throwable $e) {
+            throw ModuleScaffoldException::forModule(
+                $moduleName,
+                "failed to read provider stub [{$stubPath}].",
+                $e,
+            );
+        }
 
         $content = str_replace(
             ['{{ namespace }}', '{{ studlyName }}'],

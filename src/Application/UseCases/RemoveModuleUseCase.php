@@ -68,7 +68,7 @@ final readonly class RemoveModuleUseCase
                 throw ModuleRemoveException::forModule(
                     $module->name,
                     "state deleted and directory removal failed, state restore also failed. Orphaned directory at [{$module->path}]. Restore error: {$restoreError->getMessage()}",
-                    $restoreError,
+                    $e,
                 );
             }
 
@@ -99,7 +99,7 @@ final readonly class RemoveModuleUseCase
                 throw ModuleRemoveException::forModule(
                     $module->name,
                     "state backup failed and restore also failed. Module backup at [{$backupPath}]. Original error: {$e->getMessage()}. Restore error: {$restoreError->getMessage()}",
-                    $restoreError,
+                    $e,
                 );
             }
 

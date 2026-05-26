@@ -8,6 +8,7 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\UseCases\RemoveModuleUseCase;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\DependentModulesExistException;
+use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleRemoveException;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
@@ -202,7 +203,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         } catch (ModuleRemoveException $e) {
             $this->assertStringContainsString('state restore also failed', $e->getMessage());
             $this->assertStringContainsString('Restore error:', $e->getMessage());
-            $this->assertInstanceOf(\RuntimeException::class, $e->getPrevious());
+            $this->assertInstanceOf(DirectoryOperationException::class, $e->getPrevious());
         }
     }
 
@@ -259,7 +260,8 @@ final class RemoveModuleUseCaseTest extends TestCase
         } catch (ModuleRemoveException $e) {
             $this->assertStringContainsString('restore also failed', $e->getMessage());
             $restoreError = $e->getPrevious();
-            $this->assertNotNull($restoreError);
+            $this->assertInstanceOf(\RuntimeException::class, $restoreError);
+            $this->assertStringContainsString('state backup failed', $restoreError->getMessage());
         }
     }
 

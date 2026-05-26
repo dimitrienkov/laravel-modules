@@ -48,8 +48,9 @@ final readonly class ZipExtractor
         try {
             $this->extract($zipPath, $tempDir);
         } catch (Throwable $e) {
-            if ($this->filesystem->isDirectory($tempDir)) {
+            try {
                 $this->filesystem->deleteDirectory($tempDir);
+            } catch (\Throwable) {
             }
 
             throw $e;

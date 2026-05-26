@@ -81,11 +81,7 @@ final readonly class ModuleDirectoryOperations
 
     public function tryDeleteDirectory(string $path): bool
     {
-        if (! $this->filesystem->isDirectory($path)) {
-            return true;
-        }
-
-        return $this->filesystem->deleteDirectory($path);
+        return $this->filesystem->deleteDirectory($path) || ! $this->filesystem->isDirectory($path);
     }
 
     private function ensureBackupRootExists(string $backupPath): void
