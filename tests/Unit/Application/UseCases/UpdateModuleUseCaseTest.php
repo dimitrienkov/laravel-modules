@@ -4,36 +4,19 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
-use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Application\UseCases\UpdateModuleUseCase;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleUpdateException;
-use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
-use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
-use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
-use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
-use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
-use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
-use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
-use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
-use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ModuleLayout;
-use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
-use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
-use DimitrienkoV\LaravelModules\Support\ZipExtractor;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
-use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
-use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 final class UpdateModuleUseCaseTest extends TestCase
 {
+    use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
+
     private string $tempDir;
 
     private string $stateRoot;
@@ -245,83 +228,28 @@ final class UpdateModuleUseCaseTest extends TestCase
     private function makeUseCase(
         ?\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface $manifestRepository = null,
     ): UpdateModuleUseCase {
-        $layout = new ModuleLayout();
-        $validator = new ManifestValidator(new ManifestSettingsValidator());
-        $config = new Repository([
-            'modules' => ['paths' => ['directories' => ['app/Modules'], 'backup' => $this->tempDir . '/backups', 'state' => $this->stateRoot]],
-        ]);
-
-        $stateRepo = new ModuleStateRepository(
-            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
-            writer: new AtomicJsonWriter(),
-            filesystem: new Filesystem(),
-        );
-
-        $manifests = new ModuleManifestRepository(
-            layout: $layout,
-            writer: new AtomicJsonWriter(),
-            validator: $validator,
-            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
-            documentReader: new ManifestDocumentReader(),
-            stateRepository: $stateRepo,
-        );
-
-        $sorter = new TopologicalSorter();
-        $cache = new ModuleRegistryCache($validator, $layout, $stateRepo, $this->tempDir);
-
-        $registry = new ModuleRegistry(
-            manifests: $manifests,
-            sorter: $sorter,
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new Filesystem(),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
-            ),
-            cache: $cache,
-        );
-
-        $guard = new ModuleDependencyGuard($registry, $sorter);
-        $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
-        $paths = new ModuleDirectoryPaths($config, $this->tempDir, $this->tempDir . '/app');
-        $realDirectoryOps = new ModuleDirectoryOperations(new Filesystem(), $paths);
-        $filesystem = new Filesystem();
-        $sourcePreparer = new ModuleSourcePreparer(new ManifestDocumentReader(), $validator, new ZipExtractor($filesystem), $filesystem);
+        $config = $this->lifecycleConfig(backupPath: $this->tempDir . '/backups');
+        $stateRepo = $this->lifecycleStateRepository($config);
+        $manifests = $this->lifecycleManifestRepository($stateRepo);
+        $cache = $this->lifecycleRegistryCache($stateRepo);
+        $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
 
         return new UpdateModuleUseCase(
             $registry,
             $manifestRepository ?? $manifests,
             $stateRepo,
-            $sourcePreparer,
-            $guard,
-            $realDirectoryOps,
-            $invalidator,
+            $this->lifecycleSourcePreparer(),
+            $this->lifecycleDependencyGuard($registry),
+            $this->lifecycleDirectoryOps($this->lifecycleDirectoryPaths($config)),
+            $this->lifecycleInvalidator($cache, $registry),
         );
     }
 
-    private function makeRealManifestRepo(): ModuleManifestRepository
+    private function makeRealManifestRepo(): \DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository
     {
-        $layout = new ModuleLayout();
-        $validator = new ManifestValidator(new ManifestSettingsValidator());
-        $config = new Repository([
-            'modules' => ['paths' => ['directories' => ['app/Modules'], 'backup' => $this->tempDir . '/backups', 'state' => $this->stateRoot]],
-        ]);
+        $config = $this->lifecycleConfig(backupPath: $this->tempDir . '/backups');
 
-        $stateRepo = new ModuleStateRepository(
-            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
-            writer: new AtomicJsonWriter(),
-            filesystem: new Filesystem(),
-        );
-
-        return new ModuleManifestRepository(
-            layout: $layout,
-            writer: new AtomicJsonWriter(),
-            validator: $validator,
-            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
-            documentReader: new ManifestDocumentReader(),
-            stateRepository: $stateRepo,
-        );
+        return $this->lifecycleManifestRepository($this->lifecycleStateRepository($config));
     }
 
     /**

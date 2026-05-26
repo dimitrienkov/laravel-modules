@@ -14,21 +14,7 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
-use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
-use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
-use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
-use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
-use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
-use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
-use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
-use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
-use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ModuleLayout;
-use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
-use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
-use DimitrienkoV\LaravelModules\Support\ZipExtractor;
-use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
-use Illuminate\Config\Repository;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Testing\PendingCommand;
@@ -37,13 +23,18 @@ use PHPUnit\Framework\Attributes\Test;
 
 final class ModulesInstallCommandTest extends TestCase
 {
+    use CreatesLifecycleEnvironment;
+
     private string $tempDir;
+
+    private string $stateRoot;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->tempDir = sys_get_temp_dir() . '/install_cmd_' . bin2hex(random_bytes(6));
+        $this->stateRoot = $this->tempDir . '/storage/app/private/modules';
         mkdir($this->tempDir . '/app/Modules', 0755, true);
         mkdir($this->tempDir . '/bootstrap/cache', 0755, true);
         mkdir($this->tempDir . '/sources', 0755, true);
@@ -87,75 +78,24 @@ final class ModulesInstallCommandTest extends TestCase
 
     private function registerServices(): void
     {
-        $app = $this->app;
-        $layout = new ModuleLayout();
-        $validator = new ManifestValidator(new ManifestSettingsValidator());
-        $config = new Repository([
-            'modules' => ['paths' => ['directories' => ['app/Modules'], 'backup' => $this->tempDir . '/backups']],
-        ]);
+        $config = $this->lifecycleConfig(backupPath: $this->tempDir . '/backups');
+        $stateRepo = $this->lifecycleStateRepository($config);
+        $manifests = $this->lifecycleManifestRepository($stateRepo);
+        $cache = $this->lifecycleRegistryCache($stateRepo);
+        $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
+        $paths = $this->lifecycleDirectoryPaths($config);
 
-        $statePaths = new ModuleStatePaths(config: $config, basePath: $this->tempDir);
-        $stateRepository = new ModuleStateRepository(
-            paths: $statePaths,
-            writer: new AtomicJsonWriter(),
-            filesystem: new Filesystem(),
-        );
+        $this->app->instance(ModuleRegistryInterface::class, $registry);
+        $this->app->instance(ModuleManifestRepositoryInterface::class, $manifests);
+        $this->app->instance(ModuleStateRepositoryInterface::class, $stateRepo);
+        $this->app->instance(NamespaceResolverInterface::class, $this->lifecycleNamespaceResolver());
+        $this->app->instance(ModuleDependencyGuard::class, $this->lifecycleDependencyGuard($registry));
+        $this->app->instance(LifecycleRegistryInvalidator::class, $this->lifecycleInvalidator($cache, $registry));
+        $this->app->instance(ModuleDirectoryPaths::class, $paths);
+        $this->app->instance(ModuleDirectoryOperations::class, $this->lifecycleDirectoryOps($paths));
+        $this->app->instance(ModuleSourcePreparer::class, $this->lifecycleSourcePreparer());
 
-        $namespaceResolver = new FakeNamespaceResolver($this->tempDir);
-
-        $manifests = new ModuleManifestRepository(
-            layout: $layout,
-            writer: new AtomicJsonWriter(),
-            validator: $validator,
-            namespaceResolver: $namespaceResolver,
-            documentReader: new ManifestDocumentReader(),
-            stateRepository: $stateRepository,
-        );
-
-        $sorter = new TopologicalSorter();
-        $cache = new ModuleRegistryCache(
-            validator: $validator,
-            layout: $layout,
-            stateRepository: $stateRepository,
-            basePath: $this->tempDir,
-        );
-
-        $registry = new ModuleRegistry(
-            manifests: $manifests,
-            sorter: $sorter,
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new Filesystem(),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
-            ),
-            cache: $cache,
-        );
-
-        $guard = new ModuleDependencyGuard($registry, $sorter);
-        $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
-        $paths = new ModuleDirectoryPaths($config, $this->tempDir, $this->tempDir . '/app');
-        $directoryOps = new ModuleDirectoryOperations(new Filesystem(), $paths);
-        $filesystem = new Filesystem();
-        $sourcePreparer = new ModuleSourcePreparer(
-            new ManifestDocumentReader(),
-            $validator,
-            new ZipExtractor($filesystem),
-            $filesystem,
-        );
-
-        $app->instance(ModuleRegistryInterface::class, $registry);
-        $app->instance(ModuleManifestRepositoryInterface::class, $manifests);
-        $app->instance(ModuleStateRepositoryInterface::class, $stateRepository);
-        $app->instance(NamespaceResolverInterface::class, $namespaceResolver);
-        $app->instance(ModuleDependencyGuard::class, $guard);
-        $app->instance(LifecycleRegistryInvalidator::class, $invalidator);
-        $app->instance(ModuleDirectoryPaths::class, $paths);
-        $app->instance(ModuleDirectoryOperations::class, $directoryOps);
-        $app->instance(ModuleSourcePreparer::class, $sourcePreparer);
-
-        $app->make(Kernel::class)->registerCommand($app->make(ModulesInstallCommand::class));
+        $this->app->make(Kernel::class)->registerCommand($this->app->make(ModulesInstallCommand::class));
     }
 
     private function createSourceModule(string $name): string

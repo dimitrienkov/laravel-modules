@@ -4,33 +4,21 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
-use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\UseCases\DisableModuleUseCase;
 use DimitrienkoV\LaravelModules\Exceptions\DependentModulesExistException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyDisabledException;
-use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
-use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
-use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
-use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
-use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
-use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
-use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
-use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ModuleLayout;
-use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
-use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
-use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
-use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 final class DisableModuleUseCaseTest extends TestCase
 {
+    use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
+
     private string $tempDir;
 
     private string $stateRoot;
@@ -64,7 +52,7 @@ final class DisableModuleUseCaseTest extends TestCase
         $this->assertFalse($result->isEnabled());
         $this->assertNotNull($result->state->updatedAt);
 
-        $state = $this->readState('blog');
+        $state = $this->readStateFile($this->stateRoot, 'blog');
         $this->assertFalse($state['enabled']);
     }
 
@@ -147,87 +135,25 @@ final class DisableModuleUseCaseTest extends TestCase
      */
     private function makeUseCaseWithRegistry(): array
     {
-        $stateRepo = $this->stateRepository();
-        $registry = $this->registry($stateRepo);
-        $sorter = new TopologicalSorter();
-        $guard = new ModuleDependencyGuard($registry, $sorter);
-        $cache = $this->cacheInstance($stateRepo);
-        $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
+        $config = $this->lifecycleConfig();
+        $stateRepo = $this->lifecycleStateRepository($config);
+        $manifests = $this->lifecycleManifestRepository($stateRepo);
+        $cache = $this->lifecycleRegistryCache($stateRepo);
+        $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
 
-        return [new DisableModuleUseCase($registry, $stateRepo, $guard, $invalidator), $registry];
+        $useCase = new DisableModuleUseCase(
+            $registry,
+            $stateRepo,
+            $this->lifecycleDependencyGuard($registry),
+            $this->lifecycleInvalidator($cache, $registry),
+        );
+
+        return [$useCase, $registry];
     }
 
     private function makeUseCase(): DisableModuleUseCase
     {
-        $stateRepo = $this->stateRepository();
-        $registry = $this->registry($stateRepo);
-        $sorter = new TopologicalSorter();
-        $guard = new ModuleDependencyGuard($registry, $sorter);
-        $cache = $this->cacheInstance($stateRepo);
-        $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
-
-        return new DisableModuleUseCase($registry, $stateRepo, $guard, $invalidator);
-    }
-
-    private function stateRepository(): ModuleStateRepository
-    {
-        return new ModuleStateRepository(
-            paths: new ModuleStatePaths(
-                config: $this->config(),
-                basePath: $this->tempDir,
-            ),
-            writer: new AtomicJsonWriter(),
-            filesystem: new Filesystem(),
-        );
-    }
-
-    private function config(): Repository
-    {
-        return new Repository([
-            'modules' => [
-                'paths' => [
-                    'directories' => ['app/Modules'],
-                    'state' => $this->stateRoot,
-                ],
-            ],
-        ]);
-    }
-
-    private function cacheInstance(ModuleStateRepository $stateRepo): ModuleRegistryCache
-    {
-        return new ModuleRegistryCache(
-            validator: new ManifestValidator(new ManifestSettingsValidator()),
-            layout: new ModuleLayout(),
-            stateRepository: $stateRepo,
-            basePath: $this->tempDir,
-        );
-    }
-
-    private function registry(ModuleStateRepository $stateRepo): ModuleRegistry
-    {
-        $layout = new ModuleLayout();
-        $validator = new ManifestValidator(new ManifestSettingsValidator());
-        $config = $this->config();
-
-        return new ModuleRegistry(
-            manifests: new ModuleManifestRepository(
-                layout: $layout,
-                writer: new AtomicJsonWriter(),
-                validator: $validator,
-                namespaceResolver: new FakeNamespaceResolver($this->tempDir),
-                documentReader: new ManifestDocumentReader(),
-                stateRepository: $stateRepo,
-            ),
-            sorter: new TopologicalSorter(),
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new Filesystem(),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
-            ),
-            cache: $this->cacheInstance($stateRepo),
-        );
+        return $this->makeUseCaseWithRegistry()[0];
     }
 
     /**
@@ -241,13 +167,5 @@ final class DisableModuleUseCaseTest extends TestCase
     ): void {
         $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, dependencies: $dependencies);
         $this->writeModuleState($this->stateRoot, $name, $enabled, $installedAt, new \stdClass());
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function readState(string $moduleName): array
-    {
-        return $this->readStateFile($this->stateRoot, $moduleName);
     }
 }

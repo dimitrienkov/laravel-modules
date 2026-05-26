@@ -5,34 +5,20 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\DTOs\ScaffoldModuleConfig;
-use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
 use DimitrienkoV\LaravelModules\Application\UseCases\ScaffoldModuleUseCase;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
-use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
-use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
-use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
-use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
-use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
-use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
-use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
-use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
-use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ModuleLayout;
-use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
-use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
-use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
-use Illuminate\Config\Repository;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 final class ScaffoldModuleUseCaseTest extends TestCase
 {
+    use CreatesLifecycleEnvironment;
+
     private string $tempDir;
 
     private string $stateRoot;
@@ -165,117 +151,32 @@ final class ScaffoldModuleUseCaseTest extends TestCase
         $useCase2->execute(new ScaffoldModuleConfig(name: 'blog', directory: 'app/OtherModules', force: true));
     }
 
+    /**
+     * @param array<int, string> $roots
+     */
     private function makeUseCaseWithRoots(array $roots): ScaffoldModuleUseCase
     {
-        $layout = new ModuleLayout();
-        $validator = new ManifestValidator(new ManifestSettingsValidator());
-        $config = new Repository([
-            'modules' => ['paths' => ['directories' => $roots, 'state' => $this->stateRoot]],
-        ]);
-
-        $namespaceResolver = new FakeNamespaceResolver($this->tempDir);
-
-        $stateRepo = new ModuleStateRepository(
-            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
-            writer: new AtomicJsonWriter(),
-            filesystem: new Filesystem(),
-        );
-
-        $manifests = new ModuleManifestRepository(
-            layout: $layout,
-            writer: new AtomicJsonWriter(),
-            validator: $validator,
-            namespaceResolver: $namespaceResolver,
-            documentReader: new ManifestDocumentReader(),
-            stateRepository: $stateRepo,
-        );
-
-        $cache = new ModuleRegistryCache($validator, $layout, $stateRepo, $this->tempDir);
-
-        $registry = new ModuleRegistry(
-            manifests: $manifests,
-            sorter: new TopologicalSorter(),
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new Filesystem(),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
-            ),
-            cache: $cache,
-        );
-
-        $paths = new ModuleDirectoryPaths($config, $this->tempDir, $this->tempDir . '/app');
-        $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
-        $skeletonBuilder = new ModuleSkeletonBuilder(new Filesystem(), new AtomicFileWriter());
-        $directoryOps = new ModuleDirectoryOperations(new Filesystem(), $paths);
+        $config = $this->lifecycleConfig(directories: $roots);
+        $stateRepo = $this->lifecycleStateRepository($config);
+        $manifests = $this->lifecycleManifestRepository($stateRepo);
+        $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
+        $cache = $this->lifecycleRegistryCache($stateRepo);
+        $paths = $this->lifecycleDirectoryPaths($config);
 
         return new ScaffoldModuleUseCase(
             registry: $registry,
             manifestRepository: $manifests,
             stateRepository: $stateRepo,
-            namespaceResolver: $namespaceResolver,
+            namespaceResolver: $this->lifecycleNamespaceResolver(),
             paths: $paths,
-            invalidator: $invalidator,
-            skeletonBuilder: $skeletonBuilder,
-            directoryOps: $directoryOps,
+            invalidator: $this->lifecycleInvalidator($cache, $registry),
+            skeletonBuilder: new ModuleSkeletonBuilder(new Filesystem(), new AtomicFileWriter()),
+            directoryOps: $this->lifecycleDirectoryOps($paths),
         );
     }
 
     private function makeUseCase(): ScaffoldModuleUseCase
     {
-        $layout = new ModuleLayout();
-        $validator = new ManifestValidator(new ManifestSettingsValidator());
-        $config = new Repository([
-            'modules' => ['paths' => ['directories' => ['app/Modules'], 'state' => $this->stateRoot]],
-        ]);
-
-        $namespaceResolver = new FakeNamespaceResolver($this->tempDir);
-
-        $stateRepo = new ModuleStateRepository(
-            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
-            writer: new AtomicJsonWriter(),
-            filesystem: new Filesystem(),
-        );
-
-        $manifests = new ModuleManifestRepository(
-            layout: $layout,
-            writer: new AtomicJsonWriter(),
-            validator: $validator,
-            namespaceResolver: $namespaceResolver,
-            documentReader: new ManifestDocumentReader(),
-            stateRepository: $stateRepo,
-        );
-
-        $cache = new ModuleRegistryCache($validator, $layout, $stateRepo, $this->tempDir);
-
-        $registry = new ModuleRegistry(
-            manifests: $manifests,
-            sorter: new TopologicalSorter(),
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new Filesystem(),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
-            ),
-            cache: $cache,
-        );
-
-        $paths = new ModuleDirectoryPaths($config, $this->tempDir, $this->tempDir . '/app');
-        $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
-        $skeletonBuilder = new ModuleSkeletonBuilder(new Filesystem(), new AtomicFileWriter());
-        $directoryOps = new ModuleDirectoryOperations(new Filesystem(), $paths);
-
-        return new ScaffoldModuleUseCase(
-            registry: $registry,
-            manifestRepository: $manifests,
-            stateRepository: $stateRepo,
-            namespaceResolver: $namespaceResolver,
-            paths: $paths,
-            invalidator: $invalidator,
-            skeletonBuilder: $skeletonBuilder,
-            directoryOps: $directoryOps,
-        );
+        return $this->makeUseCaseWithRoots(['app/Modules']);
     }
 }

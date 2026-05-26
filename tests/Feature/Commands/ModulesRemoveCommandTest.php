@@ -7,26 +7,12 @@ namespace DimitrienkoV\LaravelModules\Tests\Feature\Commands;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesRemoveCommand;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
-use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
-use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
-use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
-use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
-use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
-use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
-use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
-use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
-use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
-use DimitrienkoV\LaravelModules\Support\ModuleLayout;
-use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
-use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
-use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
-use Illuminate\Config\Repository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
 use Orchestra\Testbench\TestCase;
@@ -34,6 +20,7 @@ use PHPUnit\Framework\Attributes\Test;
 
 final class ModulesRemoveCommandTest extends TestCase
 {
+    use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
 
     private string $tempDir;
@@ -99,67 +86,20 @@ final class ModulesRemoveCommandTest extends TestCase
 
     private function registerServices(): void
     {
-        $app = $this->app;
-        $layout = new ModuleLayout();
-        $validator = new ManifestValidator(new ManifestSettingsValidator());
-        $config = new Repository([
-            'modules' => ['paths' => [
-                'directories' => ['app/Modules'],
-                'backup' => $this->tempDir . '/backups',
-                'state' => $this->stateRoot,
-            ]],
-        ]);
+        $config = $this->lifecycleConfig(backupPath: $this->tempDir . '/backups');
+        $stateRepo = $this->lifecycleStateRepository($config);
+        $manifests = $this->lifecycleManifestRepository($stateRepo);
+        $cache = $this->lifecycleRegistryCache($stateRepo);
+        $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
 
-        $statePaths = new ModuleStatePaths(config: $config, basePath: $this->tempDir);
-        $stateRepository = new ModuleStateRepository(
-            paths: $statePaths,
-            writer: new AtomicJsonWriter(),
-            filesystem: new Filesystem(),
-        );
+        $this->app->instance(ModuleRegistryInterface::class, $registry);
+        $this->app->instance(ModuleManifestRepositoryInterface::class, $manifests);
+        $this->app->instance(ModuleStateRepositoryInterface::class, $stateRepo);
+        $this->app->instance(ModuleDependencyGuard::class, $this->lifecycleDependencyGuard($registry));
+        $this->app->instance(LifecycleRegistryInvalidator::class, $this->lifecycleInvalidator($cache, $registry));
+        $this->app->instance(ModuleDirectoryOperations::class, $this->lifecycleDirectoryOps($this->lifecycleDirectoryPaths($config)));
 
-        $manifests = new ModuleManifestRepository(
-            layout: $layout,
-            writer: new AtomicJsonWriter(),
-            validator: $validator,
-            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
-            documentReader: new ManifestDocumentReader(),
-            stateRepository: $stateRepository,
-        );
-
-        $sorter = new TopologicalSorter();
-        $cache = new ModuleRegistryCache(
-            validator: $validator,
-            layout: $layout,
-            stateRepository: $stateRepository,
-            basePath: $this->tempDir,
-        );
-
-        $registry = new ModuleRegistry(
-            manifests: $manifests,
-            sorter: $sorter,
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new Filesystem(),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
-            ),
-            cache: $cache,
-        );
-
-        $guard = new ModuleDependencyGuard($registry, $sorter);
-        $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
-        $paths = new ModuleDirectoryPaths($config, $this->tempDir, $this->tempDir . '/app');
-        $directoryOps = new ModuleDirectoryOperations(new Filesystem(), $paths);
-
-        $app->instance(ModuleRegistryInterface::class, $registry);
-        $app->instance(ModuleManifestRepositoryInterface::class, $manifests);
-        $app->instance(ModuleStateRepositoryInterface::class, $stateRepository);
-        $app->instance(ModuleDependencyGuard::class, $guard);
-        $app->instance(LifecycleRegistryInvalidator::class, $invalidator);
-        $app->instance(ModuleDirectoryOperations::class, $directoryOps);
-
-        $app->make(Kernel::class)->registerCommand($app->make(ModulesRemoveCommand::class));
+        $this->app->make(Kernel::class)->registerCommand($this->app->make(ModulesRemoveCommand::class));
     }
 
     private function installModule(string $name): void
