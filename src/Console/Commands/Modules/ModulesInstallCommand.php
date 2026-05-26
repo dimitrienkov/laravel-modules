@@ -33,7 +33,7 @@ final class ModulesInstallCommand extends Command
 
             $this->components->info("Module [{$result->name}] installed.");
             $this->components->twoColumnDetail('Path', $result->path);
-            $this->components->twoColumnDetail('Source', $result->sourceType);
+            $this->components->twoColumnDetail('Source', $result->sourceKind->value);
             $this->components->twoColumnDetail('Enabled', $result->enabled ? 'Yes' : 'No');
             $this->newLine();
             $this->components->warn('Run `php artisan migrate` to apply module migrations.');

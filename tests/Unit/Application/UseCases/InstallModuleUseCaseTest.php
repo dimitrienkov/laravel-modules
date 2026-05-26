@@ -11,6 +11,7 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Application\UseCases\InstallModuleUseCase;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleInstallException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
@@ -68,7 +69,7 @@ final class InstallModuleUseCaseTest extends TestCase
 
         $this->assertSame('blog', $result->name);
         $this->assertTrue($result->enabled);
-        $this->assertSame('directory', $result->sourceType);
+        $this->assertSame('directory', $result->sourceKind->value);
         $this->assertDirectoryExists($result->path);
         $this->assertFileExists($result->path . '/module.json');
         $this->assertFileExists($this->stateRoot . '/blog/state.json');
@@ -83,7 +84,7 @@ final class InstallModuleUseCaseTest extends TestCase
         $result = $useCase->execute($zipPath);
 
         $this->assertSame('blog', $result->name);
-        $this->assertSame('zip', $result->sourceType);
+        $this->assertSame('zip', $result->sourceKind->value);
         $this->assertDirectoryExists($result->path);
     }
 
@@ -109,6 +110,30 @@ final class InstallModuleUseCaseTest extends TestCase
 
         $this->expectException(ModuleAlreadyExistsException::class);
         $useCase->execute($sourceDir);
+    }
+
+    #[Test]
+    public function installRollsBackOnStatePersistenceFailure(): void
+    {
+        $sourceDir = $this->createSourceModule('blog');
+        $targetPath = $this->tempDir . '/app/Modules/Blog';
+
+        $this->filesystem->makeDirectory($this->stateRoot, 0755, true);
+        chmod($this->stateRoot, 0555);
+
+        $previousHandler = set_error_handler(static fn (): bool => true);
+
+        try {
+            $useCase = $this->makeUseCase();
+            $useCase->execute($sourceDir);
+            $this->fail('Expected ModuleInstallException was not thrown');
+        } catch (ModuleInstallException $e) {
+            $this->assertStringContainsString('persistence failed', $e->getMessage());
+            $this->assertDirectoryDoesNotExist($targetPath);
+        } finally {
+            restore_error_handler();
+            chmod($this->stateRoot, 0755);
+        }
     }
 
     #[Test]

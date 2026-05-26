@@ -90,9 +90,10 @@ php artisan modules:list --disabled
 php artisan modules:install /path/to/module-directory
 php artisan modules:install /path/to/module.zip
 php artisan modules:install /path/to/module.zip --disabled
+php artisan modules:install /path/to/module-directory --directory=app/OtherModules
 ```
 
-Модуль валидируется до копирования файлов. Команда создаёт `state.json` и не модифицирует `module.json`. После установки нужно запустить `php artisan migrate`.
+Модуль валидируется до копирования файлов. Команда создаёт `module.json` в target директории и `state.json` в state-хранилище. `--directory` позволяет указать целевой configured root. Если запись manifest или state падает после копирования, target директория и state автоматически откатываются. После установки нужно запустить `php artisan migrate`.
 
 ## Update
 
@@ -101,17 +102,17 @@ php artisan modules:update blog /path/to/blog-v2
 php artisan modules:update blog /path/to/blog-v2.zip
 ```
 
-Update бэкапит текущую директорию, заменяет файлы и мержит `settings.values` в `state.json`: сохраняются explicit values для ключей, которые остались в новой schema. Пропущенные values выводятся отдельным блоком.
+Update бэкапит текущую директорию, заменяет файлы и мержит `settings.values` в `state.json`: сохраняются explicit values для ключей, которые остались в новой schema. Пропущенные values выводятся с указанием причины (removed from schema / invalid value). Если запись manifest или state падает после замены, модуль автоматически восстанавливается из backup.
 
 ## Remove
 
 ```bash
 php artisan modules:remove blog
 php artisan modules:remove blog --force
-php artisan modules:remove blog --force --no-backup
+php artisan modules:remove blog --force --delete-permanently
 ```
 
-`--force` пропускает confirmation prompt. Без `--no-backup` модуль перемещается в `config('modules.paths.backup')`. Также удаляется соответствующий `state.json`. Remove запрещён, если другие installed модули зависят от удаляемого. Миграции не откатываются автоматически.
+`--force` пропускает confirmation prompt. Без `--delete-permanently` модуль перемещается в `config('modules.paths.backup')`. С `--delete-permanently` сначала удаляется директория модуля, затем `state.json`; если удаление директории не удалось, state остаётся intact. Remove запрещён, если другие installed модули зависят от удаляемого. Миграции не откатываются автоматически.
 
 ## Ещё не реализовано
 

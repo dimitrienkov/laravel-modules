@@ -111,7 +111,7 @@ storage/app/private/modules/{name}/state.json
 | `updated_at` | Нет | Update timestamp |
 | `settings` | Нет | Object с `values` — explicit feature overrides |
 
-State writes должны идти через `ModuleStateRepository`. Lifecycle-команды модифицируют только `state.json`, не трогая `module.json`.
+State writes должны идти через `ModuleStateRepository`. Команды `enable`, `disable` и settings writes модифицируют только `state.json`. Команды `install`, `scaffold` и `update` создают или переписывают `module.json` через `writeManifest()` и создают `state.json`.
 
 ## `settings.schema`
 

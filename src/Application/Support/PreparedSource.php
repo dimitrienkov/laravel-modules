@@ -17,25 +17,21 @@ final readonly class PreparedSource
     ) {
     }
 
+    public function moduleName(): string
+    {
+        return $this->manifest['meta']['name'];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function meta(): array
+    {
+        return $this->manifest['meta'];
+    }
+
     public function cleanup(): void
     {
-        if ($this->temporaryRoot === null || ! is_dir($this->temporaryRoot)) {
-            return;
-        }
-
-        $items = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($this->temporaryRoot, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($items as $item) {
-            if ($item->isDir()) {
-                @rmdir($item->getPathname());
-            } else {
-                @unlink($item->getPathname());
-            }
-        }
-
-        @rmdir($this->temporaryRoot);
+        (new TemporaryDirectoryCleaner())->cleanup($this->temporaryRoot);
     }
 }

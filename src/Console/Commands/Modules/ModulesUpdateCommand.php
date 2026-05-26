@@ -32,8 +32,8 @@ final class ModulesUpdateCommand extends Command
             if ($result->skippedValues !== []) {
                 $this->newLine();
                 $this->components->warn('Skipped settings values (removed or invalid in new schema):');
-                foreach ($result->skippedValues as $key) {
-                    $this->components->twoColumnDetail($key, '<comment>skipped</comment>');
+                foreach ($result->skippedValues as $skipped) {
+                    $this->components->twoColumnDetail($skipped->key, "<comment>{$skipped->reason}</comment>");
                 }
             }
 

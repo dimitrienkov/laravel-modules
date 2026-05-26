@@ -25,11 +25,12 @@ php artisan modules:optimize
 
 ## Возможности
 
-- **Manifest-first modules**: metadata, enabled state, feature schema и feature values живут в `module.json`.
+- **Manifest-first modules**: immutable metadata и feature schema в `module.json`; mutable state (`enabled`, timestamps, feature values) — в отдельном `state.json`.
 - **Dependency-aware registry**: модули сортируются по `meta.dependencies` через Composer SemVer constraints.
 - **Loader pipeline**: 15 loaders (config, providers, migrations, factories, translations, views, Blade components, events, observers, policies, commands, middleware, routes, console routes, broadcast channels) загружаются в deterministic priority order.
-- **Runtime feature API**: `FeatureRepositoryInterface` читает актуальные `settings.values` из `module.json`.
-- **Production cache**: `modules:optimize` пишет `bootstrap/cache/modules.php` для быстрого discovery.
+- **Runtime feature API**: `FeatureRepositoryInterface` читает актуальные `settings.values` из `state.json`.
+- **Production cache**: `modules:optimize` пишет `bootstrap/cache/modules.php` для быстрого discovery; state и values НЕ кешируются.
+- **Atomic lifecycle**: install, update, scaffold и remove откатываются при ошибке persistence.
 - **Optional bridges**: MoonShine и Inertia активируются только при наличии соответствующих пакетов.
 
 ## Пример модуля
@@ -68,6 +69,8 @@ app/Modules/Blog/
 `-- module.json
 ```
 
+`module.json` (immutable manifest):
+
 ```json
 {
   "meta": {
@@ -78,16 +81,24 @@ app/Modules/Blog/
       "users": "^1.5"
     }
   },
-  "state": {
-    "enabled": true
-  },
   "settings": {
     "schema": {
       "enable_comments": {
         "type": "bool",
         "default": true
       }
-    },
+    }
+  }
+}
+```
+
+`storage/app/private/modules/blog/state.json` (mutable state):
+
+```json
+{
+  "enabled": true,
+  "installed_at": "2026-05-23T14:12:00+00:00",
+  "settings": {
     "values": {
       "enable_comments": false
     }

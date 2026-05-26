@@ -75,7 +75,7 @@ final readonly class ModuleSourcePreparer
                 temporaryRoot: $tempDir,
             );
         } catch (\Throwable $e) {
-            (new PreparedSource('', '', [], $tempDir))->cleanup();
+            (new TemporaryDirectoryCleaner())->cleanup($tempDir);
 
             throw $e;
         }

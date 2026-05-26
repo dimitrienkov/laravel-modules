@@ -70,7 +70,7 @@ app/Modules/Blog/
 `-- module.json
 ```
 
-Минимальный `module.json`:
+Минимальный `module.json` (immutable manifest):
 
 ```json
 {
@@ -78,13 +78,21 @@ app/Modules/Blog/
     "name": "blog",
     "version": "1.0.0"
   },
-  "state": {
-    "enabled": true
-  },
   "settings": {
-    "schema": {},
-    "values": {}
+    "schema": {}
   }
+}
+```
+
+Mutable state хранится отдельно в `state.json`. При использовании `make:module` state создаётся автоматически. При ручной настройке создайте файл в state-хранилище:
+
+```text
+storage/app/private/modules/blog/state.json
+```
+
+```json
+{
+  "enabled": true
 }
 ```
 

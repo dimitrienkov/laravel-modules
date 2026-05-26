@@ -8,6 +8,7 @@ use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesDisableCommand;
@@ -53,6 +54,7 @@ use DimitrienkoV\LaravelModules\MoonShine\MoonShineModuleAutoloader;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\ApplicationNamespaceResolver;
+use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -252,6 +254,8 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->app->singleton(LifecycleRegistryInvalidator::class);
         $this->app->singleton(ModuleDependencyGuard::class);
         $this->app->singleton(ModuleDirectoryOperations::class);
+        $this->app->singleton(AtomicFileWriter::class);
+        $this->app->singleton(ModuleSkeletonBuilder::class);
     }
 
     private function registerDefaultLoaders(): void

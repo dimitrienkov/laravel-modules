@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Application\UseCases;
 
+use DimitrienkoV\LaravelModules\Application\DTOs\SkippedFeatureValue;
 use DimitrienkoV\LaravelModules\Application\DTOs\UpdateModuleResult;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
@@ -38,7 +39,7 @@ final readonly class UpdateModuleUseCase
         $prepared = $this->sourcePreparer->prepare($sourcePath);
 
         try {
-            $sourceName = $prepared->manifest['meta']['name'];
+            $sourceName = $prepared->moduleName();
             if ($sourceName !== $moduleName) {
                 throw ModuleUpdateException::nameMismatch($moduleName, $sourceName);
             }
@@ -66,25 +67,46 @@ final readonly class UpdateModuleUseCase
             $this->dependencyGuard->assertGraphValid($candidateGraph);
 
             $existingValues = $this->stateRepository->readValues($existingModule);
-            $this->directoryOps->replaceDirectoryWithBackup(
+            $existingStateDocument = $this->stateRepository->read($existingModule->name, $existingModule);
+
+            $backupPath = $this->directoryOps->replaceDirectoryWithBackup(
                 $existingModule->path,
                 $prepared->path,
                 $moduleName,
             );
 
-            $this->manifestRepository->writeManifest($candidate);
+            try {
+                $this->manifestRepository->writeManifest($candidate);
 
-            [$mergedValues, $skippedKeys] = $this->mergeValues(
-                $existingValues,
-                $candidate->features,
-                $candidate->name,
-                $candidate->manifestPath(),
-            );
+                [$mergedValues, $skippedDetails] = $this->mergeValues(
+                    $existingValues,
+                    $candidate->features,
+                    $candidate->name,
+                    $candidate->manifestPath(),
+                );
 
-            $this->stateRepository->write(
-                $moduleName,
-                new ModuleStateDocument($preservedState, $mergedValues),
-            );
+                $this->stateRepository->write(
+                    $moduleName,
+                    new ModuleStateDocument($preservedState, $mergedValues),
+                );
+            } catch (\Throwable $e) {
+                try {
+                    $this->directoryOps->restoreBackup($backupPath, $existingModule->path, $moduleName);
+                    $this->stateRepository->write($existingModule->name, $existingStateDocument);
+                } catch (\Throwable $restoreError) {
+                    throw ModuleUpdateException::forModule(
+                        $moduleName,
+                        "persistence failed and restore also failed. Backup remains at [{$backupPath}]. Restore error: {$restoreError->getMessage()}",
+                        $e,
+                    );
+                }
+
+                throw ModuleUpdateException::forModule(
+                    $moduleName,
+                    'persistence failed after directory replacement, restored from backup.',
+                    $e,
+                );
+            }
 
             $this->invalidator->invalidate();
 
@@ -92,7 +114,7 @@ final readonly class UpdateModuleUseCase
                 name: $moduleName,
                 oldVersion: $existingModule->meta->version,
                 newVersion: $candidate->meta->version,
-                skippedValues: $skippedKeys,
+                skippedValues: $skippedDetails,
                 path: $existingModule->path,
             );
         } finally {
@@ -101,7 +123,7 @@ final readonly class UpdateModuleUseCase
     }
 
     /**
-     * @return array{0: FeatureValues, 1: list<string>}
+     * @return array{0: FeatureValues, 1: list<SkippedFeatureValue>}
      */
     private function mergeValues(
         FeatureValues $existingValues,
@@ -116,7 +138,7 @@ final readonly class UpdateModuleUseCase
 
         foreach ($existingArray as $key => $value) {
             if (! isset($newSchemaDefinitions[$key])) {
-                $skipped[] = $key;
+                $skipped[] = new SkippedFeatureValue($key, 'removed from schema');
 
                 continue;
             }
@@ -125,8 +147,8 @@ final readonly class UpdateModuleUseCase
 
             try {
                 $merged[$key] = $definition->normalize($value, $manifestPath);
-            } catch (\Throwable) {
-                $skipped[] = $key;
+            } catch (\Throwable $e) {
+                $skipped[] = new SkippedFeatureValue($key, 'invalid value: ' . $e->getMessage());
             }
         }
 

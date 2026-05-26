@@ -24,7 +24,7 @@ final readonly class ModuleDirectoryOperations
         }
     }
 
-    public function replaceDirectoryWithBackup(string $target, string $source, string $moduleName): string
+    public function replaceDirectoryWithBackup(string $existingPath, string $replacementPath, string $moduleName): string
     {
         $backupPath = $this->paths->collisionSafeBackupPath($moduleName);
         $backupRoot = \dirname($backupPath);
@@ -33,17 +33,31 @@ final readonly class ModuleDirectoryOperations
             $this->filesystem->makeDirectory($backupRoot, 0755, true);
         }
 
-        if (! $this->filesystem->moveDirectory($target, $backupPath)) {
+        if (! $this->filesystem->moveDirectory($existingPath, $backupPath)) {
             throw ModuleUpdateException::forModule($moduleName, "failed to move target to backup [{$backupPath}].");
         }
 
-        if (! $this->filesystem->copyDirectory($source, $target)) {
-            $this->restoreBackup($backupPath, $target, $moduleName);
+        if (! $this->filesystem->copyDirectory($replacementPath, $existingPath)) {
+            $this->restoreBackup($backupPath, $existingPath, $moduleName);
 
-            throw ModuleUpdateException::forModule($moduleName, "failed to copy source to target [{$target}], restored from backup.");
+            throw ModuleUpdateException::forModule($moduleName, "failed to copy source to target [{$existingPath}], restored from backup.");
         }
 
         return $backupPath;
+    }
+
+    public function restoreBackup(string $backupPath, string $targetPath, string $moduleName): void
+    {
+        if (is_dir($targetPath)) {
+            $this->filesystem->deleteDirectory($targetPath);
+        }
+
+        if (! $this->filesystem->moveDirectory($backupPath, $targetPath)) {
+            throw ModuleUpdateException::forModule(
+                $moduleName,
+                "CRITICAL: failed to restore backup from [{$backupPath}] to [{$targetPath}]. Backup remains at [{$backupPath}].",
+            );
+        }
     }
 
     public function moveToBackup(string $target, string $moduleName): string
@@ -73,20 +87,6 @@ final readonly class ModuleDirectoryOperations
     {
         if (is_dir($path)) {
             $this->filesystem->deleteDirectory($path);
-        }
-    }
-
-    private function restoreBackup(string $backupPath, string $target, string $moduleName): void
-    {
-        if (is_dir($target)) {
-            $this->filesystem->deleteDirectory($target);
-        }
-
-        if (! $this->filesystem->moveDirectory($backupPath, $target)) {
-            throw ModuleUpdateException::forModule(
-                $moduleName,
-                "CRITICAL: failed to restore backup from [{$backupPath}] to [{$target}]. Backup remains at [{$backupPath}].",
-            );
         }
     }
 }

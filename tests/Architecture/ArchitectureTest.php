@@ -166,3 +166,60 @@ arch('ZipExtractor is final readonly')
     ->expect('DimitrienkoV\LaravelModules\Support\ZipExtractor')
     ->toBeFinal()
     ->toBeReadonly();
+
+arch('application enums are string backed enums')
+    ->expect('DimitrienkoV\LaravelModules\Application\Enums')
+    ->toBeStringBackedEnums();
+
+test('direct filesystem I/O is only allowed in specialized infrastructure classes', function (): void {
+    $srcDir = realpath(__DIR__ . '/../../src');
+    expect($srcDir)->not->toBeFalse();
+
+    $forbiddenFunctions = [
+        'file_get_contents(',
+        'file_put_contents(',
+        'fopen(',
+        'fwrite(',
+        'unlink(',
+        'rmdir(',
+        'mkdir(',
+        'copy(',
+        'rename(',
+    ];
+
+    $allowedClasses = [
+        'AtomicFileWriter.php',
+        'AtomicJsonWriter.php',
+        'ManifestDocumentReader.php',
+        'ModuleStateRepository.php',
+        'ModuleDirectoryOperations.php',
+        'ModuleSkeletonBuilder.php',
+        'TemporaryDirectoryCleaner.php',
+        'ZipExtractor.php',
+        'ModuleStatePaths.php',
+    ];
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($srcDir, FilesystemIterator::SKIP_DOTS),
+    );
+
+    foreach ($iterator as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $basename = $file->getBasename();
+
+        if (\in_array($basename, $allowedClasses, true)) {
+            continue;
+        }
+
+        $contents = (string) file_get_contents($file->getPathname());
+        foreach ($forbiddenFunctions as $fn) {
+            expect($contents)->not->toContain(
+                $fn,
+                "Direct filesystem I/O [{$fn}] found in {$file->getPathname()} — use a specialized infrastructure class instead.",
+            );
+        }
+    }
+});

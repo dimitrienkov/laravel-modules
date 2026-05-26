@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\DTOs\InstallModuleResult;
+use DimitrienkoV\LaravelModules\Application\Enums\ModuleSourceKind;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
@@ -15,6 +16,7 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleInstallException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
@@ -41,8 +43,7 @@ final readonly class InstallModuleUseCase
         $prepared = $this->sourcePreparer->prepare($sourcePath);
 
         try {
-            $meta = $prepared->manifest['meta'];
-            $moduleName = $meta['name'];
+            $moduleName = $prepared->moduleName();
 
             $this->assertNotInRegistry($moduleName);
 
@@ -79,23 +80,34 @@ final readonly class InstallModuleUseCase
 
             $this->directoryOps->copyDirectory($prepared->path, $targetPath);
 
-            $this->manifestRepository->writeManifest($candidate);
+            try {
+                $this->manifestRepository->writeManifest($candidate);
 
-            $values = new FeatureValues($candidate->features, []);
-            $this->stateRepository->write(
-                $candidate->name,
-                new ModuleStateDocument($candidateState, $values),
-            );
+                $values = new FeatureValues($candidate->features, []);
+                $this->stateRepository->write(
+                    $candidate->name,
+                    new ModuleStateDocument($candidateState, $values),
+                );
+            } catch (\Throwable $e) {
+                $this->directoryOps->cleanupDirectory($targetPath);
+                $this->stateRepository->delete($candidate->name);
+
+                throw ModuleInstallException::forModule(
+                    $moduleName,
+                    'persistence failed after copy, rolled back target directory and state.',
+                    $e,
+                );
+            }
 
             $this->invalidator->invalidate();
 
-            $sourceType = is_dir($sourcePath) ? 'directory' : 'zip';
+            $sourceKind = is_dir($sourcePath) ? ModuleSourceKind::Directory : ModuleSourceKind::Zip;
 
             return new InstallModuleResult(
                 name: $candidate->name,
                 path: $targetPath,
                 enabled: ! $disabled,
-                sourceType: $sourceType,
+                sourceKind: $sourceKind,
             );
         } finally {
             $prepared->cleanup();

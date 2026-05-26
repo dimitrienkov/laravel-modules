@@ -121,6 +121,44 @@ final class UpdateModuleUseCaseTest extends TestCase
     }
 
     #[Test]
+    public function skippedValuesHaveReasons(): void
+    {
+        $oldSchema = [
+            'enable_comments' => ['type' => 'bool', 'default' => true],
+            'old_feature' => ['type' => 'bool', 'default' => false],
+            'bad_value' => ['type' => 'int', 'default' => 1, 'min' => 1, 'max' => 10],
+        ];
+        $oldValues = ['enable_comments' => false, 'old_feature' => true, 'bad_value' => 5];
+        $newSchema = [
+            'enable_comments' => ['type' => 'bool', 'default' => true],
+            'bad_value' => ['type' => 'int', 'default' => 1, 'min' => 1, 'max' => 3],
+        ];
+
+        $this->createInstalledModule('blog', '1.0.0', schema: $oldSchema, values: $oldValues);
+        $sourceDir = $this->createSourceModule('blog', '2.0.0', schema: $newSchema);
+        $useCase = $this->makeUseCase();
+
+        $result = $useCase->execute('blog', $sourceDir);
+
+        $removedKey = null;
+        $invalidKey = null;
+        foreach ($result->skippedValues as $skipped) {
+            if ($skipped->key === 'old_feature') {
+                $removedKey = $skipped;
+            }
+            if ($skipped->key === 'bad_value') {
+                $invalidKey = $skipped;
+            }
+        }
+
+        $this->assertNotNull($removedKey);
+        $this->assertSame('removed from schema', $removedKey->reason);
+
+        $this->assertNotNull($invalidKey);
+        $this->assertStringContainsString('invalid value', $invalidKey->reason);
+    }
+
+    #[Test]
     public function skipsRemovedSchemaKeys(): void
     {
         $oldSchema = [
@@ -136,7 +174,8 @@ final class UpdateModuleUseCaseTest extends TestCase
 
         $result = $useCase->execute('blog', $sourceDir);
 
-        $this->assertContains('old_feature', $result->skippedValues);
+        $skippedKeys = array_map(fn ($s) => $s->key, $result->skippedValues);
+        $this->assertContains('old_feature', $skippedKeys);
     }
 
     private function makeUseCase(): UpdateModuleUseCase

@@ -46,7 +46,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
         $this->validateTopLevelKeys($raw, $statePath);
 
         $stateArray = $this->extractStateFields($raw);
-        $valuesArray = $this->extractValues($raw);
+        $valuesArray = $this->extractValues($raw, $statePath);
 
         try {
             $state = ModuleState::fromArray($stateArray, $statePath);
@@ -107,8 +107,27 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             return;
         }
 
-        @unlink($this->paths->stateFile($moduleName));
+        $stateFile = $this->paths->stateFile($moduleName);
+
+        if (is_file($stateFile)) {
+            @unlink($stateFile);
+
+            if (is_file($stateFile)) {
+                throw ModuleStateWriteException::forPath(
+                    $stateFile,
+                    'state file could not be deleted.',
+                );
+            }
+        }
+
         @rmdir($stateDir);
+
+        if (is_dir($stateDir)) {
+            throw ModuleStateWriteException::forPath(
+                $stateDir,
+                'state directory could not be removed.',
+            );
+        }
     }
 
     public function moveToBackup(string $moduleName, string $backupPath): ?string
@@ -211,16 +230,72 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
      *
      * @return array<string, mixed>
      */
-    private function extractValues(array $raw): array
+    private function extractValues(array $raw, string $statePath): array
     {
-        $settings = $raw['settings'] ?? [];
-        if (! \is_array($settings)) {
+        if (! \array_key_exists('settings', $raw)) {
             return [];
         }
 
-        $values = $settings['values'] ?? [];
-        if (! \is_array($values)) {
+        $settings = $raw['settings'];
+
+        if (! \is_array($settings)) {
+            if ($settings === null) {
+                return [];
+            }
+
+            throw InvalidModuleStateException::forPath(
+                $statePath,
+                'settings must be a JSON object.',
+            );
+        }
+
+        if ($settings === []) {
             return [];
+        }
+
+        if (array_is_list($settings)) {
+            throw InvalidModuleStateException::forPath(
+                $statePath,
+                'settings must be a JSON object.',
+            );
+        }
+
+        $allowedSettingsKeys = ['values' => true];
+        foreach (array_keys($settings) as $key) {
+            if (! isset($allowedSettingsKeys[$key])) {
+                throw InvalidModuleStateException::forPath(
+                    $statePath,
+                    "settings contains unknown key [{$key}], only 'values' is allowed.",
+                );
+            }
+        }
+
+        if (! \array_key_exists('values', $settings)) {
+            return [];
+        }
+
+        $values = $settings['values'];
+
+        if (! \is_array($values)) {
+            if ($values === null) {
+                return [];
+            }
+
+            throw InvalidModuleStateException::forPath(
+                $statePath,
+                'settings.values must be a JSON object.',
+            );
+        }
+
+        if ($values === []) {
+            return [];
+        }
+
+        if (array_is_list($values)) {
+            throw InvalidModuleStateException::forPath(
+                $statePath,
+                'settings.values must be a JSON object.',
+            );
         }
 
         return $values;

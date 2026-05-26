@@ -7,7 +7,7 @@ namespace DimitrienkoV\LaravelModules\Application\DTOs;
 final readonly class UpdateModuleResult
 {
     /**
-     * @param list<string> $skippedValues
+     * @param list<SkippedFeatureValue> $skippedValues
      */
     public function __construct(
         public string $name,

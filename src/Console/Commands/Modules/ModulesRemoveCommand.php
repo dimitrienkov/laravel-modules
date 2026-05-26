@@ -12,7 +12,7 @@ final class ModulesRemoveCommand extends Command
     protected $signature = 'modules:remove
         {name : The module name to remove}
         {--force : Skip confirmation prompt}
-        {--no-backup : Delete permanently without backup}';
+        {--delete-permanently : Delete permanently without backup}';
 
     protected $description = 'Remove a module';
 
@@ -30,7 +30,7 @@ final class ModulesRemoveCommand extends Command
         }
 
         try {
-            $result = $useCase->execute($name, noBackup: (bool) $this->option('no-backup'));
+            $result = $useCase->execute($name, deletePermanently: (bool) $this->option('delete-permanently'));
 
             $this->components->info("Module [{$result->name}] removed.");
             $this->components->twoColumnDetail('Removed from', $result->removedPath);

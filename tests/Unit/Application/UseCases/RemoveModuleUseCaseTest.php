@@ -75,7 +75,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         $this->createModule('blog');
         $useCase = $this->makeUseCase();
 
-        $result = $useCase->execute('blog', noBackup: true);
+        $result = $useCase->execute('blog', deletePermanently: true);
 
         $this->assertNull($result->backupPath);
         $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
@@ -102,6 +102,19 @@ final class RemoveModuleUseCaseTest extends TestCase
 
         $this->expectException(DependentModulesExistException::class);
         $useCase->execute('users');
+    }
+
+    #[Test]
+    public function permanentDeleteRemovesDirectoryBeforeState(): void
+    {
+        $this->createModule('blog');
+        $useCase = $this->makeUseCase();
+
+        $result = $useCase->execute('blog', deletePermanently: true);
+
+        $this->assertNull($result->backupPath);
+        $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
+        $this->assertDirectoryDoesNotExist($this->stateRoot . '/blog');
     }
 
     #[Test]

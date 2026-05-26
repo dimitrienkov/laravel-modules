@@ -22,7 +22,7 @@ final readonly class RemoveModuleUseCase
     ) {
     }
 
-    public function execute(string $moduleName, bool $noBackup = false): RemoveModuleResult
+    public function execute(string $moduleName, bool $deletePermanently = false): RemoveModuleResult
     {
         $module = $this->registry->find($moduleName);
 
@@ -30,9 +30,9 @@ final readonly class RemoveModuleUseCase
 
         $backupPath = null;
 
-        if ($noBackup) {
-            $this->stateRepository->delete($moduleName);
+        if ($deletePermanently) {
             $this->directoryOps->deleteDirectory($module->path, $moduleName);
+            $this->stateRepository->delete($moduleName);
         } else {
             $backupPath = $this->directoryOps->moveToBackup($module->path, $moduleName);
             $this->stateRepository->moveToBackup($moduleName, $backupPath);
