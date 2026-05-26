@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Manifest;
 
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryCacheInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
-use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 
 final class ModuleRegistry implements ModuleRegistryInterface
@@ -28,7 +28,7 @@ final class ModuleRegistry implements ModuleRegistryInterface
         private readonly ModuleManifestRepositoryInterface $manifests,
         private readonly TopologicalSorter $sorter,
         private readonly ModuleDirectoryScanner $scanner,
-        private readonly ModuleRegistryCache $cache,
+        private readonly ModuleRegistryCacheInterface $cache,
     ) {
     }
 
@@ -67,6 +67,13 @@ final class ModuleRegistry implements ModuleRegistryInterface
         $modules = $this->modules;
 
         return $modules[$name] ?? throw ModuleNotFoundException::forName($name);
+    }
+
+    public function has(string $name): bool
+    {
+        $this->ensureLoaded();
+
+        return isset($this->modules[$name]);
     }
 
     /**

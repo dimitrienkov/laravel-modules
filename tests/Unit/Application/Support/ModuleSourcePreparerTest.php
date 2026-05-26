@@ -10,6 +10,7 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
+use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ZipArchive;
@@ -26,10 +27,12 @@ final class ModuleSourcePreparerTest extends TestCase
         $this->tempDir = sys_get_temp_dir() . '/source_preparer_' . uniqid();
         mkdir($this->tempDir, 0755, true);
 
+        $filesystem = new Filesystem();
         $this->preparer = new ModuleSourcePreparer(
             documentReader: new ManifestDocumentReader(),
             validator: new ManifestValidator(new ManifestSettingsValidator()),
-            zipExtractor: new ZipExtractor(),
+            zipExtractor: new ZipExtractor($filesystem),
+            filesystem: $filesystem,
         );
     }
 

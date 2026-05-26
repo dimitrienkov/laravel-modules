@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Application\Support;
 
+use DimitrienkoV\LaravelModules\Application\Enums\ModuleSourceKind;
+use Illuminate\Filesystem\Filesystem;
+
 final readonly class PreparedSource
 {
     /**
@@ -14,6 +17,8 @@ final readonly class PreparedSource
         public string $manifestPath,
         public array $manifest,
         public ?string $temporaryRoot,
+        public ModuleSourceKind $sourceKind,
+        private Filesystem $filesystem,
     ) {
     }
 
@@ -32,6 +37,8 @@ final readonly class PreparedSource
 
     public function cleanup(): void
     {
-        (new TemporaryDirectoryCleaner())->cleanup($this->temporaryRoot);
+        if ($this->temporaryRoot !== null && is_dir($this->temporaryRoot)) {
+            $this->filesystem->deleteDirectory($this->temporaryRoot);
+        }
     }
 }

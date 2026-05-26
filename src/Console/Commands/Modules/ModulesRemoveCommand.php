@@ -6,9 +6,11 @@ namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
 use DimitrienkoV\LaravelModules\Application\UseCases\RemoveModuleUseCase;
 use Illuminate\Console\Command;
+use Illuminate\Console\ConfirmableTrait;
 
 final class ModulesRemoveCommand extends Command
 {
+    use ConfirmableTrait;
     protected $signature = 'modules:remove
         {name : The module name to remove}
         {--force : Skip confirmation prompt}
@@ -18,6 +20,10 @@ final class ModulesRemoveCommand extends Command
 
     public function handle(RemoveModuleUseCase $useCase): int
     {
+        if (! $this->confirmToProceed()) {
+            return self::FAILURE;
+        }
+
         /** @var string $name */
         $name = $this->argument('name');
 

@@ -6,9 +6,11 @@ namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
 use DimitrienkoV\LaravelModules\Application\UseCases\UpdateModuleUseCase;
 use Illuminate\Console\Command;
+use Illuminate\Console\ConfirmableTrait;
 
 final class ModulesUpdateCommand extends Command
 {
+    use ConfirmableTrait;
     protected $signature = 'modules:update
         {name : The module name to update}
         {source : Path to updated module directory or .zip archive}';
@@ -17,6 +19,10 @@ final class ModulesUpdateCommand extends Command
 
     public function handle(UpdateModuleUseCase $useCase): int
     {
+        if (! $this->confirmToProceed()) {
+            return self::FAILURE;
+        }
+
         /** @var string $name */
         $name = $this->argument('name');
         /** @var string $source */

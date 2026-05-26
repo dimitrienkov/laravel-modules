@@ -28,7 +28,7 @@ final class ModulesInstallCommand extends Command
             $result = $useCase->execute(
                 sourcePath: $source,
                 directory: $directory,
-                disabled: (bool) $this->option('disabled'),
+                enabled: ! $this->option('disabled'),
             );
 
             $this->components->info("Module [{$result->name}] installed.");

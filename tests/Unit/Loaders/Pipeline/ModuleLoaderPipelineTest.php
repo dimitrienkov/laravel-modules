@@ -231,6 +231,21 @@ final readonly class PipelineFakeRegistry implements ModuleRegistryInterface
         throw new \RuntimeException("Module [{$name}] was not registered.");
     }
 
+    public function has(string $name): bool
+    {
+        foreach ($this->modules as $module) {
+            if ($module->name === $name) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function reset(): void
+    {
+    }
+
     public function loadOrder(): array
     {
         return $this->modules;

@@ -18,7 +18,13 @@ final class ModulesListCommand extends Command
 
     public function handle(ModuleRegistryInterface $registry): int
     {
-        $modules = $registry->all();
+        try {
+            $modules = $registry->all();
+        } catch (\RuntimeException $e) {
+            $this->components->error($e->getMessage());
+
+            return self::FAILURE;
+        }
 
         if ($this->option('enabled')) {
             $modules = array_filter($modules, static fn (Module $m): bool => $m->isEnabled());

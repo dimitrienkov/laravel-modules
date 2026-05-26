@@ -8,7 +8,7 @@ use DimitrienkoV\LaravelModules\Application\DTOs\ScaffoldModuleConfig;
 use DimitrienkoV\LaravelModules\Application\DTOs\ScaffoldModuleResult;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
@@ -25,6 +25,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
+use Illuminate\Support\Str;
 
 final readonly class ScaffoldModuleUseCase
 {
@@ -33,7 +34,7 @@ final readonly class ScaffoldModuleUseCase
         private ModuleManifestRepositoryInterface $manifestRepository,
         private ModuleStateRepositoryInterface $stateRepository,
         private NamespaceResolverInterface $namespaceResolver,
-        private ModuleLifecyclePaths $paths,
+        private ModuleDirectoryPaths $paths,
         private LifecycleRegistryInvalidator $invalidator,
         private ModuleSkeletonBuilder $skeletonBuilder,
         private ModuleDirectoryOperations $directoryOps,
@@ -53,21 +54,16 @@ final readonly class ScaffoldModuleUseCase
         $this->assertNotExists($config->name, $targetPath, $config->force);
 
         if ($config->force && is_dir($targetPath)) {
-            $this->directoryOps->cleanupDirectory($targetPath);
+            $this->directoryOps->deleteDirectoryQuietly($targetPath);
         }
 
         $namespace = $this->namespaceResolver->resolve($targetPath);
-        $studlyName = $this->studlyCase($config->name);
+        $studlyName = Str::studly($config->name);
 
         try {
             $this->skeletonBuilder->build($targetPath, $namespace, $studlyName, $config->name);
 
-            $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
-            $state = new ModuleState(
-                enabled: ! $config->disabled,
-                installedAt: $now,
-                updatedAt: $now,
-            );
+            $state = ModuleState::initialState(enabled: $config->enabled);
 
             $module = new Module(
                 name: $config->name,
@@ -90,9 +86,9 @@ final readonly class ScaffoldModuleUseCase
             $this->manifestRepository->writeManifest($module);
 
             $values = new FeatureValues($module->features, []);
-            $this->stateRepository->write($config->name, new ModuleStateDocument($state, $values));
+            $this->stateRepository->writeDocument($config->name, new ModuleStateDocument($state, $values));
         } catch (\Throwable $e) {
-            $this->directoryOps->cleanupDirectory($targetPath);
+            $this->directoryOps->deleteDirectoryQuietly($targetPath);
             $this->stateRepository->delete($config->name);
 
             if ($e instanceof ModuleScaffoldException) {
@@ -113,7 +109,7 @@ final readonly class ScaffoldModuleUseCase
         return new ScaffoldModuleResult(
             name: $config->name,
             path: $targetPath,
-            enabled: ! $config->disabled,
+            enabled: $config->enabled,
             providerClass: $providerClass,
         );
     }
@@ -150,8 +146,4 @@ final readonly class ScaffoldModuleUseCase
         }
     }
 
-    private function studlyCase(string $name): string
-    {
-        return str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', $name)));
-    }
 }

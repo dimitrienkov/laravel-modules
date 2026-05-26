@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Registry;
 
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryCacheInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\AtomicWriteException;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleCacheException;
@@ -16,7 +17,7 @@ use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Throwable;
 
-final readonly class ModuleRegistryCache
+final readonly class ModuleRegistryCache implements ModuleRegistryCacheInterface
 {
     private const string CACHE_FILE = 'bootstrap/cache/modules.php';
 

@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\DTOs\InstallModuleResult;
-use DimitrienkoV\LaravelModules\Application\Enums\ModuleSourceKind;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
+use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleInstallException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
@@ -30,7 +30,7 @@ final readonly class InstallModuleUseCase
         private ModuleManifestRepositoryInterface $manifestRepository,
         private ModuleStateRepositoryInterface $stateRepository,
         private ModuleSourcePreparer $sourcePreparer,
-        private ModuleLifecyclePaths $paths,
+        private ModuleDirectoryPaths $paths,
         private ModuleDependencyGuard $dependencyGuard,
         private ModuleDirectoryOperations $directoryOps,
         private LifecycleRegistryInvalidator $invalidator,
@@ -38,7 +38,7 @@ final readonly class InstallModuleUseCase
     ) {
     }
 
-    public function execute(string $sourcePath, ?string $directory = null, bool $disabled = false): InstallModuleResult
+    public function execute(string $sourcePath, ?string $directory = null, bool $enabled = true): InstallModuleResult
     {
         $prepared = $this->sourcePreparer->prepare($sourcePath);
 
@@ -58,13 +58,8 @@ final readonly class InstallModuleUseCase
             }
 
             $namespace = $this->namespaceResolver->resolve($targetPath);
-            $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
 
-            $candidateState = new ModuleState(
-                enabled: ! $disabled,
-                installedAt: $now,
-                updatedAt: $now,
-            );
+            $candidateState = ModuleState::initialState(enabled: $enabled);
 
             $candidate = Module::fromManifest(
                 path: $targetPath,
@@ -78,18 +73,22 @@ final readonly class InstallModuleUseCase
             $allModules[] = $candidate;
             $this->dependencyGuard->assertGraphValid($allModules);
 
-            $this->directoryOps->copyDirectory($prepared->path, $targetPath);
+            try {
+                $this->directoryOps->copyDirectory($prepared->path, $targetPath);
+            } catch (DirectoryOperationException $e) {
+                throw ModuleInstallException::forSource($prepared->path, $e->getMessage(), $e);
+            }
 
             try {
                 $this->manifestRepository->writeManifest($candidate);
 
                 $values = new FeatureValues($candidate->features, []);
-                $this->stateRepository->write(
+                $this->stateRepository->writeDocument(
                     $candidate->name,
                     new ModuleStateDocument($candidateState, $values),
                 );
             } catch (\Throwable $e) {
-                $this->directoryOps->cleanupDirectory($targetPath);
+                $this->directoryOps->deleteDirectoryQuietly($targetPath);
                 $this->stateRepository->delete($candidate->name);
 
                 throw ModuleInstallException::forModule(
@@ -101,13 +100,11 @@ final readonly class InstallModuleUseCase
 
             $this->invalidator->invalidate();
 
-            $sourceKind = is_dir($sourcePath) ? ModuleSourceKind::Directory : ModuleSourceKind::Zip;
-
             return new InstallModuleResult(
                 name: $candidate->name,
                 path: $targetPath,
-                enabled: ! $disabled,
-                sourceKind: $sourceKind,
+                enabled: $enabled,
+                sourceKind: $prepared->sourceKind,
             );
         } finally {
             $prepared->cleanup();

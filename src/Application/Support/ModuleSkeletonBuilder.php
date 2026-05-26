@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Application\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
+use DimitrienkoV\LaravelModules\Support\ModulePermissions;
 use Illuminate\Filesystem\Filesystem;
 
 final readonly class ModuleSkeletonBuilder
@@ -37,7 +38,7 @@ final readonly class ModuleSkeletonBuilder
         ];
 
         foreach ($directories as $dir) {
-            if (! is_dir($dir) && ! $this->filesystem->makeDirectory($dir, 0755, true)) {
+            if (! is_dir($dir) && ! $this->filesystem->makeDirectory($dir, ModulePermissions::DIRECTORY, true)) {
                 throw ModuleScaffoldException::forModule(
                     $moduleName,
                     "failed to create directory [{$dir}].",
@@ -51,16 +52,13 @@ final readonly class ModuleSkeletonBuilder
         $stubPath = \dirname(__DIR__, 3) . '/stubs/module-service-provider.stub';
 
         if (! is_file($stubPath)) {
-            return;
-        }
-
-        $content = file_get_contents($stubPath);
-        if ($content === false) {
             throw ModuleScaffoldException::forModule(
                 $moduleName,
-                "failed to read provider stub [{$stubPath}].",
+                "provider stub not found at [{$stubPath}].",
             );
         }
+
+        $content = $this->filesystem->get($stubPath);
 
         $content = str_replace(
             ['{{ namespace }}', '{{ studlyName }}'],

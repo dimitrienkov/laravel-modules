@@ -84,6 +84,14 @@ final class ModulesDisableCommandTest extends TestCase
             ->expectsOutputToContain('blog');
     }
 
+    #[Test]
+    public function disableFailsWhenModuleNotFound(): void
+    {
+        $this->artisanCommand('modules:disable nonexistent')
+            ->assertFailed()
+            ->expectsOutputToContain('nonexistent');
+    }
+
     private function registerServices(): void
     {
         $app = $this->app;
@@ -97,6 +105,7 @@ final class ModulesDisableCommandTest extends TestCase
         $stateRepository = new ModuleStateRepository(
             paths: $statePaths,
             writer: new AtomicJsonWriter(),
+            filesystem: new Filesystem(),
         );
 
         $manifests = new ModuleManifestRepository(

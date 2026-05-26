@@ -57,7 +57,7 @@ final readonly class ModuleManifestRepository implements ModuleManifestRepositor
     public function writeManifest(Module $module): void
     {
         $manifestPath = $this->layout->manifestFile($module);
-        $manifest = $module->toManifestArray();
+        $manifest = $module->toDescriptorArray();
 
         $this->validator->validate($manifest, $manifestPath);
         $this->writer->write($manifestPath, $manifest);

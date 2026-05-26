@@ -188,6 +188,7 @@ final class EnableModuleUseCaseTest extends TestCase
                 basePath: $this->tempDir,
             ),
             writer: new AtomicJsonWriter(),
+            filesystem: new Filesystem(),
         );
     }
 

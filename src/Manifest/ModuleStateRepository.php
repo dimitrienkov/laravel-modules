@@ -14,7 +14,10 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Support\ModuleFileNames;
+use DimitrienkoV\LaravelModules\Support\ModulePermissions;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
+use Illuminate\Filesystem\Filesystem;
 
 final readonly class ModuleStateRepository implements ModuleStateRepositoryInterface
 {
@@ -25,9 +28,16 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
         'settings' => true,
     ];
 
+    private const array STATE_FIELD_KEYS = [
+        'enabled' => true,
+        'installed_at' => true,
+        'updated_at' => true,
+    ];
+
     public function __construct(
         private ModuleStatePaths $paths,
         private AtomicJsonWriter $writer,
+        private Filesystem $filesystem,
     ) {
     }
 
@@ -68,7 +78,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
         return $this->read($module->name, $module)->values;
     }
 
-    public function write(string $moduleName, ModuleStateDocument $document): void
+    public function writeDocument(string $moduleName, ModuleStateDocument $document): void
     {
         $statePath = $this->paths->stateFile($moduleName);
 
@@ -79,16 +89,16 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
         }
     }
 
-    public function updateState(Module $module, ModuleState $state): Module
+    public function writeState(Module $module, ModuleState $state): Module
     {
         $currentValues = $this->readValues($module);
         $updated = $module->withState($state);
-        $this->write($module->name, new ModuleStateDocument($state, $currentValues));
+        $this->writeDocument($module->name, new ModuleStateDocument($state, $currentValues));
 
         return $updated;
     }
 
-    public function saveValues(Module $module, FeatureValues $values): void
+    public function writeValues(Module $module, FeatureValues $values): void
     {
         $statePath = $this->paths->stateFile($module->name);
 
@@ -96,7 +106,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             ? $this->readState($module->name, $module)
             : $module->state;
 
-        $this->write($module->name, new ModuleStateDocument($state, $values));
+        $this->writeDocument($module->name, new ModuleStateDocument($state, $values));
     }
 
     public function delete(string $moduleName): void
@@ -109,20 +119,14 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
 
         $stateFile = $this->paths->stateFile($moduleName);
 
-        if (is_file($stateFile)) {
-            @unlink($stateFile);
-
-            if (is_file($stateFile)) {
-                throw ModuleStateWriteException::forPath(
-                    $stateFile,
-                    'state file could not be deleted.',
-                );
-            }
+        if (is_file($stateFile) && ! $this->filesystem->delete($stateFile)) {
+            throw ModuleStateWriteException::forPath(
+                $stateFile,
+                'state file could not be deleted.',
+            );
         }
 
-        @rmdir($stateDir);
-
-        if (is_dir($stateDir)) {
+        if (! $this->filesystem->deleteDirectory($stateDir)) {
             throw ModuleStateWriteException::forPath(
                 $stateDir,
                 'state directory could not be removed.',
@@ -138,17 +142,17 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             return null;
         }
 
-        $backupStatePath = $backupPath . '/state.json';
+        $backupStatePath = $backupPath . '/' . ModuleFileNames::STATE;
         $backupDir = \dirname($backupStatePath);
 
-        if (! is_dir($backupDir) && ! mkdir($backupDir, 0755, true) && ! is_dir($backupDir)) {
+        if (! is_dir($backupDir) && ! $this->filesystem->makeDirectory($backupDir, ModulePermissions::DIRECTORY, true)) {
             throw ModuleStateWriteException::forPath(
                 $backupStatePath,
                 "backup directory [{$backupDir}] could not be created.",
             );
         }
 
-        if (! copy($statePath, $backupStatePath)) {
+        if (! $this->filesystem->copy($statePath, $backupStatePath)) {
             throw ModuleStateWriteException::forPath(
                 $backupStatePath,
                 'state file could not be copied to backup.',
@@ -170,9 +174,10 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
      */
     private function readStateFile(string $statePath, string $moduleName): array
     {
-        $content = @file_get_contents($statePath);
-        if ($content === false) {
-            throw InvalidModuleStateException::forPath($statePath, 'state file could not be read.');
+        try {
+            $content = $this->filesystem->get($statePath);
+        } catch (\Illuminate\Contracts\Filesystem\FileNotFoundException $e) {
+            throw InvalidModuleStateException::forPath($statePath, 'state file could not be read.', $e);
         }
 
         try {
@@ -210,19 +215,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
      */
     private function extractStateFields(array $raw): array
     {
-        $stateFields = [];
-
-        if (\array_key_exists('enabled', $raw)) {
-            $stateFields['enabled'] = $raw['enabled'];
-        }
-        if (\array_key_exists('installed_at', $raw)) {
-            $stateFields['installed_at'] = $raw['installed_at'];
-        }
-        if (\array_key_exists('updated_at', $raw)) {
-            $stateFields['updated_at'] = $raw['updated_at'];
-        }
-
-        return $stateFields;
+        return array_intersect_key($raw, self::STATE_FIELD_KEYS);
     }
 
     /**
@@ -236,28 +229,9 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             return [];
         }
 
-        $settings = $raw['settings'];
-
-        if (! \is_array($settings)) {
-            if ($settings === null) {
-                return [];
-            }
-
-            throw InvalidModuleStateException::forPath(
-                $statePath,
-                'settings must be a JSON object.',
-            );
-        }
-
-        if ($settings === []) {
+        $settings = $this->assertJsonObject($raw['settings'], 'settings', $statePath);
+        if ($settings === null) {
             return [];
-        }
-
-        if (array_is_list($settings)) {
-            throw InvalidModuleStateException::forPath(
-                $statePath,
-                'settings must be a JSON object.',
-            );
         }
 
         $allowedSettingsKeys = ['values' => true];
@@ -274,30 +248,30 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             return [];
         }
 
-        $values = $settings['values'];
+        return $this->assertJsonObject($settings['values'], 'settings.values', $statePath) ?? [];
+    }
 
-        if (! \is_array($values)) {
-            if ($values === null) {
-                return [];
-            }
-
-            throw InvalidModuleStateException::forPath(
-                $statePath,
-                'settings.values must be a JSON object.',
-            );
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function assertJsonObject(mixed $value, string $fieldName, string $statePath): ?array
+    {
+        if ($value === null) {
+            return null;
         }
 
-        if ($values === []) {
-            return [];
+        if (! \is_array($value)) {
+            throw InvalidModuleStateException::forPath($statePath, "{$fieldName} must be a JSON object.");
         }
 
-        if (array_is_list($values)) {
-            throw InvalidModuleStateException::forPath(
-                $statePath,
-                'settings.values must be a JSON object.',
-            );
+        if ($value === []) {
+            return null;
         }
 
-        return $values;
+        if (array_is_list($value)) {
+            throw InvalidModuleStateException::forPath($statePath, "{$fieldName} must be a JSON object.");
+        }
+
+        return $value;
     }
 }

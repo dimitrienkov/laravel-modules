@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Application\Support;
 
-use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
-use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryCacheInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 
 final readonly class LifecycleRegistryInvalidator
 {
     public function __construct(
-        private ModuleRegistryCache $cache,
-        private ModuleRegistry $registry,
+        private ModuleRegistryCacheInterface $cache,
+        private ModuleRegistryInterface $registry,
     ) {
     }
 

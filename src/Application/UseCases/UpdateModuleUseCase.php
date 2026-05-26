@@ -13,6 +13,7 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
+use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleUpdateException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
@@ -44,12 +45,7 @@ final readonly class UpdateModuleUseCase
                 throw ModuleUpdateException::nameMismatch($moduleName, $sourceName);
             }
 
-            $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
-            $preservedState = new ModuleState(
-                enabled: $existingModule->state->enabled,
-                installedAt: $existingModule->state->installedAt,
-                updatedAt: $now,
-            );
+            $preservedState = ModuleState::updatedFrom($existingModule->state);
 
             $candidate = Module::fromManifest(
                 path: $existingModule->path,
@@ -69,11 +65,15 @@ final readonly class UpdateModuleUseCase
             $existingValues = $this->stateRepository->readValues($existingModule);
             $existingStateDocument = $this->stateRepository->read($existingModule->name, $existingModule);
 
-            $backupPath = $this->directoryOps->replaceDirectoryWithBackup(
-                $existingModule->path,
-                $prepared->path,
-                $moduleName,
-            );
+            try {
+                $backupPath = $this->directoryOps->replaceDirectoryWithBackup(
+                    $existingModule->path,
+                    $prepared->path,
+                    $moduleName,
+                );
+            } catch (DirectoryOperationException $e) {
+                throw ModuleUpdateException::forModule($moduleName, $e->getMessage(), $e);
+            }
 
             try {
                 $this->manifestRepository->writeManifest($candidate);
@@ -85,14 +85,14 @@ final readonly class UpdateModuleUseCase
                     $candidate->manifestPath(),
                 );
 
-                $this->stateRepository->write(
+                $this->stateRepository->writeDocument(
                     $moduleName,
                     new ModuleStateDocument($preservedState, $mergedValues),
                 );
             } catch (\Throwable $e) {
                 try {
                     $this->directoryOps->restoreBackup($backupPath, $existingModule->path, $moduleName);
-                    $this->stateRepository->write($existingModule->name, $existingStateDocument);
+                    $this->stateRepository->writeDocument($existingModule->name, $existingStateDocument);
                 } catch (\Throwable $restoreError) {
                     throw ModuleUpdateException::forModule(
                         $moduleName,

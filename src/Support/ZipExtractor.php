@@ -5,10 +5,16 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\ModuleArchiveException;
+use Illuminate\Filesystem\Filesystem;
 use ZipArchive;
 
 final readonly class ZipExtractor
 {
+    public function __construct(
+        private Filesystem $filesystem,
+    ) {
+    }
+
     public function extract(string $zipPath, string $targetDir): void
     {
         $this->assertExtensionLoaded();
@@ -23,8 +29,8 @@ final readonly class ZipExtractor
         try {
             $this->assertNoPathTraversal($zip, $zipPath);
 
-            if (! is_dir($targetDir)) {
-                mkdir($targetDir, 0755, true);
+            if (! is_dir($targetDir) && ! $this->filesystem->makeDirectory($targetDir, ModulePermissions::DIRECTORY, true)) {
+                throw ModuleArchiveException::forPath($zipPath, "failed to create target directory [{$targetDir}].");
             }
 
             if (! $zip->extractTo($targetDir)) {
@@ -37,13 +43,13 @@ final readonly class ZipExtractor
 
     public function extractToTemp(string $zipPath): string
     {
-        $tempDir = sys_get_temp_dir() . '/module_zip_' . uniqid();
+        $tempDir = sys_get_temp_dir() . '/module_zip_' . bin2hex(random_bytes(8));
 
         try {
             $this->extract($zipPath, $tempDir);
         } catch (ModuleArchiveException $e) {
             if (is_dir($tempDir)) {
-                $this->removeDirectory($tempDir);
+                $this->filesystem->deleteDirectory($tempDir);
             }
 
             throw $e;
@@ -71,30 +77,13 @@ final readonly class ZipExtractor
             $normalized = str_replace('\\', '/', $entryName);
 
             if (
-                str_contains($normalized, '../')
+                str_contains($entryName, "\0")
+                || str_contains($normalized, '../')
                 || str_starts_with($normalized, '/')
                 || preg_match('/^[A-Za-z]:/', $normalized)
             ) {
                 throw ModuleArchiveException::zipSlip($zipPath, $entryName);
             }
         }
-    }
-
-    private function removeDirectory(string $path): void
-    {
-        $items = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($items as $item) {
-            if ($item->isDir()) {
-                @rmdir($item->getPathname());
-            } else {
-                @unlink($item->getPathname());
-            }
-        }
-
-        @rmdir($path);
     }
 }

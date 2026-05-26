@@ -91,6 +91,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $stateRepository = new ModuleStateRepository(
             paths: $statePaths,
             writer: new AtomicJsonWriter(),
+            filesystem: new Filesystem(),
         );
 
         $app->instance(ModuleStateRepositoryInterface::class, $stateRepository);
@@ -133,7 +134,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $manifestRepository = $this->application()->make(ModuleManifestRepositoryInterface::class);
         $stateRepository = $this->application()->make(ModuleStateRepositoryInterface::class);
         $module = $manifestRepository->load($this->modulePath);
-        $stateRepository->saveValues(
+        $stateRepository->writeValues(
             $module,
             FeatureValues::fromArray($values, $module->features, $module->name, $module->manifestPath()),
         );

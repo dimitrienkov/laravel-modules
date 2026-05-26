@@ -4,23 +4,22 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Application\Support;
 
-use DimitrienkoV\LaravelModules\Exceptions\ModuleInstallException;
-use DimitrienkoV\LaravelModules\Exceptions\ModuleRemoveException;
-use DimitrienkoV\LaravelModules\Exceptions\ModuleUpdateException;
+use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
+use DimitrienkoV\LaravelModules\Support\ModulePermissions;
 use Illuminate\Filesystem\Filesystem;
 
 final readonly class ModuleDirectoryOperations
 {
     public function __construct(
         private Filesystem $filesystem,
-        private ModuleLifecyclePaths $paths,
+        private ModuleDirectoryPaths $paths,
     ) {
     }
 
     public function copyDirectory(string $source, string $target): void
     {
         if (! $this->filesystem->copyDirectory($source, $target)) {
-            throw ModuleInstallException::forSource($source, "failed to copy directory to [{$target}].");
+            throw DirectoryOperationException::forPath($source, "failed to copy directory to [{$target}].");
         }
     }
 
@@ -30,17 +29,17 @@ final readonly class ModuleDirectoryOperations
         $backupRoot = \dirname($backupPath);
 
         if (! is_dir($backupRoot)) {
-            $this->filesystem->makeDirectory($backupRoot, 0755, true);
+            $this->filesystem->makeDirectory($backupRoot, ModulePermissions::DIRECTORY, true);
         }
 
         if (! $this->filesystem->moveDirectory($existingPath, $backupPath)) {
-            throw ModuleUpdateException::forModule($moduleName, "failed to move target to backup [{$backupPath}].");
+            throw DirectoryOperationException::forPath($existingPath, "failed to move target to backup [{$backupPath}].");
         }
 
         if (! $this->filesystem->copyDirectory($replacementPath, $existingPath)) {
             $this->restoreBackup($backupPath, $existingPath, $moduleName);
 
-            throw ModuleUpdateException::forModule($moduleName, "failed to copy source to target [{$existingPath}], restored from backup.");
+            throw DirectoryOperationException::forPath($replacementPath, "failed to copy source to target [{$existingPath}], restored from backup.");
         }
 
         return $backupPath;
@@ -53,9 +52,9 @@ final readonly class ModuleDirectoryOperations
         }
 
         if (! $this->filesystem->moveDirectory($backupPath, $targetPath)) {
-            throw ModuleUpdateException::forModule(
-                $moduleName,
-                "CRITICAL: failed to restore backup from [{$backupPath}] to [{$targetPath}]. Backup remains at [{$backupPath}].",
+            throw DirectoryOperationException::forPath(
+                $backupPath,
+                "CRITICAL: failed to restore backup to [{$targetPath}]. Backup remains at [{$backupPath}].",
             );
         }
     }
@@ -66,11 +65,11 @@ final readonly class ModuleDirectoryOperations
         $backupRoot = \dirname($backupPath);
 
         if (! is_dir($backupRoot)) {
-            $this->filesystem->makeDirectory($backupRoot, 0755, true);
+            $this->filesystem->makeDirectory($backupRoot, ModulePermissions::DIRECTORY, true);
         }
 
         if (! $this->filesystem->moveDirectory($target, $backupPath)) {
-            throw ModuleRemoveException::forModule($moduleName, "failed to move directory to backup [{$backupPath}].");
+            throw DirectoryOperationException::forPath($target, "failed to move directory to backup [{$backupPath}].");
         }
 
         return $backupPath;
@@ -79,14 +78,16 @@ final readonly class ModuleDirectoryOperations
     public function deleteDirectory(string $target, string $moduleName): void
     {
         if (! $this->filesystem->deleteDirectory($target)) {
-            throw ModuleRemoveException::forModule($moduleName, "failed to delete directory [{$target}].");
+            throw DirectoryOperationException::forPath($target, 'failed to delete directory.');
         }
     }
 
-    public function cleanupDirectory(string $path): void
+    public function deleteDirectoryQuietly(string $path): bool
     {
-        if (is_dir($path)) {
-            $this->filesystem->deleteDirectory($path);
+        if (! is_dir($path)) {
+            return true;
         }
+
+        return $this->filesystem->deleteDirectory($path);
     }
 }

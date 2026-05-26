@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Registry;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\PathNormalizer;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 
@@ -34,7 +35,7 @@ final readonly class ModuleDirectoryScanner
             );
         }
 
-        $normalizedAppPath = $this->normalizePath($this->appPath);
+        $normalizedAppPath = PathNormalizer::normalize($this->appPath);
         $moduleDirectories = [];
 
         foreach ($directories as $directory) {
@@ -52,7 +53,7 @@ final readonly class ModuleDirectoryScanner
                 continue;
             }
 
-            $normalizedRoot = $this->normalizePath($realRoot);
+            $normalizedRoot = PathNormalizer::normalize($realRoot);
 
             if (! str_starts_with($normalizedRoot, $normalizedAppPath)) {
                 throw InvalidConfigurationException::forKey(
@@ -73,8 +74,4 @@ final readonly class ModuleDirectoryScanner
         return $moduleDirectories;
     }
 
-    private function normalizePath(string $path): string
-    {
-        return rtrim(str_replace('\\', '/', $path), '/') . '/';
-    }
 }

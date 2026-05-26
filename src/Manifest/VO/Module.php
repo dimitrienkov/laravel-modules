@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
+use DimitrienkoV\LaravelModules\Support\ModuleFileNames;
 
 final readonly class Module
 {
@@ -65,7 +66,7 @@ final readonly class Module
 
     public function manifestPath(): string
     {
-        return $this->path . '/module.json';
+        return $this->path . '/' . ModuleFileNames::MANIFEST;
     }
 
     public function withState(ModuleState $state): self
@@ -94,16 +95,4 @@ final readonly class Module
         ];
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function toManifestArray(): array
-    {
-        return [
-            'meta' => $this->meta->toArray(),
-            'settings' => [
-                'schema' => $this->features->toArray(),
-            ],
-        ];
-    }
 }

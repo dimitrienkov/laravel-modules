@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
+use DimitrienkoV\LaravelModules\Support\PathNormalizer;
 use Illuminate\Contracts\Config\Repository;
+use Illuminate\Support\Str;
 
-final readonly class ModuleLifecyclePaths
+final readonly class ModuleDirectoryPaths
 {
     public function __construct(
         private Repository $config,
@@ -26,10 +28,10 @@ final readonly class ModuleLifecyclePaths
     public function resolveTargetRoot(string $directory): string
     {
         $roots = $this->configuredRoots();
-        $normalizedDirectory = $this->resolveAbsolute($directory);
+        $normalizedDirectory = PathNormalizer::resolveAbsolute($directory, $this->basePath);
 
         foreach ($roots as $root) {
-            if ($this->normalizePath($root) === $this->normalizePath($normalizedDirectory)) {
+            if (PathNormalizer::normalize($root) === PathNormalizer::normalize($normalizedDirectory)) {
                 return $root;
             }
         }
@@ -47,7 +49,7 @@ final readonly class ModuleLifecyclePaths
 
     public function targetModulePath(string $targetRoot, string $moduleName): string
     {
-        return $targetRoot . '/' . $this->studlyCase($moduleName);
+        return $targetRoot . '/' . Str::studly($moduleName);
     }
 
     public function backupRoot(): string
@@ -96,7 +98,7 @@ final readonly class ModuleLifecyclePaths
             );
         }
 
-        $normalizedAppPath = $this->normalizePath($this->appPath);
+        $normalizedAppPath = PathNormalizer::normalize($this->appPath);
         $roots = [];
 
         foreach ($directories as $directory) {
@@ -107,9 +109,9 @@ final readonly class ModuleLifecyclePaths
                 );
             }
 
-            $root = $this->resolveAbsolute($directory);
+            $root = PathNormalizer::resolveAbsolute($directory, $this->basePath);
 
-            $normalizedRoot = $this->normalizePath($root);
+            $normalizedRoot = PathNormalizer::normalize($root);
             if (! str_starts_with($normalizedRoot, $normalizedAppPath)) {
                 throw InvalidConfigurationException::forKey(
                     'modules.paths.directories',
@@ -130,22 +132,6 @@ final readonly class ModuleLifecyclePaths
         return $roots;
     }
 
-    private function resolveAbsolute(string $directory): string
-    {
-        if (str_starts_with($directory, '/')) {
-            return $directory;
-        }
 
-        return $this->basePath . '/' . trim($directory, '/\\');
-    }
 
-    private function normalizePath(string $path): string
-    {
-        return rtrim(str_replace('\\', '/', $path), '/') . '/';
-    }
-
-    private function studlyCase(string $name): string
-    {
-        return str_replace(' ', '', ucwords(str_replace(['_', '-'], ' ', $name)));
-    }
 }

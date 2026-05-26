@@ -44,7 +44,7 @@ final class ModuleDependencyGuardTest extends TestCase
     public function assertGraphValidThrowsOnDisabledDependency(): void
     {
         $users = ModuleFactory::make(name: 'users', version: '2.0.0', enabled: false);
-        $blog = ModuleFactory::make(name: 'blog', dependencies: ['users' => '^1.0']);
+        $blog = ModuleFactory::make(name: 'blog', dependencies: ['users' => '^2.0']);
 
         $guard = $this->makeGuard([]);
 
@@ -165,6 +165,21 @@ final class ModuleDependencyGuardTest extends TestCase
                 }
 
                 throw new \RuntimeException("Module [{$name}] not found.");
+            }
+
+            public function has(string $name): bool
+            {
+                foreach ($this->modules as $module) {
+                    if ($module->name === $name) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            public function reset(): void
+            {
             }
         };
 

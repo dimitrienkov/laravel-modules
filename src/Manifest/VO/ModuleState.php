@@ -40,6 +40,33 @@ final readonly class ModuleState
         return new self(enabled: false, installedAt: null, updatedAt: null);
     }
 
+    public static function initialState(bool $enabled = true): self
+    {
+        $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
+
+        return new self(enabled: $enabled, installedAt: $now, updatedAt: $now);
+    }
+
+    public static function updatedFrom(self $previous): self
+    {
+        $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
+
+        return new self(
+            enabled: $previous->enabled,
+            installedAt: $previous->installedAt,
+            updatedAt: $now,
+        );
+    }
+
+    public function withEnabled(bool $enabled): self
+    {
+        return new self(
+            enabled: $enabled,
+            installedAt: $this->installedAt,
+            updatedAt: $this->updatedAt,
+        );
+    }
+
     /**
      * @return array<string, mixed>
      */

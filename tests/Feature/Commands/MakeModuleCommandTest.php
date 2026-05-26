@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Feature\Commands;
 
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
@@ -124,6 +124,7 @@ final class MakeModuleCommandTest extends TestCase
         $stateRepository = new ModuleStateRepository(
             paths: $statePaths,
             writer: new AtomicJsonWriter(),
+            filesystem: new Filesystem(),
         );
 
         $manifests = new ModuleManifestRepository(
@@ -155,7 +156,7 @@ final class MakeModuleCommandTest extends TestCase
             cache: $cache,
         );
 
-        $paths = new ModuleLifecyclePaths($config, $this->tempDir, $this->tempDir . '/app');
+        $paths = new ModuleDirectoryPaths($config, $this->tempDir, $this->tempDir . '/app');
         $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
 
         $app->instance(ModuleRegistryInterface::class, $registry);
@@ -163,7 +164,7 @@ final class MakeModuleCommandTest extends TestCase
         $app->instance(ModuleStateRepositoryInterface::class, $stateRepository);
         $app->instance(ManifestValidatorInterface::class, $validator);
         $app->instance(NamespaceResolverInterface::class, $namespaceResolver);
-        $app->instance(ModuleLifecyclePaths::class, $paths);
+        $app->instance(ModuleDirectoryPaths::class, $paths);
         $app->instance(LifecycleRegistryInvalidator::class, $invalidator);
 
         $app->make(Kernel::class)->registerCommand($app->make(MakeModuleCommand::class));

@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Application\Support;
 
+use DimitrienkoV\LaravelModules\Application\Enums\ModuleSourceKind;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleSourceException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Support\ModuleFileNames;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
+use Illuminate\Filesystem\Filesystem;
 
 final readonly class ModuleSourcePreparer
 {
@@ -15,6 +18,7 @@ final readonly class ModuleSourcePreparer
         private ManifestDocumentReader $documentReader,
         private ManifestValidatorInterface $validator,
         private ZipExtractor $zipExtractor,
+        private Filesystem $filesystem,
     ) {
     }
 
@@ -33,7 +37,7 @@ final readonly class ModuleSourcePreparer
 
     private function prepareFromDirectory(string $sourcePath): PreparedSource
     {
-        $manifestPath = $sourcePath . '/module.json';
+        $manifestPath = $sourcePath . '/' . ModuleFileNames::MANIFEST;
 
         if (! is_file($manifestPath)) {
             throw ModuleSourceException::forPath($sourcePath, 'module.json not found in source directory.');
@@ -49,6 +53,8 @@ final readonly class ModuleSourcePreparer
             manifestPath: $manifestPath,
             manifest: $manifest,
             temporaryRoot: null,
+            sourceKind: ModuleSourceKind::Directory,
+            filesystem: $this->filesystem,
         );
     }
 
@@ -57,7 +63,7 @@ final readonly class ModuleSourcePreparer
         $tempDir = $this->zipExtractor->extractToTemp($sourcePath);
 
         try {
-            $manifestPath = $tempDir . '/module.json';
+            $manifestPath = $tempDir . '/' . ModuleFileNames::MANIFEST;
 
             if (! is_file($manifestPath)) {
                 throw ModuleSourceException::forPath($sourcePath, 'module.json not found in archive.');
@@ -73,9 +79,11 @@ final readonly class ModuleSourcePreparer
                 manifestPath: $manifestPath,
                 manifest: $manifest,
                 temporaryRoot: $tempDir,
+                sourceKind: ModuleSourceKind::Zip,
+                filesystem: $this->filesystem,
             );
         } catch (\Throwable $e) {
-            (new TemporaryDirectoryCleaner())->cleanup($tempDir);
+            $this->filesystem->deleteDirectory($tempDir);
 
             throw $e;
         }
@@ -83,7 +91,7 @@ final readonly class ModuleSourcePreparer
 
     private function rejectStateFile(string $sourceRoot): void
     {
-        if (is_file($sourceRoot . '/state.json')) {
+        if (is_file($sourceRoot . '/' . ModuleFileNames::STATE)) {
             throw ModuleSourceException::forPath(
                 $sourceRoot,
                 'source contains state.json which belongs to host private storage, not module artifact.',

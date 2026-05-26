@@ -65,7 +65,7 @@ final readonly class ModuleLayout
 
     public function manifestFilePath(string $modulePath): string
     {
-        return rtrim($modulePath, '/\\') . '/module.json';
+        return rtrim($modulePath, '/\\') . '/' . ModuleFileNames::MANIFEST;
     }
 
     public function middlewareDir(Module $module): string

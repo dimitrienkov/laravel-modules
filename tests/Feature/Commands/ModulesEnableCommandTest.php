@@ -104,6 +104,7 @@ final class ModulesEnableCommandTest extends TestCase
         $stateRepository = new ModuleStateRepository(
             paths: $statePaths,
             writer: new AtomicJsonWriter(),
+            filesystem: new Filesystem(),
         );
 
         $manifests = new ModuleManifestRepository(

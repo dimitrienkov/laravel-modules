@@ -189,14 +189,7 @@ test('direct filesystem I/O is only allowed in specialized infrastructure classe
 
     $allowedClasses = [
         'AtomicFileWriter.php',
-        'AtomicJsonWriter.php',
         'ManifestDocumentReader.php',
-        'ModuleStateRepository.php',
-        'ModuleDirectoryOperations.php',
-        'ModuleSkeletonBuilder.php',
-        'TemporaryDirectoryCleaner.php',
-        'ZipExtractor.php',
-        'ModuleStatePaths.php',
     ];
 
     $iterator = new RecursiveIteratorIterator(

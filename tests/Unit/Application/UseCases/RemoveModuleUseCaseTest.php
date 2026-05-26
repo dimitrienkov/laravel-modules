@@ -7,7 +7,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\UseCases\RemoveModuleUseCase;
 use DimitrienkoV\LaravelModules\Exceptions\DependentModulesExistException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
@@ -140,6 +140,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         $stateRepo = new ModuleStateRepository(
             paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
             writer: new AtomicJsonWriter(),
+            filesystem: new Filesystem(),
         );
 
         $sorter = new TopologicalSorter();
@@ -167,7 +168,7 @@ final class RemoveModuleUseCaseTest extends TestCase
 
         $guard = new ModuleDependencyGuard($registry, $sorter);
         $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
-        $paths = new ModuleLifecyclePaths($config, $this->tempDir, $this->tempDir . '/app');
+        $paths = new ModuleDirectoryPaths($config, $this->tempDir, $this->tempDir . '/app');
         $directoryOps = new ModuleDirectoryOperations(new Filesystem(), $paths);
 
         return new RemoveModuleUseCase($registry, $stateRepo, $guard, $directoryOps, $invalidator);

@@ -19,4 +19,8 @@ interface ModuleRegistryInterface
     public function loadOrder(): array;
 
     public function find(string $name): Module;
+
+    public function has(string $name): bool;
+
+    public function reset(): void;
 }

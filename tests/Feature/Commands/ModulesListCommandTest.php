@@ -69,7 +69,8 @@ final class ModulesListCommandTest extends TestCase
 
         $this->artisanCommand('modules:list --enabled')
             ->assertSuccessful()
-            ->expectsOutputToContain('blog');
+            ->expectsOutputToContain('blog')
+            ->doesntExpectOutputToContain('users');
     }
 
     #[Test]
@@ -81,7 +82,8 @@ final class ModulesListCommandTest extends TestCase
 
         $this->artisanCommand('modules:list --disabled')
             ->assertSuccessful()
-            ->expectsOutputToContain('users');
+            ->expectsOutputToContain('users')
+            ->doesntExpectOutputToContain('blog');
     }
 
     #[Test]
@@ -107,6 +109,7 @@ final class ModulesListCommandTest extends TestCase
         $stateRepository = new ModuleStateRepository(
             paths: $statePaths,
             writer: new AtomicJsonWriter(),
+            filesystem: new Filesystem(),
         );
 
         $registry = new ModuleRegistry(

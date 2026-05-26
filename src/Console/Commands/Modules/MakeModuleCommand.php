@@ -29,7 +29,7 @@ final class MakeModuleCommand extends Command
         $config = new ScaffoldModuleConfig(
             name: $name,
             directory: $directory,
-            disabled: (bool) $this->option('disabled'),
+            enabled: ! $this->option('disabled'),
             force: (bool) $this->option('force'),
         );
 

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\Support;
 
-use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use Illuminate\Config\Repository;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-final class ModuleLifecyclePathsTest extends TestCase
+final class ModuleDirectoryPathsTest extends TestCase
 {
     private string $basePath;
 
@@ -131,7 +131,7 @@ final class ModuleLifecyclePathsTest extends TestCase
     /**
      * @param list<string> $directories
      */
-    private function makePaths(array $directories, string|null $backup = null): ModuleLifecyclePaths
+    private function makePaths(array $directories, string|null $backup = null): ModuleDirectoryPaths
     {
         $config = [
             'modules' => [
@@ -145,7 +145,7 @@ final class ModuleLifecyclePathsTest extends TestCase
             $config['modules']['paths']['backup'] = $backup;
         }
 
-        return new ModuleLifecyclePaths(
+        return new ModuleDirectoryPaths(
             config: new Repository($config),
             basePath: $this->basePath,
             appPath: $this->appPath,

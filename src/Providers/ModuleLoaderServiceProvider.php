@@ -7,7 +7,7 @@ namespace DimitrienkoV\LaravelModules\Providers;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand;
@@ -23,6 +23,7 @@ use DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryCacheInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
@@ -188,6 +189,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             return new ModuleStateRepository(
                 paths: $this->app->make(ModuleStatePaths::class),
                 writer: $this->app->make(AtomicJsonWriter::class),
+                filesystem: $this->app->make(Filesystem::class),
             );
         });
         $this->app->singleton(
@@ -219,12 +221,17 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             );
         });
 
+        $this->app->singleton(
+            ModuleRegistryCacheInterface::class,
+            fn (): ModuleRegistryCache => $this->app->make(ModuleRegistryCache::class),
+        );
+
         $this->app->singleton(ModuleRegistry::class, function (): ModuleRegistry {
             return new ModuleRegistry(
                 manifests: $this->app->make(ModuleManifestRepositoryInterface::class),
                 sorter: $this->app->make(TopologicalSorter::class),
                 scanner: $this->app->make(ModuleDirectoryScanner::class),
-                cache: $this->app->make(ModuleRegistryCache::class),
+                cache: $this->app->make(ModuleRegistryCacheInterface::class),
             );
         });
         $this->app->singleton(
@@ -243,8 +250,8 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->app->singleton(ZipExtractor::class);
         $this->app->singleton(ModuleSourcePreparer::class);
 
-        $this->app->singleton(ModuleLifecyclePaths::class, function (): ModuleLifecyclePaths {
-            return new ModuleLifecyclePaths(
+        $this->app->singleton(ModuleDirectoryPaths::class, function (): ModuleDirectoryPaths {
+            return new ModuleDirectoryPaths(
                 config: $this->app->make(Repository::class),
                 basePath: $this->app->basePath(),
                 appPath: $this->app->path(),

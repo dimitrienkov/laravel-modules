@@ -17,11 +17,11 @@ interface ModuleStateRepositoryInterface
 
     public function readValues(Module $module): FeatureValues;
 
-    public function write(string $moduleName, ModuleStateDocument $document): void;
+    public function writeDocument(string $moduleName, ModuleStateDocument $document): void;
 
-    public function updateState(Module $module, ModuleState $state): Module;
+    public function writeState(Module $module, ModuleState $state): Module;
 
-    public function saveValues(Module $module, FeatureValues $values): void;
+    public function writeValues(Module $module, FeatureValues $values): void;
 
     public function delete(string $moduleName): void;
 

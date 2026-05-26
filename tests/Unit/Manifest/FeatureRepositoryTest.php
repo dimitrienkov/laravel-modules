@@ -149,6 +149,7 @@ final class FeatureRepositoryTest extends TestCase
                 basePath: $this->tempDir,
             ),
             writer: new AtomicJsonWriter(),
+            filesystem: new Filesystem(),
         );
     }
 

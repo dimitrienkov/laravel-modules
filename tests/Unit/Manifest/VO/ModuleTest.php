@@ -121,7 +121,7 @@ final class ModuleTest extends TestCase
             new ModuleState(true, null),
         );
 
-        $manifest = $module->toManifestArray();
+        $manifest = $module->toDescriptorArray();
 
         self::assertArrayHasKey('meta', $manifest);
         self::assertArrayNotHasKey('state', $manifest);

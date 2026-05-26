@@ -20,7 +20,7 @@ final readonly class ModuleStatePaths
         $stateRoot = $this->config->get('modules.paths.state');
 
         if ($stateRoot !== null && \is_string($stateRoot) && trim($stateRoot) !== '') {
-            return $this->resolveAbsolute($stateRoot);
+            return PathNormalizer::resolveAbsolute($stateRoot, $this->basePath);
         }
 
         return $this->basePath . '/storage/app/private/modules';
@@ -33,7 +33,7 @@ final readonly class ModuleStatePaths
 
     public function stateFile(string $moduleName): string
     {
-        return $this->stateDirectory($moduleName) . '/state.json';
+        return $this->stateDirectory($moduleName) . '/' . ModuleFileNames::STATE;
     }
 
     public function validate(): void
@@ -45,15 +45,15 @@ final readonly class ModuleStatePaths
             return;
         }
 
-        $normalizedStateRoot = $this->normalizePath($stateRoot);
+        $normalizedStateRoot = PathNormalizer::normalize($stateRoot);
 
         foreach ($directories as $directory) {
             if (! \is_string($directory) || trim($directory) === '') {
                 continue;
             }
 
-            $resolved = $this->resolveAbsolute($directory);
-            $normalizedDir = $this->normalizePath($resolved);
+            $resolved = PathNormalizer::resolveAbsolute($directory, $this->basePath);
+            $normalizedDir = PathNormalizer::normalize($resolved);
 
             if (str_starts_with($normalizedStateRoot, $normalizedDir)) {
                 throw InvalidConfigurationException::forKey(
@@ -62,19 +62,5 @@ final readonly class ModuleStatePaths
                 );
             }
         }
-    }
-
-    private function resolveAbsolute(string $path): string
-    {
-        if (str_starts_with($path, '/')) {
-            return $path;
-        }
-
-        return $this->basePath . '/' . trim($path, '/\\');
-    }
-
-    private function normalizePath(string $path): string
-    {
-        return rtrim(str_replace('\\', '/', $path), '/') . '/';
     }
 }

@@ -9,7 +9,7 @@ final readonly class ScaffoldModuleConfig
     public function __construct(
         public string $name,
         public ?string $directory = null,
-        public bool $disabled = false,
+        public bool $enabled = true,
         public bool $force = false,
     ) {
     }

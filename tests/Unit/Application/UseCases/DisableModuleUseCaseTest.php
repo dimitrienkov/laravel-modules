@@ -177,6 +177,7 @@ final class DisableModuleUseCaseTest extends TestCase
                 basePath: $this->tempDir,
             ),
             writer: new AtomicJsonWriter(),
+            filesystem: new Filesystem(),
         );
     }
 

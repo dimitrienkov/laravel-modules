@@ -32,13 +32,9 @@ final readonly class DisableModuleUseCase
 
         $this->dependencyGuard->assertCanDisable($module);
 
-        $newState = new ModuleState(
-            enabled: false,
-            installedAt: $module->state->installedAt,
-            updatedAt: (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
-        );
+        $newState = ModuleState::updatedFrom($module->state)->withEnabled(false);
 
-        $updated = $this->stateRepository->updateState($module, $newState);
+        $updated = $this->stateRepository->writeState($module, $newState);
         $this->invalidator->invalidate();
 
         return $updated;

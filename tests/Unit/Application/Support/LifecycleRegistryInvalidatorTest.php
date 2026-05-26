@@ -119,6 +119,7 @@ final class LifecycleRegistryInvalidatorTest extends TestCase
         $stateRepo = new ModuleStateRepository(
             paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
             writer: new AtomicJsonWriter(),
+            filesystem: new Filesystem(),
         );
 
         $cache = new ModuleRegistryCache(

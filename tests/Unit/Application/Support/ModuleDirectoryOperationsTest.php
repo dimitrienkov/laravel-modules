@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\Support;
 
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
-use DimitrienkoV\LaravelModules\Exceptions\ModuleInstallException;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
+use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
@@ -38,7 +38,7 @@ final class ModuleDirectoryOperationsTest extends TestCase
             ],
         ]);
 
-        $paths = new ModuleLifecyclePaths(
+        $paths = new ModuleDirectoryPaths(
             config: $config,
             basePath: $this->tempDir,
             appPath: $this->tempDir . '/app',
@@ -69,7 +69,7 @@ final class ModuleDirectoryOperationsTest extends TestCase
     #[Test]
     public function copyDirectoryThrowsOnFailure(): void
     {
-        $this->expectException(ModuleInstallException::class);
+        $this->expectException(DirectoryOperationException::class);
 
         $this->ops->copyDirectory('/nonexistent/path', $this->tempDir . '/target');
     }
@@ -117,17 +117,17 @@ final class ModuleDirectoryOperationsTest extends TestCase
     }
 
     #[Test]
-    public function cleanupDirectoryIsIdempotent(): void
+    public function deleteDirectoryQuietlyIsIdempotent(): void
     {
         $path = $this->tempDir . '/nonexistent';
 
-        $this->ops->cleanupDirectory($path);
+        $this->ops->deleteDirectoryQuietly($path);
         $this->assertDirectoryDoesNotExist($path);
 
         $this->filesystem->makeDirectory($path, 0755, true);
         file_put_contents($path . '/file.txt', 'data');
 
-        $this->ops->cleanupDirectory($path);
+        $this->ops->deleteDirectoryQuietly($path);
         $this->assertDirectoryDoesNotExist($path);
     }
 }

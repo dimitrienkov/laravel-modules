@@ -30,10 +30,12 @@ final readonly class EnableModuleUseCase
             throw ModuleAlreadyEnabledException::forModule($moduleName);
         }
 
+        $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
+
         $candidateState = new ModuleState(
             enabled: true,
-            installedAt: $module->state->installedAt ?? (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
-            updatedAt: (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM),
+            installedAt: $module->state->installedAt ?? $now,
+            updatedAt: $now,
         );
         $candidate = $module->withState($candidateState);
 
@@ -45,7 +47,7 @@ final readonly class EnableModuleUseCase
 
         $this->dependencyGuard->assertGraphValid($candidateGraph);
 
-        $updated = $this->stateRepository->updateState($module, $candidateState);
+        $updated = $this->stateRepository->writeState($module, $candidateState);
         $this->invalidator->invalidate();
 
         return $updated;

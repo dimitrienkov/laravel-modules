@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\ModuleArchiveException;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
+use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ZipArchive;
@@ -21,7 +22,7 @@ final class ZipExtractorTest extends TestCase
         parent::setUp();
         $this->tempDir = sys_get_temp_dir() . '/zip_extractor_test_' . uniqid();
         mkdir($this->tempDir, 0755, true);
-        $this->extractor = new ZipExtractor();
+        $this->extractor = new ZipExtractor(new Filesystem());
     }
 
     protected function tearDown(): void

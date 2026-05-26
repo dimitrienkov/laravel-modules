@@ -7,7 +7,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
-use DimitrienkoV\LaravelModules\Application\Support\ModuleLifecyclePaths;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Application\UseCases\InstallModuleUseCase;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
@@ -94,7 +94,7 @@ final class InstallModuleUseCaseTest extends TestCase
         $sourceDir = $this->createSourceModule('blog');
         $useCase = $this->makeUseCase();
 
-        $result = $useCase->execute($sourceDir, disabled: true);
+        $result = $useCase->execute($sourceDir, enabled: false);
 
         $this->assertFalse($result->enabled);
         $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
@@ -161,6 +161,7 @@ final class InstallModuleUseCaseTest extends TestCase
         $stateRepo = new ModuleStateRepository(
             paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
             writer: new AtomicJsonWriter(),
+            filesystem: new Filesystem(),
         );
 
         $manifests = new ModuleManifestRepository(
@@ -190,12 +191,14 @@ final class InstallModuleUseCaseTest extends TestCase
 
         $guard = new ModuleDependencyGuard($registry, $sorter);
         $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
-        $paths = new ModuleLifecyclePaths($config, $this->tempDir, $this->tempDir . '/app');
+        $paths = new ModuleDirectoryPaths($config, $this->tempDir, $this->tempDir . '/app');
         $directoryOps = new ModuleDirectoryOperations(new Filesystem(), $paths);
+        $filesystem = new Filesystem();
         $sourcePreparer = new ModuleSourcePreparer(
             new ManifestDocumentReader(),
             $validator,
-            new ZipExtractor(),
+            new ZipExtractor($filesystem),
+            $filesystem,
         );
 
         return new InstallModuleUseCase(
