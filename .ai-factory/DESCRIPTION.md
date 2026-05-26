@@ -33,7 +33,7 @@
 - Loader pipeline с 15 реализованными лоадерами: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`.
 - `FeatureRepositoryInterface` с методами `get`, `getBool`, `getInt`, `getString`; реализация биндится как scoped. `FeatureRepository` читает values через `ModuleStateRepositoryInterface::readValues()`.
 - Команды `modules:optimize` и `modules:optimize-clear`, интегрированные с Laravel optimizer hooks.
-- Lifecycle UseCase-классы и Artisan-команды, которые модифицируют только `state.json`, никогда не `module.json`.
+- Lifecycle UseCase-классы и Artisan-команды: enable/disable/settings writes меняют только `state.json`; scaffold/install/update пишут immutable descriptor через `ModuleManifestRepositoryInterface::writeManifest()`.
 - Registry cache (v3) кеширует только manifest descriptors (`meta` + `settings.schema`) и `load_order`; state и values НЕ кешируются — читаются свежими из `state.json` при каждом request.
 - Optional MoonShine bridge через `MoonShineModuleAutoloader`.
 - Optional Inertia routes: `Routes/inertia.php` загружается только при наличии Inertia.
@@ -128,12 +128,12 @@ Mutable state и explicit feature values хранятся в отдельном 
 - `settings.values` в `state.json` хранит только явные override-значения; defaults остаются в schema (`module.json`) и не записываются как values.
 - `FeatureValues` валидирует значения против schema при чтении и записи.
 - Source-модуль НЕ ДОЛЖЕН содержать `state.json` — он принадлежит приватному хранилищу хоста.
-- `state.json` управляется через `ModuleStateRepositoryInterface`; lifecycle-команды модифицируют только `state.json`, никогда `module.json`.
+- `state.json` управляется через `ModuleStateRepositoryInterface`; enable/disable/settings writes модифицируют только `state.json`, а scaffold/install/update пишут `module.json` через `ModuleManifestRepositoryInterface::writeManifest()`.
 - Конфиг `modules.paths.state` задаёт корневую директорию state-хранилища (по умолчанию `storage/app/private/modules`).
 
 ## Loader pipeline
 
-`ModuleLoaderServiceProvider` регистрирует default loaders как tagged services и при boot создаёт `ModuleLoaderPipeline`. Pipeline сортирует лоадеры по `priority()` и запускает каждый loader для каждого enabled-модуля в `ModuleRegistry::loadOrder()`.
+`ModuleLoaderServiceProvider` регистрирует default loaders как tagged services и при boot создаёт `ModuleLoaderPipeline`. Pipeline сортирует лоадеры по `priority()` и запускает каждый loader для каждого enabled-модуля из `ModuleRegistryInterface::all()`, где порядок уже dependency-aware.
 
 | Loader | Priority | Что загружает |
 |--------|----------|---------------|
@@ -175,7 +175,7 @@ Route loading управляется `config/modules.php`:
 4. Резолвит namespace через `Application::getNamespace()` и `Application::path()`.
 5. Сортирует модули через `TopologicalSorter`.
 
-Registry cache (v3) кеширует manifest descriptors (`meta` + `settings.schema`), path, namespace и `load_order`. State и feature values НЕ кешируются — при загрузке из cache `ModuleManifestRepository::load()` читает актуальный state из `state.json` через `ModuleStateRepository`.
+Registry cache (v3) кеширует manifest descriptors (`meta` + `settings.schema`), path, namespace и `load_order`. State и feature values НЕ кешируются — при загрузке из cache `ModuleRegistryCache` пересобирает `Module` из descriptor и дочитывает актуальный state из `state.json` через `ModuleStateRepositoryInterface::readState()`.
 
 `modules:optimize` пишет cache payload с версией формата (v3), serialized manifest descriptors и `load_order`. `modules:optimize-clear` удаляет cache и сбрасывает in-memory registry.
 
