@@ -12,6 +12,6 @@ final class ModuleStateWriteException extends RuntimeException implements Module
 {
     public static function forPath(string $statePath, string $reason, ?Throwable $previous = null): self
     {
-        return new self("Failed to write module state [{$statePath}]: {$reason}", 0, $previous);
+        return new self("Failed to write module state [{$statePath}]: {$reason}", previous: $previous);
     }
 }
