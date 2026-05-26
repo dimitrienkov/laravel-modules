@@ -49,7 +49,15 @@ final readonly class ModuleDirectoryOperations
     public function restoreBackup(string $backupPath, string $targetPath): void
     {
         if ($this->filesystem->isDirectory($targetPath)) {
-            $this->filesystem->deleteDirectory($targetPath);
+            try {
+                $this->filesystem->deleteDirectory($targetPath);
+            } catch (\Throwable $e) {
+                throw DirectoryOperationException::forPath(
+                    $targetPath,
+                    "failed to remove target before restore. Backup remains at [{$backupPath}].",
+                    $e,
+                );
+            }
         }
 
         if (! $this->filesystem->moveDirectory($backupPath, $targetPath)) {

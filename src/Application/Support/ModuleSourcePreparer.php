@@ -36,6 +36,18 @@ final readonly class ModuleSourcePreparer
         throw ModuleSourceException::unsupportedType($sourcePath);
     }
 
+    public function cleanup(PreparedSource $source): void
+    {
+        if ($source->temporaryRoot === null) {
+            return;
+        }
+
+        try {
+            $this->filesystem->deleteDirectory($source->temporaryRoot);
+        } catch (Throwable) {
+        }
+    }
+
     private function prepareFromDirectory(string $sourcePath): PreparedSource
     {
         $manifestPath = $sourcePath . '/' . ModuleFileNames::MANIFEST;
@@ -55,7 +67,6 @@ final readonly class ModuleSourcePreparer
             manifest: $manifest,
             temporaryRoot: null,
             sourceKind: ModuleSourceKind::Directory,
-            filesystem: $this->filesystem,
         );
     }
 
@@ -81,7 +92,6 @@ final readonly class ModuleSourcePreparer
                 manifest: $manifest,
                 temporaryRoot: $tempDir,
                 sourceKind: ModuleSourceKind::Zip,
-                filesystem: $this->filesystem,
             );
         } catch (Throwable $e) {
             $this->filesystem->deleteDirectory($tempDir);

@@ -6,7 +6,6 @@ namespace DimitrienkoV\LaravelModules\Application\Support;
 
 use DimitrienkoV\LaravelModules\Application\Enums\ModuleSourceKind;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleSourceException;
-use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 
 final readonly class PreparedSource
 {
@@ -19,7 +18,6 @@ final readonly class PreparedSource
         public array $manifest,
         public ?string $temporaryRoot,
         public ModuleSourceKind $sourceKind,
-        private LocalFilesystem $filesystem,
     ) {
     }
 
@@ -37,17 +35,5 @@ final readonly class PreparedSource
         }
 
         return $this->manifest['meta']['name'];
-    }
-
-    public function cleanup(): void
-    {
-        if ($this->temporaryRoot === null) {
-            return;
-        }
-
-        try {
-            $this->filesystem->deleteDirectory($this->temporaryRoot);
-        } catch (\Throwable) {
-        }
     }
 }

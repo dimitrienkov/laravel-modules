@@ -89,6 +89,16 @@ final class ModulesListCommandTest extends TestCase
             ->expectsOutputToContain('No modules found');
     }
 
+    #[Test]
+    public function conflictingFiltersReturnsError(): void
+    {
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list --enabled --disabled')
+            ->assertFailed()
+            ->expectsOutputToContain('cannot be used together');
+    }
+
     private function registerListCommand(): void
     {
         $config = $this->lifecycleConfig();

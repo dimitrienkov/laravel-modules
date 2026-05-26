@@ -50,7 +50,7 @@ final readonly class AtomicFileWriter
             @unlink($path . '.lock');
 
             if ($temporaryPath !== null && is_file($temporaryPath)) {
-                unlink($temporaryPath);
+                @unlink($temporaryPath);
             }
         }
     }

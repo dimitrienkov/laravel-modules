@@ -146,7 +146,9 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     {
         $this->app->singleton(LocalFilesystem::class);
         $this->app->singleton(ModuleLayout::class);
-        $this->app->singleton(AtomicJsonWriter::class);
+        $this->app->singleton(AtomicJsonWriter::class, function (): AtomicJsonWriter {
+            return new AtomicJsonWriter($this->app->make(AtomicFileWriter::class));
+        });
         $this->app->singleton(ContainerLifecycleHooks::class);
         $this->app->singleton(ManifestDocumentReader::class);
         $this->app->singleton(ManifestSettingsValidator::class);
@@ -271,7 +273,13 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->app->singleton(ModuleDependencyGuard::class);
         $this->app->singleton(ModuleDirectoryOperations::class);
         $this->app->singleton(AtomicFileWriter::class);
-        $this->app->singleton(ModuleSkeletonBuilder::class);
+        $this->app->singleton(ModuleSkeletonBuilder::class, function (): ModuleSkeletonBuilder {
+            return new ModuleSkeletonBuilder(
+                $this->app->make(LocalFilesystem::class),
+                $this->app->make(AtomicFileWriter::class),
+                stubsPath: \dirname(__DIR__, 2) . '/stubs',
+            );
+        });
     }
 
     private function registerDefaultLoaders(): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\DTOs\RemoveModuleResult;
+use DimitrienkoV\LaravelModules\Application\Enums\RemoveStrategy;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
@@ -26,13 +27,13 @@ final readonly class RemoveModuleUseCase
     ) {
     }
 
-    public function execute(string $moduleName, bool $deletePermanently = false): RemoveModuleResult
+    public function execute(string $moduleName, RemoveStrategy $strategy = RemoveStrategy::Backup): RemoveModuleResult
     {
         $module = $this->registry->find($moduleName);
 
         $this->dependencyGuard->assertCanRemove($module);
 
-        $backupPath = $deletePermanently
+        $backupPath = $strategy === RemoveStrategy::Permanent
             ? $this->removePermanently($module)
             : $this->removeWithBackup($module);
 

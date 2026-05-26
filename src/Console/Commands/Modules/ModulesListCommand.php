@@ -19,6 +19,12 @@ final class ModulesListCommand extends Command
 
     public function handle(ListModulesUseCase $useCase): int
     {
+        if ($this->option('enabled') && $this->option('disabled')) {
+            $this->components->error('Options --enabled and --disabled cannot be used together.');
+
+            return self::FAILURE;
+        }
+
         try {
             $enabledFilter = match (true) {
                 (bool) $this->option('enabled') => true,

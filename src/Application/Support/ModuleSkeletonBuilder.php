@@ -15,6 +15,7 @@ final readonly class ModuleSkeletonBuilder
     public function __construct(
         private LocalFilesystem $filesystem,
         private AtomicFileWriter $fileWriter,
+        private string $stubsPath,
     ) {
     }
 
@@ -50,7 +51,7 @@ final readonly class ModuleSkeletonBuilder
 
     private function renderProviderStub(string $targetPath, string $namespace, string $studlyName, string $moduleName): void
     {
-        $stubPath = \dirname(__DIR__, 3) . '/stubs/module-service-provider.stub';
+        $stubPath = $this->stubsPath . '/module-service-provider.stub';
 
         if (! $this->filesystem->isFile($stubPath)) {
             throw ModuleScaffoldException::forModule(
@@ -61,7 +62,7 @@ final readonly class ModuleSkeletonBuilder
 
         try {
             $content = $this->filesystem->get($stubPath);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw ModuleScaffoldException::forModule(
                 $moduleName,
                 "failed to read provider stub [{$stubPath}].",

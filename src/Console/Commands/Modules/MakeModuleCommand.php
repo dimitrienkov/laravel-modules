@@ -15,7 +15,7 @@ final class MakeModuleCommand extends Command
         {name : The module name (lowercase snake_case)}
         {--directory= : Target module root directory}
         {--disabled : Create the module in disabled state}
-        {--force : Overwrite if module already exists}';
+        {--overwrite : Overwrite if module already exists}';
 
     protected $description = 'Scaffold a new module';
 
@@ -31,7 +31,7 @@ final class MakeModuleCommand extends Command
             name: $name,
             directory: $directory,
             enabled: ! $this->option('disabled'),
-            force: (bool) $this->option('force'),
+            force: (bool) $this->option('overwrite'),
         );
 
         try {

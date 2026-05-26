@@ -121,7 +121,7 @@ final readonly class UpdateModuleUseCase
                 path: $existingModule->path,
             );
         } finally {
-            $prepared->cleanup();
+            $this->sourcePreparer->cleanup($prepared);
         }
     }
 

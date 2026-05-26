@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
+use DimitrienkoV\LaravelModules\Application\Enums\RemoveStrategy;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\UseCases\RemoveModuleUseCase;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
@@ -68,7 +69,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         $this->createModule('blog');
         $useCase = $this->makeUseCase();
 
-        $result = $useCase->execute('blog', deletePermanently: true);
+        $result = $useCase->execute('blog', strategy: RemoveStrategy::Permanent);
 
         $this->assertNull($result->backupPath);
         $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
@@ -103,7 +104,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         $this->createModule('blog');
         $useCase = $this->makeUseCase();
 
-        $result = $useCase->execute('blog', deletePermanently: true);
+        $result = $useCase->execute('blog', strategy: RemoveStrategy::Permanent);
 
         $this->assertNull($result->backupPath);
         $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
@@ -151,7 +152,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         );
 
         try {
-            $useCase->execute('blog', deletePermanently: true);
+            $useCase->execute('blog', strategy: RemoveStrategy::Permanent);
             $this->fail('Expected ModuleRemoveException');
         } catch (ModuleRemoveException $e) {
             $this->assertStringContainsString('directory removal failed, restored state', $e->getMessage());
@@ -198,7 +199,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         );
 
         try {
-            $useCase->execute('blog', deletePermanently: true);
+            $useCase->execute('blog', strategy: RemoveStrategy::Permanent);
             $this->fail('Expected ModuleRemoveException');
         } catch (ModuleRemoveException $e) {
             $this->assertStringContainsString('state restore also failed', $e->getMessage());
@@ -255,7 +256,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         );
 
         try {
-            $useCase->execute('blog', deletePermanently: false);
+            $useCase->execute('blog', strategy: RemoveStrategy::Backup);
             $this->fail('Expected ModuleRemoveException');
         } catch (ModuleRemoveException $e) {
             $this->assertStringContainsString('restore also failed', $e->getMessage());

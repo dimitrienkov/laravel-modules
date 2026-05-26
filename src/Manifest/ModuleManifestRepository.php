@@ -41,8 +41,6 @@ final readonly class ModuleManifestRepository implements ModuleManifestRepositor
         $this->validator->validate($manifest, $manifestPath);
 
         $namespace = $this->namespaceResolver->resolve($normalizedModulePath);
-        $metaRaw = $manifest['meta'];
-        $moduleName = $metaRaw['name'];
 
         $manifestModule = Module::fromManifest(
             path: $normalizedModulePath,
@@ -52,7 +50,7 @@ final readonly class ModuleManifestRepository implements ModuleManifestRepositor
             state: ModuleState::defaultDisabled(),
         );
 
-        $state = $this->stateRepository->readState($moduleName, $manifestModule);
+        $state = $this->stateRepository->readState($manifestModule->name, $manifestModule);
 
         return $manifestModule->withState($state);
     }

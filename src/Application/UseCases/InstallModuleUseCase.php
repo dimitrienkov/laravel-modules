@@ -108,7 +108,7 @@ final readonly class InstallModuleUseCase
                 sourceKind: $prepared->sourceKind,
             );
         } finally {
-            $prepared->cleanup();
+            $this->sourcePreparer->cleanup($prepared);
         }
     }
 

@@ -49,7 +49,7 @@ final class ModulesRemoveCommandTest extends TestCase
     {
         $this->installModule('blog');
 
-        $this->artisan('modules:remove', ['name' => 'blog', '--yes' => true])
+        $this->artisan('modules:remove', ['name' => 'blog', '--force' => true])
             ->assertSuccessful()
             ->expectsOutputToContain('removed');
     }
@@ -57,7 +57,7 @@ final class ModulesRemoveCommandTest extends TestCase
     #[Test]
     public function removeFailsWhenModuleNotFound(): void
     {
-        $this->artisan('modules:remove', ['name' => 'nonexistent', '--yes' => true])
+        $this->artisan('modules:remove', ['name' => 'nonexistent', '--force' => true])
             ->assertFailed()
             ->expectsOutputToContain('not found');
     }
@@ -67,7 +67,7 @@ final class ModulesRemoveCommandTest extends TestCase
     {
         $this->installModule('blog');
 
-        $this->artisan('modules:remove', ['name' => 'blog', '--yes' => true])
+        $this->artisan('modules:remove', ['name' => 'blog', '--force' => true])
             ->assertSuccessful()
             ->expectsOutputToContain('Backup');
     }
@@ -77,20 +77,19 @@ final class ModulesRemoveCommandTest extends TestCase
     {
         $this->installModule('blog');
 
-        $this->artisan('modules:remove', ['name' => 'blog', '--yes' => true, '--delete-permanently' => true])
+        $this->artisan('modules:remove', ['name' => 'blog', '--force' => true, '--delete-permanently' => true])
             ->assertSuccessful()
             ->expectsOutputToContain('permanently deleted');
     }
 
     #[Test]
-    public function cancelledRemoveReturnsFailure(): void
+    public function removeSucceedsInTestEnvWithoutForce(): void
     {
         $this->installModule('blog');
 
         $this->artisan('modules:remove', ['name' => 'blog'])
-            ->expectsConfirmation('Remove module [blog]?', 'no')
-            ->assertFailed()
-            ->expectsOutputToContain('Cancelled');
+            ->assertSuccessful()
+            ->expectsOutputToContain('removed');
     }
 
     private function installModule(string $name): void

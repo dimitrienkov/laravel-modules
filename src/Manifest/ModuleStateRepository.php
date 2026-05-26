@@ -117,7 +117,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
 
         $stateFile = $this->paths->file($moduleName);
 
-        if ($this->filesystem->isFile($stateFile) && ! $this->filesystem->delete($stateFile)) {
+        if (! $this->filesystem->deleteFileIfExists($stateFile)) {
             throw ModuleStateWriteException::forPath(
                 $stateFile,
                 'state file could not be deleted.',

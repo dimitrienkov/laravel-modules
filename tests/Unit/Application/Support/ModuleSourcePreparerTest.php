@@ -55,7 +55,7 @@ final class ModuleSourcePreparerTest extends TestCase
             $this->assertNull($prepared->temporaryRoot);
             $this->assertSame('blog', $prepared->manifest['meta']['name']);
         } finally {
-            $prepared->cleanup();
+            $this->preparer->cleanup($prepared);
         }
     }
 
@@ -71,7 +71,7 @@ final class ModuleSourcePreparerTest extends TestCase
             $this->assertDirectoryExists($prepared->path);
             $this->assertSame('blog', $prepared->manifest['meta']['name']);
         } finally {
-            $prepared->cleanup();
+            $this->preparer->cleanup($prepared);
         }
     }
 
@@ -124,7 +124,7 @@ final class ModuleSourcePreparerTest extends TestCase
         $this->assertNotNull($tempRoot);
         $this->assertDirectoryExists($tempRoot);
 
-        $prepared->cleanup();
+        $this->preparer->cleanup($prepared);
 
         $this->assertDirectoryDoesNotExist($tempRoot);
     }
@@ -135,8 +135,8 @@ final class ModuleSourcePreparerTest extends TestCase
         $zipPath = $this->createModuleZip('blog');
 
         $prepared = $this->preparer->prepare($zipPath);
-        $prepared->cleanup();
-        $prepared->cleanup();
+        $this->preparer->cleanup($prepared);
+        $this->preparer->cleanup($prepared);
 
         $this->addToAssertionCount(1);
     }

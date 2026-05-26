@@ -7,11 +7,15 @@ namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 use DimitrienkoV\LaravelModules\Application\UseCases\InstallModuleUseCase;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use Illuminate\Console\Command;
+use Illuminate\Console\ConfirmableTrait;
 
 final class ModulesInstallCommand extends Command
 {
+    use ConfirmableTrait;
+
     protected $signature = 'modules:install
         {source : Path to module directory or .zip archive}
+        {--force : Force the operation to run in production}
         {--directory= : Target module root directory}
         {--disabled : Install in disabled state}';
 
@@ -19,6 +23,10 @@ final class ModulesInstallCommand extends Command
 
     public function handle(InstallModuleUseCase $useCase): int
     {
+        if (! $this->confirmToProceed()) {
+            return self::FAILURE;
+        }
+
         /** @var string $source */
         $source = $this->argument('source');
 

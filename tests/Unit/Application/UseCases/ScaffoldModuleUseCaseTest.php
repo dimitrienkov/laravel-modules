@@ -170,7 +170,7 @@ final class ScaffoldModuleUseCaseTest extends TestCase
             namespaceResolver: $this->lifecycleNamespaceResolver(),
             paths: $paths,
             invalidator: $this->lifecycleInvalidator($cache, $registry),
-            skeletonBuilder: new ModuleSkeletonBuilder(new LocalFilesystem(new Filesystem()), new AtomicFileWriter()),
+            skeletonBuilder: new ModuleSkeletonBuilder(new LocalFilesystem(new Filesystem()), new AtomicFileWriter(), \dirname(__DIR__, 4) . '/stubs'),
             directoryOps: $failingDirOps,
             rollback: new PartialModuleRollback($failingDirOps, $stateRepo),
         );
@@ -217,7 +217,7 @@ final class ScaffoldModuleUseCaseTest extends TestCase
             namespaceResolver: $this->lifecycleNamespaceResolver(),
             paths: $paths,
             invalidator: $this->lifecycleInvalidator($cache, $registry),
-            skeletonBuilder: new ModuleSkeletonBuilder(new LocalFilesystem(new Filesystem()), new AtomicFileWriter()),
+            skeletonBuilder: new ModuleSkeletonBuilder(new LocalFilesystem(new Filesystem()), new AtomicFileWriter(), \dirname(__DIR__, 4) . '/stubs'),
             directoryOps: $directoryOps,
             rollback: new \DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback($directoryOps, $stateRepo),
         );

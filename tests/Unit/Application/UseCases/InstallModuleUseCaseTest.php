@@ -131,6 +131,33 @@ final class InstallModuleUseCaseTest extends TestCase
         $this->assertEmpty($recentTempDirs);
     }
 
+    #[Test]
+    public function installThrowsWhenTargetDirectoryAlreadyExists(): void
+    {
+        $sourceDir = $this->createSourceModule('blog');
+        $targetPath = $this->tempDir . '/app/Modules/Blog';
+        $this->filesystem->makeDirectory($targetPath, 0755, true);
+
+        $useCase = $this->makeUseCase();
+
+        $this->expectException(ModuleAlreadyExistsException::class);
+        $useCase->execute($sourceDir);
+    }
+
+    #[Test]
+    public function installModuleWithDependencies(): void
+    {
+        $this->createInstalledModule('users');
+
+        $sourceDir = $this->createSourceModuleWithDeps('blog', ['users' => '^1.0']);
+        $useCase = $this->makeUseCase();
+
+        $result = $useCase->execute($sourceDir);
+
+        $this->assertSame('blog', $result->name);
+        $this->assertTrue($result->enabled);
+    }
+
     private function makeUseCase(
         ?\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface $manifestRepository = null,
     ): InstallModuleUseCase {
@@ -186,6 +213,29 @@ final class InstallModuleUseCaseTest extends TestCase
         $zip->close();
 
         return $zipPath;
+    }
+
+    /**
+     * @param array<string, string> $dependencies
+     */
+    private function createSourceModuleWithDeps(string $name, array $dependencies): string
+    {
+        $dir = $this->tempDir . '/sources/' . ucfirst($name);
+        $this->filesystem->makeDirectory($dir, 0755, true);
+
+        file_put_contents($dir . '/module.json', json_encode([
+            'meta' => [
+                'name' => $name,
+                'display_name' => ucfirst($name),
+                'version' => '1.0.0',
+                'dependencies' => $dependencies,
+            ],
+            'settings' => ['schema' => new \stdClass()],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+        file_put_contents($dir . '/readme.txt', 'Module ' . $name);
+
+        return $dir;
     }
 
     private function createInstalledModule(string $name): void

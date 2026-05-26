@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Feature\Commands;
 
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
+use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
@@ -96,7 +99,7 @@ final class MakeModuleCommandTest extends TestCase
 
         $this->registerMakeCommand();
 
-        $this->artisanCommand('make:module blog --force')
+        $this->artisanCommand('make:module blog --overwrite')
             ->assertSuccessful();
     }
 
@@ -106,6 +109,11 @@ final class MakeModuleCommandTest extends TestCase
         $this->app->instance(ManifestValidatorInterface::class, new ManifestValidator(new ManifestSettingsValidator()));
         $this->app->instance(NamespaceResolverInterface::class, $this->lifecycleNamespaceResolver());
         $this->app->instance(ModuleDirectoryPaths::class, $this->lifecycleDirectoryPaths($services['config']));
+        $this->app->instance(ModuleSkeletonBuilder::class, new ModuleSkeletonBuilder(
+            new LocalFilesystem(new Filesystem()),
+            new AtomicFileWriter(),
+            \dirname(__DIR__, 3) . '/stubs',
+        ));
         $this->registerArtisanCommand(MakeModuleCommand::class);
     }
 }

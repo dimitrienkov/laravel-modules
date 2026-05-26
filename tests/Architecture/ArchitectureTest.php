@@ -155,7 +155,7 @@ arch('application DTOs are final readonly')
     ->toBeFinal()
     ->toBeReadonly();
 
-arch('application layer does not depend on loaders or providers')
+arch('application layer does not depend on loaders or moonshine')
     ->expect('DimitrienkoV\LaravelModules\Application')
     ->not->toUse([
         'DimitrienkoV\LaravelModules\Loaders',
@@ -190,6 +190,36 @@ arch('list command does not depend on concrete registry')
     ->not->toUse([
         'DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface',
         'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+    ]);
+
+arch('lifecycle commands do not depend on concrete infrastructure classes')
+    ->expect([
+        'DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand',
+        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesInstallCommand',
+        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesUpdateCommand',
+        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesRemoveCommand',
+        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesEnableCommand',
+        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesDisableCommand',
+    ])
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
+        'DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository',
+        'DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository',
+        'DimitrienkoV\LaravelModules\Support\LocalFilesystem',
+        'DimitrienkoV\LaravelModules\Support\AtomicFileWriter',
+        'DimitrienkoV\LaravelModules\Support\AtomicJsonWriter',
+    ]);
+
+arch('exceptions implement ModuleExceptionInterface')
+    ->expect('DimitrienkoV\LaravelModules\Exceptions')
+    ->classes()
+    ->toImplement('DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface');
+
+arch('application layer does not depend on providers')
+    ->expect('DimitrienkoV\LaravelModules\Application')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Providers',
     ]);
 
 test('direct filesystem I/O is only allowed in specialized infrastructure classes', function (): void {

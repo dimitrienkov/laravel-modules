@@ -77,6 +77,27 @@ final class ModulesInstallCommandTest extends TestCase
             ->expectsOutputToContain('directory');
     }
 
+    #[Test]
+    public function installWithDisabledFlag(): void
+    {
+        $sourceDir = $this->createSourceModule('blog');
+
+        $this->artisanCommand("modules:install {$sourceDir} --disabled")
+            ->assertSuccessful()
+            ->expectsOutputToContain('No');
+    }
+
+    #[Test]
+    public function installWithDirectoryOptionToConfiguredRoot(): void
+    {
+        $sourceDir = $this->createSourceModule('blog');
+        $configuredRoot = $this->tempDir . '/app/Modules';
+
+        $this->artisanCommand("modules:install {$sourceDir} --directory={$configuredRoot}")
+            ->assertSuccessful()
+            ->expectsOutputToContain('installed');
+    }
+
     private function createSourceModule(string $name): string
     {
         $dir = $this->tempDir . '/sources/' . ucfirst($name);
