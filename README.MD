@@ -2,15 +2,21 @@
 
 > Manifest-driven runtime для модулей в Laravel 12/13.
 
-`dimitrienkov0/laravel-modules` помогает Laravel-приложению находить модули в настроенных директориях, валидировать `module.json`, сортировать модули по зависимостям и загружать enabled-модули через предсказуемый loader-pipeline.
+`dimitrienkov0/laravel-modules` помогает Laravel-приложению находить модули в настроенных директориях, валидировать `module.json`, сортировать модули по зависимостям и загружать enabled-модули через предсказуемый loader pipeline.
 
-Текущий срез v2.0 core покрывает runtime loading (15 loaders), feature values, production registry cache, lifecycle-команды (`make:module`, `modules:install/update/remove/enable/disable/list`) и optional-интеграции MoonShine/Inertia. Module-aware генераторы `make:* --module` и полноценный admin UI остаются roadmap.
+Текущий v2.0 core покрывает runtime loading, feature values, production registry cache и lifecycle-команды: `make:module`, `modules:install`, `modules:update`, `modules:remove`, `modules:enable`, `modules:disable`, `modules:list`, `modules:optimize`, `modules:optimize-clear`. Module-aware генераторы `make:* --module` и полноценный admin UI остаются roadmap.
 
 ## Quick Start
 
 ```bash
 composer require dimitrienkov0/laravel-modules
 php artisan vendor:publish --tag=modules-config
+php artisan make:module blog
+```
+
+Проверка production cache:
+
+```bash
 php artisan modules:optimize
 ```
 
@@ -25,61 +31,30 @@ php artisan modules:optimize
 
 ## Возможности
 
-- **Manifest-first modules**: immutable metadata и feature schema в `module.json`; mutable state (`enabled`, timestamps, feature values) — в отдельном `state.json`.
-- **Dependency-aware registry**: модули сортируются по `meta.dependencies` через Composer SemVer constraints.
-- **Loader pipeline**: 15 loaders (config, providers, migrations, factories, translations, views, Blade components, events, observers, policies, commands, middleware, routes, console routes, broadcast channels) загружаются в deterministic priority order.
+- **Manifest-first modules**: immutable metadata и feature schema живут в `module.json`; mutable state и feature values - в `state.json`.
+- **Dependency-aware registry**: `meta.dependencies` сортируются и проверяются через Composer SemVer constraints.
+- **Loader pipeline**: 15 convention-based loaders загружают config, providers, migrations, routes, commands, policies, middleware и другие runtime paths.
 - **Runtime feature API**: `FeatureRepositoryInterface` читает актуальные `settings.values` из `state.json`.
-- **Production cache**: `modules:optimize` пишет `bootstrap/cache/modules.php` для быстрого discovery; state и values НЕ кешируются.
-- **Atomic lifecycle**: install, update, scaffold и remove откатываются при ошибке persistence.
+- **Production cache**: `modules:optimize` кеширует discovery в `bootstrap/cache/modules.php`, но не кеширует state и values.
+- **Lifecycle toolkit**: scaffold, install, update, remove, enable и disable работают через UseCase-классы с backup/rollback boundaries.
 - **Optional bridges**: MoonShine и Inertia активируются только при наличии соответствующих пакетов.
 
-## Пример модуля
+## Минимальный модуль
 
-```text
-app/Modules/Blog/
-|-- Config/
-|   `-- blog.php
-|-- Console/
-|   `-- Commands/
-|-- Database/
-|   |-- Factories/
-|   `-- Migrations/
-|-- Domain/
-|   |-- Listeners/
-|   |-- Models/
-|   |-- Observers/
-|   `-- Policies/
-|-- Http/
-|   `-- Middleware/
-|-- Lang/
-|-- Providers/
-|   `-- BlogServiceProvider.php
-|-- Resources/
-|   `-- views/
-|-- Routes/
-|   |-- api.php
-|   |-- api/
-|   |   `-- v1.php
-|   |-- web.php
-|   |-- inertia.php
-|   |-- console.php
-|   `-- channels.php
-|-- View/
-|   `-- Components/
-`-- module.json
+```bash
+php artisan make:module blog
 ```
 
-`module.json` (immutable manifest):
+Команда создаёт структуру модуля, `module.json`, ServiceProvider stub и приватный `state.json`.
+
+`module.json`:
 
 ```json
 {
   "meta": {
     "name": "blog",
     "display_name": "Blog",
-    "version": "1.0.0",
-    "dependencies": {
-      "users": "^1.5"
-    }
+    "version": "1.0.0"
   },
   "settings": {
     "schema": {
@@ -92,12 +67,13 @@ app/Modules/Blog/
 }
 ```
 
-`storage/app/private/modules/blog/state.json` (mutable state):
+`storage/app/private/modules/blog/state.json`:
 
 ```json
 {
   "enabled": true,
   "installed_at": "2026-05-23T14:12:00+00:00",
+  "updated_at": "2026-05-23T14:12:00+00:00",
   "settings": {
     "values": {
       "enable_comments": false
@@ -137,7 +113,7 @@ final readonly class PostController
 | [Module Structure](docs/module-structure.md) | Поддерживаемые runtime-пути |
 | [Manifest](docs/manifest.md) | Контракт `module.json` |
 | [Configuration](docs/configuration.md) | Конфиг и routing options |
-| [Architecture](docs/architecture.md) | Registry, cache, loaders, bridges |
+| [Architecture](docs/architecture.md) | Registry, cache, loaders, lifecycle |
 | [Feature Toggles](docs/feature-toggles.md) | Runtime settings API |
 | [CLI](docs/cli.md) | Реализованные Artisan-команды |
 | [Contributing](docs/contributing.md) | Quality gates и PR rules |

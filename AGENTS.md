@@ -23,7 +23,12 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 ```
 .
 ├── src/                              # код пакета
-│   ├── Console/Commands/Modules/     # реализованные команды modules:optimize, modules:optimize-clear
+│   ├── Application/                  # lifecycle/optimize UseCase-классы, DTO и support-сервисы
+│   │   ├── DTOs/                     # results/config objects для команд
+│   │   ├── Enums/                    # ModuleSourceKind
+│   │   ├── Support/                  # source staging, directory ops, dependency guards, rollback
+│   │   └── UseCases/                 # scaffold/install/update/remove/enable/disable/optimize flows
+│   ├── Console/Commands/Modules/     # Artisan adapters: make:module и modules:* команды
 │   ├── Contracts/                    # публичные интерфейсы ядра
 │   ├── Exceptions/                   # типизированные runtime-исключения
 │   ├── Loaders/                      # реализации LoaderInterface
@@ -34,8 +39,8 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 │   │   └── VO/                       # Module, ManifestMeta, ModuleState, ModuleStateDocument, FeatureValues и другие VO
 │   ├── MoonShine/                    # MoonShineModuleAutoloader, optional bridge
 │   ├── Providers/                    # ModuleLoaderServiceProvider
-│   ├── Registry/                     # ModuleDirectoryScanner, ModuleRegistryCache
-│   └── Support/                      # ModuleLayout, ModuleStatePaths, AtomicFileWriter, AtomicJsonWriter, ContainerLifecycleHooks, TopologicalSorter, ApplicationNamespaceResolver
+│   ├── Registry/                     # scanner, snapshot builder, cache и registry VO
+│   └── Support/                      # layout/state paths, atomic writers, filesystem, sorter, namespace resolver
 ├── config/
 │   └── modules.php                   # дефолтные директории модулей и route types
 ├── tests/
@@ -67,6 +72,11 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 | `src/Manifest/ModuleStateRepository.php` | Чтение/запись mutable state (`state.json`): enabled, timestamps, settings values |
 | `src/Manifest/FeatureRepository.php` | Scoped runtime API для feature toggles |
 | `src/Registry/ModuleRegistryCache.php` | Формат и чтение `bootstrap/cache/modules.php` |
+| `src/Registry/ModuleRegistrySnapshotBuilder.php` | Fresh filesystem scan и сборка snapshot |
+| `src/Application/UseCases/ScaffoldModuleUseCase.php` | Создание нового модуля через `make:module` |
+| `src/Application/UseCases/InstallModuleUseCase.php` | Установка модуля из directory/zip source |
+| `src/Application/UseCases/UpdateModuleUseCase.php` | Обновление модуля с backup и merge values |
+| `src/Application/UseCases/RemoveModuleUseCase.php` | Удаление модуля с backup или permanently |
 | `config/modules.php` | Корневой конфиг директорий модулей и типов маршрутов |
 | `tests/Architecture/ArchitectureTest.php` | Pest arch-инварианты проекта |
 | `.github/PULL_REQUEST_TEMPLATE.md` | Единый чеклист PR |
@@ -81,6 +91,7 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 - `ModuleLoaderPipeline` запускает 15 default loaders: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`. Pipeline изолирует ошибки: исключение в одном loader не останавливает загрузку остальных.
 - `MoonShineModuleAutoloader` подключается только при наличии MoonShine `CoreContract`.
 - `FeatureRepositoryInterface` биндится как scoped и читает актуальные `settings.values` из `state.json` через `ModuleStateRepository`, а не из production cache.
+- Lifecycle-команды являются тонкими adapters над `Application/UseCases`; install/update валидируют source до копирования, reject'ят source `state.json`, используют backup/rollback boundaries и инвалидируют optimized registry cache после успешной мутации.
 
 ## Документация
 
@@ -91,7 +102,7 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 | Module Structure | `docs/module-structure.md` | Поддерживаемые пути модулей |
 | Manifest | `docs/manifest.md` | Контракт `module.json` |
 | Configuration | `docs/configuration.md` | Конфиг и маршруты |
-| Architecture | `docs/architecture.md` | Registry, cache, loaders |
+| Architecture | `docs/architecture.md` | Registry, cache, lifecycle |
 | Feature Toggles | `docs/feature-toggles.md` | Runtime settings API |
 | CLI | `docs/cli.md` | Реализованные команды |
 | Contributing | `docs/contributing.md` | Quality gates и PR |

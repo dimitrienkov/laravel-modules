@@ -100,19 +100,21 @@ php artisan modules:install /path/to/module-directory --directory=app/OtherModul
 ```bash
 php artisan modules:update blog /path/to/blog-v2
 php artisan modules:update blog /path/to/blog-v2.zip
+php artisan modules:update blog /path/to/blog-v2.zip --force
 ```
 
-Update бэкапит текущую директорию, заменяет файлы и мержит `settings.values` в `state.json`: сохраняются explicit values для ключей, которые остались в новой schema. Пропущенные values выводятся с указанием причины (removed from schema / invalid value). Если запись manifest или state падает после замены, модуль автоматически восстанавливается из backup.
+Update использует Laravel `ConfirmableTrait`; в production окружении добавляйте `--force`. Команда бэкапит текущую директорию, заменяет файлы и мержит `settings.values` в `state.json`: сохраняются explicit values для ключей, которые остались в новой schema. Пропущенные values выводятся с указанием причины (removed from schema / invalid value). Если запись manifest или state падает после замены, модуль автоматически восстанавливается из backup.
 
 ## Remove
 
 ```bash
 php artisan modules:remove blog
 php artisan modules:remove blog --yes
+php artisan modules:remove blog --force --yes
 php artisan modules:remove blog --yes --delete-permanently
 ```
 
-`--yes` пропускает confirmation prompt. Без `--delete-permanently` модуль перемещается в `config('modules.paths.backup')`. С `--delete-permanently` сначала удаляется `state.json`, затем директория модуля; если удаление state не удалось, директория остаётся intact. Remove запрещён, если другие installed модули зависят от удаляемого. Миграции не откатываются автоматически.
+`modules:remove` тоже использует Laravel `ConfirmableTrait`; в production окружении добавляйте `--force`. `--yes` пропускает prompt удаления конкретного модуля, но не заменяет production confirmation. Без `--delete-permanently` модуль перемещается в `config('modules.paths.backup')`, а `state.json` копируется в backup и удаляется из state root. С `--delete-permanently` сначала удаляется `state.json`, затем директория модуля; если удаление state не удалось, директория остаётся intact. Remove запрещён, если другие installed модули зависят от удаляемого. Миграции не откатываются автоматически.
 
 ## Ещё не реализовано
 

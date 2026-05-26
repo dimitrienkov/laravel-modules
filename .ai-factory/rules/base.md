@@ -1,81 +1,46 @@
 # Базовые правила проекта
 
-> Конвенции, извлечённые из кода и предпочтений автора. Редактируй по мере необходимости.
+> Архитектурные границы, manifest-контракты, документация и quality gates. Правила качества кода — в `code-quality.md`, именования — в `naming.md`. Подробную архитектуру, runtime flow и таблицы loader priority смотри в `.ai-factory/ARCHITECTURE.md`.
 
-## Качество кода
+## Границы И DI
 
-- `declare(strict_types=1);` — обязателен в каждом PHP-файле под `src/` (проверяется `ArchitectureTest::testStrictTypesDeclaration`).
-- Никаких `dd()`, `dump()`, `var_dump()`, `print_r()`, `exit()`, `die()` в `src/` (проверяется `ArchitectureTest::testNoDebugAndTerminationFunctionsInCode`).
-- Классы по умолчанию `final readonly`, поля приходят через конструкторный property promotion.
-- PHPStan: level 8 (max) обязателен; удерживаем без baseline — любое новое нарушение фиксится в коде, не подавляется.
-- Стандарт форматирования: PSR-12 + `.php-cs-fixer.dist.php`.
+- `Console/Commands` остаются тонкими adapters: вызывают `Application/UseCases` или публичные `Contracts`, не оркестрируют runtime напрямую.
+- `Application/UseCases` оркестрируют операции и не зависят от `Loaders`, `Providers`, `MoonShine`.
+- `Contracts` не импортируют реализации.
+- `Loaders` реализуют только convention-based loading через `LoaderInterface`; не добавляй manifest-флаги или whitelist-контракты загрузки.
+- Optional integrations защищай проверками классов/контейнера, чтобы пакет запускался без MoonShine или Inertia.
+- Конструкторы сервисов не должны делать side effects.
 
-## Архитектура и DI
+## Manifest И State
 
-- Только DI — никаких хелперов, никаких фасадов внутри `src/` пакета.
-- `Application` / `Domain` / `Infrastructure` / `Http` / `Console` / `MoonShine` — слои внутри модуля. Зависимости текут от Presentation к Application к Domain. Infrastructure реализует контракты из Domain.
-- UseCase оркеструет операцию (входная точка). Action — изменяющая операция (Command pattern). Query — read-only.
-- Никаких side effects в конструкторах сервисов; `autoload()` вызывает их сам пакет.
+- `module.json` в runtime иммутабелен: только `meta` и `settings.schema`; `state`, `settings.values` и `autoload` в manifest запрещены.
+- Mutable state и explicit feature values хранятся в `state.json` и пишутся через `ModuleStateRepositoryInterface`.
+- Immutable manifest descriptor записывается только через `ModuleManifestRepositoryInterface::writeManifest()`.
+- `meta.dependencies` принимает только object-form `moduleName => Composer SemVer constraint`; list-form dependencies не поддерживаются.
+- `settings.schema` может содержать metadata `label`, `description`, `group`; это текущий допустимый контракт.
+- Source-модуль не должен поставлять `state.json`; state принадлежит host-приложению.
 
-## Соглашения по именованию
+## Документация И Roadmap
 
-- UseCase-классы имеют суффикс `UseCase`, Action-классы — `Action`, Query-классы — `Query`.
-- Loader-классы имеют суффикс `Loader` и реализуют `LoaderInterface`.
-- Repository-классы имеют суффикс `Repository`; публичные контракты лежат в `Contracts/`.
-- Классы в `DTOs/` — `readonly class` (проверяется `ArchitectureTest::testReadonlyClassesInDTOsDirectory`).
-- Классы в `Enums/` — `enum` (проверяется `ArchitectureTest::testEnumsInEnumDirectory`).
-- Классы в `Providers/` — `extends ServiceProvider` (проверяется `ArchitectureTest::testAllProvidersExtendServiceProvider`).
+- Документируй только фактический runtime как реализованный.
+- Нереализованные module-aware generators `make:* --module`, full MoonShine admin UI, lifecycle events, marketplace/signature/fetch flows помечай как roadmap.
+- Не дублируй большие описания между AI-context файлами: `ARCHITECTURE.md` хранит дизайн и runtime flow, `base.md` - короткие правила, `AGENTS.md` - карту проекта, `DESCRIPTION.md` - product/runtime summary.
 
-## Структура пакета
+## Тесты И Quality Gates
 
+- Unit-тесты должны покрывать новые VO/services/use cases как минимум valid path и один error path.
+- Для новых structural rules добавляй architecture tests.
+- Перед PR/коммитом запускай отдельно:
+
+```bash
+composer format
+composer phpstan
+composer test
 ```
-src/
-├── Console/Commands/        — Artisan-команды пакета
-├── Contracts/               — публичные интерфейсы (LoaderInterface, ModuleManifestRepositoryInterface, …)
-├── Loaders/                 — реализации LoaderInterface
-├── Manifest/                — value objects: Module, ManifestMeta, ManifestState, FeatureSchema
-├── Application/             — use cases жизненного цикла
-├── Providers/               — ServiceProvider пакета
-└── Support/                 — утилиты (atomic JSON write, namespace resolver)
+
+- Для review полезны read-only проверки:
+
+```bash
+composer format:dry
+composer rector:dry
 ```
-
-## Управление модулями приложения
-
-- Корень модулей задаётся в `config/modules.php` (`paths.directories`).
-- Namespace резолвится по PSR-4 хост-приложения (читаем корневой `composer.json`).
-- Собственный `composer.json` внутри модуля опционален: он может использоваться для диагностики/упаковки/проверки constraints, но runtime namespace модуля резолвится из корневого PSR-4.
-- `module.json` — обязателен в корне каждого модуля. Без него модуль не виден `ModuleRegistry`.
-- `meta.dependencies` хранит зависимости как `moduleName => Composer SemVer constraint`; короткая форма списка допустима только как входной sugar и нормализуется в constraint `*`.
-- Запись в `module.json` — только через `ModuleManifestRepository::save()` (atomic tmp + rename + lock).
-
-## Генераторы
-
-- Основной публичный API генераторов — Laravel-style `make:* --module=Name`.
-- Стандартные Laravel-артефакты создаются стандартными командами с `--module`: `make:model`, `make:controller`, `make:migration`, `make:factory`, `make:request`, `make:resource`, `make:command`, `make:event`, `make:listener`, `make:observer`, `make:policy`, `make:middleware`, `make:enum`.
-- Архитектурные генераторы пакета также используют `--module`: `make:use-case`, `make:action`, `make:query`, `make:dto`.
-- MoonShine-генераторы не дублировать: MoonShine-артефакты создаются командами самого MoonShine.
-
-## Опциональные интеграции
-
-- MoonShine и Inertia не должны быть обязательными runtime-зависимостями пакета. Держим их в `suggest`/`require-dev`, а загрузку включаем только при наличии классов/контрактов в host-приложении.
-- Feature toggles в ядре читаются через `FeatureRepositoryInterface` (`get`, `bool`, `int`, `string`). Blade directive и другие presentation bridges — отдельная интеграционная задача, не замена DI-first API.
-
-## Тестирование
-
-- PHPUnit 11/12 + Orchestra Testbench.
-- Unit-тесты для каждого Loader-класса (см. `tests/Unit/*Test.php`).
-- `tests/ArchitectureTest.php` — архитектурные инварианты: strict_types, отсутствие debug-функций, слойность, запрет фасадов вне разрешённых integration-слоёв.
-- Mocking — Mockery; запрещаем `Facade::shouldReceive(...)` внутри пакета (фасады не используем).
-
-## Логирование и ошибки
-
-- Никаких `\Log::*` внутри пакета — пакет не делает побочных эффектов в логи приложения по умолчанию.
-- Ошибки — типизированные исключения из `src/Exceptions/` (`InvalidManifestException`, `ModuleDependencyMissingException`, `ModuleNotFoundException`).
-- Все исключения наследуют `RuntimeException` с поясняющим сообщением; никаких `\Exception` напрямую.
-
-## Git и CI
-
-- Базовая ветка — `main`.
-- Префикс feature-веток — `feature/`.
-- Перед коммитом: `composer format && composer phpstan && composer test`.
-- Никаких `--no-verify` — если хук падает, чиним причину.

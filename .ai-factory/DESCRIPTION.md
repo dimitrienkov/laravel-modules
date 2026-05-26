@@ -4,7 +4,7 @@
 
 `dimitrienkov0/laravel-modules` — Laravel-пакет для manifest-driven модульной архитектуры. Пакет загружает модули из настроенных директорий хост-приложения, читает `module.json`, строит dependency-aware registry, применяет loader-pipeline и предоставляет runtime API для feature toggles без БД.
 
-Текущий реализованный срез — **v2.0 core**: контракты, manifest VO, registry/cache, 15 лоадеров (полный loader pipeline), scoped `FeatureRepository`, optimizer-команды, lifecycle UseCase-классы и Artisan-команды (`make:module`, `modules:install/update/remove/enable/disable/list`), support-сервисы (`ZipExtractor`, `ModuleSourcePreparer`, `ModuleDependencyGuard`, `ModuleDirectoryOperations`, `LifecycleRegistryInvalidator`, `ModuleLifecyclePaths`, `ModuleStatePaths`) и optional bridges для MoonShine/Inertia. Module-aware генераторы `make:* --module` и полноценный MoonShine admin-UI остаются roadmap-задачами следующих фаз.
+Текущий реализованный срез — **v2.0 core**: контракты, manifest VO, registry/cache, 15 лоадеров (полный loader pipeline), scoped `FeatureRepository`, optimizer-команды, lifecycle UseCase-классы и Artisan-команды (`make:module`, `modules:install/update/remove/enable/disable/list/optimize/optimize-clear`), support-сервисы (`ZipExtractor`, `ModuleSourcePreparer`, `ModuleDependencyGuard`, `ModuleDirectoryOperations`, `LifecycleRegistryInvalidator`, `ModuleDirectoryPaths`, `ModuleSkeletonBuilder`, `PartialModuleRollback`, `ModuleStatePaths`) и optional bridges для MoonShine/Inertia. Module-aware генераторы `make:* --module` и полноценный MoonShine admin-UI остаются roadmap-задачами следующих фаз.
 
 ## Целевые сценарии
 

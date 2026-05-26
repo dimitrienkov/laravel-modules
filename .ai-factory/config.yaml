@@ -220,6 +220,8 @@ rules:
   # Area-specific rules files
   # These are created by /aif-rules when you add area-specific conventions
   # Uncomment and add paths as needed:
+  code-quality: .ai-factory/rules/code-quality.md
+  naming: .ai-factory/rules/naming.md
   manifest: .ai-factory/rules/manifest.md
   loaders: .ai-factory/rules/loaders.md
   runtime: .ai-factory/rules/runtime.md

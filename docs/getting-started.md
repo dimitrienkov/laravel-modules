@@ -96,6 +96,10 @@ storage/app/private/modules/blog/state.json
 }
 ```
 
+Если `state.json` отсутствует, модуль остаётся registered, но получает default disabled state. Pipeline не применит loaders к такому модулю, пока state не будет создан через lifecycle-команду или `ModuleStateRepository`.
+
+Source-артефакты модулей для `modules:install` и `modules:update` не должны содержать `state.json`: этот файл принадлежит приватному storage host-приложения.
+
 ## Проверка discovery cache
 
 Соберите production registry cache:

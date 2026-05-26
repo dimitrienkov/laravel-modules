@@ -66,7 +66,7 @@ Lifecycle-команды (`make:module`, `modules:install`) принимают `
 
 ## Backup path
 
-`paths.backup` задаёт директорию для backup при `modules:update` и `modules:remove`. По умолчанию `storage_path('app/module-backups')`. Формат backup: `<name>-<Ymd-His>`.
+`paths.backup` задаёт директорию для backup при `modules:update` и `modules:remove`. По умолчанию `storage_path('app/module-backups')`. Формат backup: `<name>-<Ymd-His>-<random-hex>`.
 
 ## State path
 

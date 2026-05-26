@@ -113,6 +113,10 @@ storage/app/private/modules/{name}/state.json
 
 State writes должны идти через `ModuleStateRepository`. Команды `enable`, `disable` и settings writes модифицируют только `state.json`. Команды `install`, `scaffold` и `update` создают или переписывают `module.json` через `writeManifest()` и создают `state.json`.
 
+Если `state.json` отсутствует, `ModuleStateRepository` возвращает default disabled state и пустые explicit values. Это позволяет registry видеть модуль, но loader pipeline пропускает его до явного включения.
+
+Source-модуль не должен содержать `state.json`. `ModuleSourcePreparer` отклоняет directory/zip source с таким файлом, потому что runtime state создаётся и переносится только host-приложением.
+
 ## `settings.schema`
 
 Поддерживаемые feature types:

@@ -132,7 +132,9 @@ UseCase-классы в `Application/UseCases/` реализуют бизнес-
 | `ModuleSourcePreparer` | Staging boundary: валидирует source (directory/zip) до копирования |
 | `ModuleDependencyGuard` | Проверяет dependency graph перед мутациями |
 | `ModuleDirectoryOperations` | Filesystem-операции: copy, replace with backup, restore, delete |
-| `ModuleLifecyclePaths` | Resolution путей: target root, backup directory |
+| `ModuleDirectoryPaths` | Resolution путей: target root, configured roots, backup directory |
+| `ModuleSkeletonBuilder` | Создаёт scaffold-директории и ServiceProvider stub |
+| `PartialModuleRollback` | Удаляет частично созданный target после failed persistence |
 | `LifecycleRegistryInvalidator` | Сбрасывает production cache и in-memory registry после мутаций |
 | `ZipExtractor` | Извлечение zip с защитой от zip-slip |
 
@@ -143,6 +145,8 @@ UseCase-классы в `Application/UseCases/` реализуют бизнес-
 ### Source staging
 
 Install и update валидируют source ДО копирования файлов. `ModuleSourcePreparer` читает `module.json` из source через `ManifestDocumentReader`, прогоняет через `ManifestValidatorInterface` и возвращает `PreparedSource`. `ModuleManifestRepository::load()` не используется для source paths вне `app_path()`.
+
+Source directory или zip не должен содержать `state.json`. Такой source отклоняется, потому что state принадлежит приватному storage host-приложения и переносится отдельными lifecycle boundaries.
 
 ### Миграции и rollback
 
