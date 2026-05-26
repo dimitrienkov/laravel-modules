@@ -194,7 +194,7 @@ final class ModuleRegistryCacheTest extends TestCase
     private function cache(): ModuleRegistryCache
     {
         $stateRepo = $this->createMock(ModuleStateRepositoryInterface::class);
-        $stateRepo->method('readState')->willReturn(ModuleState::disabledDefault());
+        $stateRepo->method('readState')->willReturn(ModuleState::defaultDisabled());
 
         return new ModuleRegistryCache(
             validator: new ManifestValidator(new ManifestSettingsValidator()),

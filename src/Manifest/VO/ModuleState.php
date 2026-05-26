@@ -35,7 +35,7 @@ final readonly class ModuleState
         return new self($enabled, $installedAt, $updatedAt);
     }
 
-    public static function disabledDefault(): self
+    public static function defaultDisabled(): self
     {
         return new self(enabled: false, installedAt: null, updatedAt: null);
     }

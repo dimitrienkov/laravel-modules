@@ -178,8 +178,73 @@ final class UpdateModuleUseCaseTest extends TestCase
         $this->assertContains('old_feature', $skippedKeys);
     }
 
-    private function makeUseCase(): UpdateModuleUseCase
+    #[Test]
+    public function rollbackOnManifestWriteFailure(): void
     {
+        $this->createInstalledModule('blog', '1.0.0');
+        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+
+        $originalManifest = json_decode(file_get_contents($this->tempDir . '/app/Modules/Blog/module.json'), true);
+        $originalState = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+
+        $failingManifests = $this->createMock(\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface::class);
+        $failingManifests->method('load')->willReturnCallback(
+            fn (string $path) => $this->makeRealManifestRepo()->load($path),
+        );
+        $failingManifests->method('writeManifest')->willThrowException(
+            new \DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException('simulated write failure'),
+        );
+
+        $useCase = $this->makeUseCase(manifestRepository: $failingManifests);
+
+        try {
+            $useCase->execute('blog', $sourceDir);
+            $this->fail('Expected ModuleUpdateException');
+        } catch (ModuleUpdateException $e) {
+            $this->assertStringContainsString('restored from backup', $e->getMessage());
+            $this->assertInstanceOf(\DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException::class, $e->getPrevious());
+        }
+
+        $restoredManifest = json_decode(file_get_contents($this->tempDir . '/app/Modules/Blog/module.json'), true);
+        $restoredState = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertSame($originalManifest, $restoredManifest);
+        $this->assertSame($originalState['enabled'], $restoredState['enabled']);
+    }
+
+    #[Test]
+    public function doubleFaultPersistAndRestoreFailure(): void
+    {
+        $this->createInstalledModule('blog', '1.0.0');
+        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+
+        $failingManifests = $this->createMock(\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface::class);
+        $failingManifests->method('load')->willReturnCallback(
+            fn (string $path) => $this->makeRealManifestRepo()->load($path),
+        );
+        $failingManifests->method('writeManifest')->willReturnCallback(function (): void {
+            $backupDirs = glob($this->tempDir . '/backups/blog-*');
+            foreach ($backupDirs as $dir) {
+                $this->filesystem->deleteDirectory($dir);
+            }
+
+            throw new \DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException('simulated write failure');
+        });
+
+        $useCase = $this->makeUseCase(manifestRepository: $failingManifests);
+
+        try {
+            $useCase->execute('blog', $sourceDir);
+            $this->fail('Expected ModuleUpdateException');
+        } catch (ModuleUpdateException $e) {
+            $this->assertStringContainsString('restore also failed', $e->getMessage());
+            $this->assertStringContainsString('Backup remains at', $e->getMessage());
+            $this->assertInstanceOf(\DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException::class, $e->getPrevious());
+        }
+    }
+
+    private function makeUseCase(
+        ?\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface $manifestRepository = null,
+    ): UpdateModuleUseCase {
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
         $config = new Repository([
@@ -220,18 +285,42 @@ final class UpdateModuleUseCaseTest extends TestCase
         $guard = new ModuleDependencyGuard($registry, $sorter);
         $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
         $paths = new ModuleDirectoryPaths($config, $this->tempDir, $this->tempDir . '/app');
-        $directoryOps = new ModuleDirectoryOperations(new Filesystem(), $paths);
+        $realDirectoryOps = new ModuleDirectoryOperations(new Filesystem(), $paths);
         $filesystem = new Filesystem();
         $sourcePreparer = new ModuleSourcePreparer(new ManifestDocumentReader(), $validator, new ZipExtractor($filesystem), $filesystem);
 
         return new UpdateModuleUseCase(
             $registry,
-            $manifests,
+            $manifestRepository ?? $manifests,
             $stateRepo,
             $sourcePreparer,
             $guard,
-            $directoryOps,
+            $realDirectoryOps,
             $invalidator,
+        );
+    }
+
+    private function makeRealManifestRepo(): ModuleManifestRepository
+    {
+        $layout = new ModuleLayout();
+        $validator = new ManifestValidator(new ManifestSettingsValidator());
+        $config = new Repository([
+            'modules' => ['paths' => ['directories' => ['app/Modules'], 'backup' => $this->tempDir . '/backups', 'state' => $this->stateRoot]],
+        ]);
+
+        $stateRepo = new ModuleStateRepository(
+            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
+            writer: new AtomicJsonWriter(),
+            filesystem: new Filesystem(),
+        );
+
+        return new ModuleManifestRepository(
+            layout: $layout,
+            writer: new AtomicJsonWriter(),
+            validator: $validator,
+            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+            documentReader: new ManifestDocumentReader(),
+            stateRepository: $stateRepo,
         );
     }
 

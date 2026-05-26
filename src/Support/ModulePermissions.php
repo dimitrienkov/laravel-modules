@@ -7,4 +7,7 @@ namespace DimitrienkoV\LaravelModules\Support;
 final class ModulePermissions
 {
     public const int DIRECTORY = 0755;
+    private function __construct()
+    {
+    }
 }

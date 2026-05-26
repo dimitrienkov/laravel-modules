@@ -46,7 +46,7 @@ final readonly class ModuleManifestRepository implements ModuleManifestRepositor
             namespace: $namespace,
             manifest: $manifest,
             manifestPath: $manifestPath,
-            state: \DimitrienkoV\LaravelModules\Manifest\VO\ModuleState::disabledDefault(),
+            state: \DimitrienkoV\LaravelModules\Manifest\VO\ModuleState::defaultDisabled(),
         );
 
         $state = $this->stateRepository->readState($moduleName, $manifestModule);

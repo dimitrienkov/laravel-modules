@@ -16,6 +16,11 @@ final readonly class ModuleDirectoryOperations
     ) {
     }
 
+    public function directoryExists(string $path): bool
+    {
+        return $this->filesystem->isDirectory($path);
+    }
+
     public function copyDirectory(string $source, string $target): void
     {
         if (! $this->filesystem->copyDirectory($source, $target)) {
@@ -28,8 +33,8 @@ final readonly class ModuleDirectoryOperations
         $backupPath = $this->paths->collisionSafeBackupPath($moduleName);
         $backupRoot = \dirname($backupPath);
 
-        if (! is_dir($backupRoot)) {
-            $this->filesystem->makeDirectory($backupRoot, ModulePermissions::DIRECTORY, true);
+        if (! is_dir($backupRoot) && ! $this->filesystem->makeDirectory($backupRoot, ModulePermissions::DIRECTORY, true)) {
+            throw DirectoryOperationException::forPath($backupRoot, 'backup directory could not be created.');
         }
 
         if (! $this->filesystem->moveDirectory($existingPath, $backupPath)) {
@@ -64,8 +69,8 @@ final readonly class ModuleDirectoryOperations
         $backupPath = $this->paths->collisionSafeBackupPath($moduleName);
         $backupRoot = \dirname($backupPath);
 
-        if (! is_dir($backupRoot)) {
-            $this->filesystem->makeDirectory($backupRoot, ModulePermissions::DIRECTORY, true);
+        if (! is_dir($backupRoot) && ! $this->filesystem->makeDirectory($backupRoot, ModulePermissions::DIRECTORY, true)) {
+            throw DirectoryOperationException::forPath($backupRoot, 'backup directory could not be created.');
         }
 
         if (! $this->filesystem->moveDirectory($target, $backupPath)) {
@@ -75,14 +80,14 @@ final readonly class ModuleDirectoryOperations
         return $backupPath;
     }
 
-    public function deleteDirectory(string $target, string $moduleName): void
+    public function deleteDirectory(string $target): void
     {
         if (! $this->filesystem->deleteDirectory($target)) {
             throw DirectoryOperationException::forPath($target, 'failed to delete directory.');
         }
     }
 
-    public function deleteDirectoryQuietly(string $path): bool
+    public function tryDeleteDirectory(string $path): bool
     {
         if (! is_dir($path)) {
             return true;

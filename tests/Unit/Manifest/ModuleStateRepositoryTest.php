@@ -187,7 +187,7 @@ final class ModuleStateRepositoryTest extends TestCase
                 license: null,
                 dependencies: new ModuleDependencies([]),
             ),
-            state: ModuleState::disabledDefault(),
+            state: ModuleState::defaultDisabled(),
             features: new FeatureSchema([]),
         );
     }

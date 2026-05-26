@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Exceptions;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use RuntimeException;
 use Throwable;
 
-final class ModuleLoaderException extends RuntimeException
+final class ModuleLoaderException extends RuntimeException implements ModuleExceptionInterface
 {
     public function __construct(
         public readonly string $loaderClass,

@@ -290,7 +290,7 @@ interface ModuleStateRepositoryInterface
 }
 ```
 
-`ModuleStateRepository` управляет `state.json` в приватном хранилище хоста. Путь резолвится через `ModuleStatePaths`. Запись атомарна через `AtomicJsonWriter`. При отсутствии `state.json` возвращается `ModuleState::disabledDefault()` с пустыми values.
+`ModuleStateRepository` управляет `state.json` в приватном хранилище хоста. Путь резолвится через `ModuleStatePaths`. Запись атомарна через `AtomicJsonWriter`. При отсутствии `state.json` возвращается `ModuleState::defaultDisabled()` с пустыми values.
 
 ### FeatureRepositoryInterface
 

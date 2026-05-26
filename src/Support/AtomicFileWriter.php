@@ -13,7 +13,7 @@ final readonly class AtomicFileWriter
     {
         $directory = \dirname($path);
 
-        if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
+        if (! is_dir($directory) && ! mkdir($directory, ModulePermissions::DIRECTORY, true) && ! is_dir($directory)) {
             throw AtomicWriteException::forPath($path, "directory [{$directory}] could not be created.");
         }
 

@@ -17,7 +17,6 @@ use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleInstallException;
-use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
@@ -53,7 +52,7 @@ final readonly class InstallModuleUseCase
 
             $targetPath = $this->paths->targetModulePath($targetRoot, $moduleName);
 
-            if (is_dir($targetPath)) {
+            if ($this->directoryOps->directoryExists($targetPath)) {
                 throw ModuleAlreadyExistsException::forPath($moduleName, $targetPath);
             }
 
@@ -88,17 +87,24 @@ final readonly class InstallModuleUseCase
                     new ModuleStateDocument($candidateState, $values),
                 );
             } catch (\Throwable $e) {
-                $this->directoryOps->deleteDirectoryQuietly($targetPath);
-                $this->stateRepository->delete($candidate->name);
+                $this->directoryOps->tryDeleteDirectory($targetPath);
+
+                $cleanupNote = '';
+
+                try {
+                    $this->stateRepository->delete($candidate->name);
+                } catch (\Throwable $cleanupError) {
+                    $cleanupNote = ' State cleanup also failed: ' . $cleanupError->getMessage();
+                }
 
                 throw ModuleInstallException::forModule(
                     $moduleName,
-                    'persistence failed after copy, rolled back target directory and state.',
+                    'persistence failed after copy, rolled back target directory.' . $cleanupNote,
                     $e,
                 );
             }
 
-            $this->invalidator->invalidate();
+            $this->invalidator->flushAndReset();
 
             return new InstallModuleResult(
                 name: $candidate->name,
@@ -113,11 +119,8 @@ final readonly class InstallModuleUseCase
 
     private function assertNotInRegistry(string $name): void
     {
-        try {
-            $this->registry->find($name);
-
+        if ($this->registry->has($name)) {
             throw ModuleAlreadyExistsException::forName($name);
-        } catch (ModuleNotFoundException) {
         }
     }
 }

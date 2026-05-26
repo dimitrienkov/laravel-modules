@@ -108,11 +108,11 @@ Update бэкапит текущую директорию, заменяет фа
 
 ```bash
 php artisan modules:remove blog
-php artisan modules:remove blog --force
-php artisan modules:remove blog --force --delete-permanently
+php artisan modules:remove blog --yes
+php artisan modules:remove blog --yes --delete-permanently
 ```
 
-`--force` пропускает confirmation prompt. Без `--delete-permanently` модуль перемещается в `config('modules.paths.backup')`. С `--delete-permanently` сначала удаляется директория модуля, затем `state.json`; если удаление директории не удалось, state остаётся intact. Remove запрещён, если другие installed модули зависят от удаляемого. Миграции не откатываются автоматически.
+`--yes` пропускает confirmation prompt. Без `--delete-permanently` модуль перемещается в `config('modules.paths.backup')`. С `--delete-permanently` сначала удаляется `state.json`, затем директория модуля; если удаление state не удалось, директория остаётся intact. Remove запрещён, если другие installed модули зависят от удаляемого. Миграции не откатываются автоматически.
 
 ## Ещё не реализовано
 

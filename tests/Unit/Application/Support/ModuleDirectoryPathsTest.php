@@ -125,7 +125,7 @@ final class ModuleDirectoryPathsTest extends TestCase
 
         $result = $paths->backupPath('blog');
 
-        $this->assertMatchesRegularExpression('#^/backups/blog-\d{8}-\d{6}$#', $result);
+        $this->assertMatchesRegularExpression('#^/backups/blog-\d{8}-\d{6}-[0-9a-f]{8}$#', $result);
     }
 
     /**

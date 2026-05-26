@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
 use DimitrienkoV\LaravelModules\Application\UseCases\DisableModuleUseCase;
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use Illuminate\Console\Command;
 
 final class ModulesDisableCommand extends Command
@@ -23,7 +24,7 @@ final class ModulesDisableCommand extends Command
             $this->components->info("Module [{$module->name}] disabled.");
 
             return self::SUCCESS;
-        } catch (\RuntimeException $e) {
+        } catch (ModuleExceptionInterface $e) {
             $this->components->error($e->getMessage());
 
             return self::FAILURE;

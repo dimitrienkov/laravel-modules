@@ -183,7 +183,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     private function repository(?ModuleState $state = null): ModuleManifestRepository
     {
         $stateRepo = $this->createMock(ModuleStateRepositoryInterface::class);
-        $stateRepo->method('readState')->willReturn($state ?? ModuleState::disabledDefault());
+        $stateRepo->method('readState')->willReturn($state ?? ModuleState::defaultDisabled());
 
         return new ModuleManifestRepository(
             layout: new ModuleLayout(),

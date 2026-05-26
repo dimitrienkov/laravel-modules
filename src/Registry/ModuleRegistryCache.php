@@ -81,7 +81,7 @@ final readonly class ModuleRegistryCache implements ModuleRegistryCacheInterface
                 namespace: $descriptor->namespace,
                 manifest: $descriptor->manifest,
                 manifestPath: $manifestPath,
-                state: ModuleState::disabledDefault(),
+                state: ModuleState::defaultDisabled(),
             );
 
             $state = $this->stateRepository->readState($name, $manifestModule);

@@ -43,7 +43,7 @@ final readonly class ModuleSourcePreparer
             throw ModuleSourceException::forPath($sourcePath, 'module.json not found in source directory.');
         }
 
-        $this->rejectStateFile($sourcePath);
+        $this->assertNoStateFile($sourcePath);
 
         $manifest = $this->documentReader->read($manifestPath);
         $this->validator->validate($manifest, $manifestPath);
@@ -69,7 +69,7 @@ final readonly class ModuleSourcePreparer
                 throw ModuleSourceException::forPath($sourcePath, 'module.json not found in archive.');
             }
 
-            $this->rejectStateFile($tempDir);
+            $this->assertNoStateFile($tempDir);
 
             $manifest = $this->documentReader->read($manifestPath);
             $this->validator->validate($manifest, $manifestPath);
@@ -89,7 +89,7 @@ final readonly class ModuleSourcePreparer
         }
     }
 
-    private function rejectStateFile(string $sourceRoot): void
+    private function assertNoStateFile(string $sourceRoot): void
     {
         if (is_file($sourceRoot . '/' . ModuleFileNames::STATE)) {
             throw ModuleSourceException::forPath(

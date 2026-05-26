@@ -15,7 +15,6 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
-use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
@@ -53,8 +52,8 @@ final readonly class ScaffoldModuleUseCase
 
         $this->assertNotExists($config->name, $targetPath, $config->force);
 
-        if ($config->force && is_dir($targetPath)) {
-            $this->directoryOps->deleteDirectoryQuietly($targetPath);
+        if ($config->force && $this->directoryOps->directoryExists($targetPath)) {
+            $this->directoryOps->tryDeleteDirectory($targetPath);
         }
 
         $namespace = $this->namespaceResolver->resolve($targetPath);
@@ -88,8 +87,15 @@ final readonly class ScaffoldModuleUseCase
             $values = new FeatureValues($module->features, []);
             $this->stateRepository->writeDocument($config->name, new ModuleStateDocument($state, $values));
         } catch (\Throwable $e) {
-            $this->directoryOps->deleteDirectoryQuietly($targetPath);
-            $this->stateRepository->delete($config->name);
+            $this->directoryOps->tryDeleteDirectory($targetPath);
+
+            $cleanupNote = '';
+
+            try {
+                $this->stateRepository->delete($config->name);
+            } catch (\Throwable $cleanupError) {
+                $cleanupNote = ' State cleanup also failed: ' . $cleanupError->getMessage();
+            }
 
             if ($e instanceof ModuleScaffoldException) {
                 throw $e;
@@ -97,12 +103,12 @@ final readonly class ScaffoldModuleUseCase
 
             throw ModuleScaffoldException::forModule(
                 $config->name,
-                'scaffold failed, cleaned up partial artifacts.',
+                'scaffold failed, cleaned up partial artifacts.' . $cleanupNote,
                 $e,
             );
         }
 
-        $this->invalidator->invalidate();
+        $this->invalidator->flushAndReset();
 
         $providerClass = $namespace . '\\Providers\\' . $studlyName . 'ServiceProvider';
 
@@ -125,25 +131,22 @@ final readonly class ScaffoldModuleUseCase
 
     private function assertNotExists(string $name, string $targetPath, bool $force): void
     {
-        try {
-            $existing = $this->registry->find($name);
-
+        if ($this->registry->has($name)) {
             if (! $force) {
                 throw ModuleAlreadyExistsException::forName($name);
             }
 
+            $existing = $this->registry->find($name);
             $normalizedExisting = rtrim(str_replace('\\', '/', $existing->path), '/');
             $normalizedTarget = rtrim(str_replace('\\', '/', $targetPath), '/');
 
             if ($normalizedExisting !== $normalizedTarget) {
                 throw ModuleAlreadyExistsException::forName($name);
             }
-        } catch (ModuleNotFoundException) {
         }
 
-        if (! $force && is_dir($targetPath)) {
+        if (! $force && $this->directoryOps->directoryExists($targetPath)) {
             throw ModuleAlreadyExistsException::forPath($name, $targetPath);
         }
     }
-
 }

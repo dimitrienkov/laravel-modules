@@ -56,7 +56,7 @@ final readonly class ModuleDirectoryPaths
     {
         $backup = $this->config->get('modules.paths.backup');
 
-        if ($backup !== null && \is_string($backup) && trim($backup) !== '') {
+        if (\is_string($backup) && trim($backup) !== '') {
             return $backup;
         }
 
@@ -65,23 +65,12 @@ final readonly class ModuleDirectoryPaths
 
     public function backupPath(string $moduleName): string
     {
-        return $this->backupRoot() . '/' . $moduleName . '-' . date('Ymd-His');
+        return $this->backupRoot() . '/' . $moduleName . '-' . date('Ymd-His') . '-' . bin2hex(random_bytes(4));
     }
 
     public function collisionSafeBackupPath(string $moduleName): string
     {
-        $base = $this->backupPath($moduleName);
-
-        if (! is_dir($base)) {
-            return $base;
-        }
-
-        $suffix = 1;
-        while (is_dir($base . '-' . $suffix)) {
-            $suffix++;
-        }
-
-        return $base . '-' . $suffix;
+        return $this->backupPath($moduleName);
     }
 
     /**
@@ -131,7 +120,4 @@ final readonly class ModuleDirectoryPaths
 
         return $roots;
     }
-
-
-
 }

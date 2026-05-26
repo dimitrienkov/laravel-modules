@@ -111,23 +111,23 @@ final class ModuleDirectoryOperationsTest extends TestCase
         $this->filesystem->makeDirectory($target, 0755, true);
         file_put_contents($target . '/file.txt', 'data');
 
-        $this->ops->deleteDirectory($target, 'blog');
+        $this->ops->deleteDirectory($target);
 
         $this->assertDirectoryDoesNotExist($target);
     }
 
     #[Test]
-    public function deleteDirectoryQuietlyIsIdempotent(): void
+    public function tryDeleteDirectoryIsIdempotent(): void
     {
         $path = $this->tempDir . '/nonexistent';
 
-        $this->ops->deleteDirectoryQuietly($path);
+        $this->ops->tryDeleteDirectory($path);
         $this->assertDirectoryDoesNotExist($path);
 
         $this->filesystem->makeDirectory($path, 0755, true);
         file_put_contents($path . '/file.txt', 'data');
 
-        $this->ops->deleteDirectoryQuietly($path);
+        $this->ops->tryDeleteDirectory($path);
         $this->assertDirectoryDoesNotExist($path);
     }
 }

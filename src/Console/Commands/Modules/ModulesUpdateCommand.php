@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
 use DimitrienkoV\LaravelModules\Application\UseCases\UpdateModuleUseCase;
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use Illuminate\Console\Command;
 use Illuminate\Console\ConfirmableTrait;
 
 final class ModulesUpdateCommand extends Command
 {
     use ConfirmableTrait;
+
     protected $signature = 'modules:update
         {name : The module name to update}
         {source : Path to updated module directory or .zip archive}';
@@ -47,7 +49,7 @@ final class ModulesUpdateCommand extends Command
             $this->components->warn('Run `php artisan migrate` to apply module migrations.');
 
             return self::SUCCESS;
-        } catch (\RuntimeException $e) {
+        } catch (ModuleExceptionInterface $e) {
             $this->components->error($e->getMessage());
 
             return self::FAILURE;

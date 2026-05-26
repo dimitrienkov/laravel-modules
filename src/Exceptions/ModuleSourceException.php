@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Exceptions;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use RuntimeException;
 use Throwable;
 
-final class ModuleSourceException extends RuntimeException
+final class ModuleSourceException extends RuntimeException implements ModuleExceptionInterface
 {
     public static function forPath(string $sourcePath, string $reason, ?Throwable $previous = null): self
     {

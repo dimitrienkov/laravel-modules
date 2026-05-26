@@ -35,7 +35,7 @@ final readonly class DisableModuleUseCase
         $newState = ModuleState::updatedFrom($module->state)->withEnabled(false);
 
         $updated = $this->stateRepository->writeState($module, $newState);
-        $this->invalidator->invalidate();
+        $this->invalidator->flushAndReset();
 
         return $updated;
     }

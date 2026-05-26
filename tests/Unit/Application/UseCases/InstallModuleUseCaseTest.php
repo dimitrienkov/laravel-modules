@@ -118,21 +118,20 @@ final class InstallModuleUseCaseTest extends TestCase
         $sourceDir = $this->createSourceModule('blog');
         $targetPath = $this->tempDir . '/app/Modules/Blog';
 
-        $this->filesystem->makeDirectory($this->stateRoot, 0755, true);
-        chmod($this->stateRoot, 0555);
+        $failingManifests = $this->createMock(\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface::class);
+        $failingManifests->method('writeManifest')->willThrowException(
+            new \DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException('simulated write failure'),
+        );
 
-        $previousHandler = set_error_handler(static fn (): bool => true);
+        $useCase = $this->makeUseCase(manifestRepository: $failingManifests);
 
         try {
-            $useCase = $this->makeUseCase();
             $useCase->execute($sourceDir);
             $this->fail('Expected ModuleInstallException was not thrown');
         } catch (ModuleInstallException $e) {
             $this->assertStringContainsString('persistence failed', $e->getMessage());
             $this->assertDirectoryDoesNotExist($targetPath);
-        } finally {
-            restore_error_handler();
-            chmod($this->stateRoot, 0755);
+            $this->assertFalse(is_dir($this->stateRoot . '/blog'));
         }
     }
 
@@ -149,8 +148,9 @@ final class InstallModuleUseCaseTest extends TestCase
         $this->assertEmpty($recentTempDirs);
     }
 
-    private function makeUseCase(): InstallModuleUseCase
-    {
+    private function makeUseCase(
+        ?\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface $manifestRepository = null,
+    ): InstallModuleUseCase {
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
         $config = new Repository([
@@ -203,7 +203,7 @@ final class InstallModuleUseCaseTest extends TestCase
 
         return new InstallModuleUseCase(
             $registry,
-            $manifests,
+            $manifestRepository ?? $manifests,
             $stateRepo,
             $sourcePreparer,
             $paths,

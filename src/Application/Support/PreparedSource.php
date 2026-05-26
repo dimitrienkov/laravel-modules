@@ -27,14 +27,6 @@ final readonly class PreparedSource
         return $this->manifest['meta']['name'];
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function meta(): array
-    {
-        return $this->manifest['meta'];
-    }
-
     public function cleanup(): void
     {
         if ($this->temporaryRoot !== null && is_dir($this->temporaryRoot)) {

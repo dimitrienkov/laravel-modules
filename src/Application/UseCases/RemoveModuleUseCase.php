@@ -12,6 +12,7 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleRemoveException;
+use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 
 final readonly class RemoveModuleUseCase
 {
@@ -30,58 +31,72 @@ final readonly class RemoveModuleUseCase
 
         $this->dependencyGuard->assertCanRemove($module);
 
-        $backupPath = null;
+        $backupPath = $deletePermanently
+            ? $this->performPermanentDelete($module)
+            : $this->performSoftRemove($module);
 
-        if ($deletePermanently) {
-            try {
-                $this->directoryOps->deleteDirectory($module->path, $moduleName);
-            } catch (DirectoryOperationException $e) {
-                throw ModuleRemoveException::forModule($moduleName, $e->getMessage(), $e);
-            }
-
-            try {
-                $this->stateRepository->delete($moduleName);
-            } catch (\Throwable $e) {
-                throw ModuleRemoveException::forModule(
-                    $moduleName,
-                    'directory deleted but state cleanup failed. State may be orphaned.',
-                    $e,
-                );
-            }
-        } else {
-            try {
-                $backupPath = $this->directoryOps->moveToBackup($module->path, $moduleName);
-            } catch (DirectoryOperationException $e) {
-                throw ModuleRemoveException::forModule($moduleName, $e->getMessage(), $e);
-            }
-
-            try {
-                $this->stateRepository->moveToBackup($moduleName, $backupPath);
-            } catch (\Throwable $e) {
-                try {
-                    $this->directoryOps->restoreBackup($backupPath, $module->path, $moduleName);
-                } catch (\Throwable $restoreError) {
-                    throw ModuleRemoveException::forModule(
-                        $moduleName,
-                        "state backup failed and restore also failed. Module backup at [{$backupPath}]. Restore error: {$restoreError->getMessage()}",
-                        $e,
-                    );
-                }
-
-                throw ModuleRemoveException::forModule(
-                    $moduleName,
-                    'state backup failed, restored module from backup.',
-                    $e,
-                );
-            }
-        }
-
-        $this->invalidator->invalidate();
+        $this->invalidator->flushAndReset();
 
         return new RemoveModuleResult(
             name: $moduleName,
             removedPath: $module->path,
             backupPath: $backupPath,
         );
+    }
+
+    private function performPermanentDelete(Module $module): null
+    {
+        try {
+            $this->stateRepository->delete($module->name);
+        } catch (\Throwable $e) {
+            throw ModuleRemoveException::forModule(
+                $module->name,
+                'state deletion failed, module directory was not touched.',
+                $e,
+            );
+        }
+
+        try {
+            $this->directoryOps->deleteDirectory($module->path);
+        } catch (DirectoryOperationException $e) {
+            throw ModuleRemoveException::forModule(
+                $module->name,
+                "state deleted but directory removal failed. Orphaned directory at [{$module->path}].",
+                $e,
+            );
+        }
+
+        return null;
+    }
+
+    private function performSoftRemove(Module $module): string
+    {
+        try {
+            $backupPath = $this->directoryOps->moveToBackup($module->path, $module->name);
+        } catch (DirectoryOperationException $e) {
+            throw ModuleRemoveException::forModule($module->name, $e->getMessage(), $e);
+        }
+
+        try {
+            $this->stateRepository->moveToBackup($module->name, $backupPath);
+        } catch (\Throwable $e) {
+            try {
+                $this->directoryOps->restoreBackup($backupPath, $module->path, $module->name);
+            } catch (\Throwable $restoreError) {
+                throw ModuleRemoveException::forModule(
+                    $module->name,
+                    "state backup failed and restore also failed. Module backup at [{$backupPath}]. Restore error: {$restoreError->getMessage()}",
+                    $e,
+                );
+            }
+
+            throw ModuleRemoveException::forModule(
+                $module->name,
+                'state backup failed, restored module from backup.',
+                $e,
+            );
+        }
+
+        return $backupPath;
     }
 }

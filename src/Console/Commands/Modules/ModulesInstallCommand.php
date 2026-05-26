@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
 use DimitrienkoV\LaravelModules\Application\UseCases\InstallModuleUseCase;
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use Illuminate\Console\Command;
 
 final class ModulesInstallCommand extends Command
@@ -39,7 +40,7 @@ final class ModulesInstallCommand extends Command
             $this->components->warn('Run `php artisan migrate` to apply module migrations.');
 
             return self::SUCCESS;
-        } catch (\RuntimeException $e) {
+        } catch (ModuleExceptionInterface $e) {
             $this->components->error($e->getMessage());
 
             return self::FAILURE;

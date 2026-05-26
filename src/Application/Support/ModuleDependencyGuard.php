@@ -27,7 +27,7 @@ final readonly class ModuleDependencyGuard
 
     public function assertCanDisable(Module $module): void
     {
-        $enabledDependents = $this->findEnabledDependents($module->name);
+        $enabledDependents = $this->findDependents($module->name, onlyEnabled: true);
 
         if ($enabledDependents !== []) {
             throw DependentModulesExistException::forDisable($module->name, $enabledDependents);
@@ -36,7 +36,7 @@ final readonly class ModuleDependencyGuard
 
     public function assertCanRemove(Module $module): void
     {
-        $allDependents = $this->findAllDependents($module->name);
+        $allDependents = $this->findDependents($module->name, onlyEnabled: false);
 
         if ($allDependents !== []) {
             throw DependentModulesExistException::forRemove($module->name, $allDependents);
@@ -46,33 +46,15 @@ final readonly class ModuleDependencyGuard
     /**
      * @return list<string>
      */
-    private function findEnabledDependents(string $moduleName): array
+    private function findDependents(string $moduleName, bool $onlyEnabled): array
     {
         $dependents = [];
 
         foreach ($this->registry->all() as $module) {
-            if (! $module->isEnabled()) {
+            if ($onlyEnabled && ! $module->isEnabled()) {
                 continue;
             }
 
-            if ($module->meta->dependencies->constraintFor($moduleName) !== null) {
-                $dependents[] = $module->name;
-            }
-        }
-
-        sort($dependents);
-
-        return $dependents;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function findAllDependents(string $moduleName): array
-    {
-        $dependents = [];
-
-        foreach ($this->registry->all() as $module) {
             if ($module->meta->dependencies->constraintFor($moduleName) !== null) {
                 $dependents[] = $module->name;
             }

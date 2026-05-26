@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Exceptions;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use RuntimeException;
 
-final class ModuleNotFoundException extends RuntimeException
+final class ModuleNotFoundException extends RuntimeException implements ModuleExceptionInterface
 {
     public static function forName(string $moduleName): self
     {

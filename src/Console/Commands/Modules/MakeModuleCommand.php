@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
 use DimitrienkoV\LaravelModules\Application\DTOs\ScaffoldModuleConfig;
 use DimitrienkoV\LaravelModules\Application\UseCases\ScaffoldModuleUseCase;
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use Illuminate\Console\Command;
 
 final class MakeModuleCommand extends Command
@@ -42,7 +43,7 @@ final class MakeModuleCommand extends Command
             $this->components->twoColumnDetail('Enabled', $result->enabled ? 'Yes' : 'No');
 
             return self::SUCCESS;
-        } catch (\RuntimeException $e) {
+        } catch (ModuleExceptionInterface $e) {
             $this->components->error($e->getMessage());
 
             return self::FAILURE;

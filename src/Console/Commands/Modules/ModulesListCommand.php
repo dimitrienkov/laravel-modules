@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use Illuminate\Console\Command;
@@ -20,7 +21,7 @@ final class ModulesListCommand extends Command
     {
         try {
             $modules = $registry->all();
-        } catch (\RuntimeException $e) {
+        } catch (ModuleExceptionInterface $e) {
             $this->components->error($e->getMessage());
 
             return self::FAILURE;

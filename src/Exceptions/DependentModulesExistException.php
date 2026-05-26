@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Exceptions;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use RuntimeException;
 
-final class DependentModulesExistException extends RuntimeException
+final class DependentModulesExistException extends RuntimeException implements ModuleExceptionInterface
 {
     /**
      * @param list<string> $dependentNames

@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Exceptions;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use RuntimeException;
 
-final class InvalidModuleStateException extends RuntimeException
+final class InvalidModuleStateException extends RuntimeException implements ModuleExceptionInterface
 {
     public static function forPath(string $statePath, string $reason, ?\Throwable $previous = null): self
     {

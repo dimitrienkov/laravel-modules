@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Exceptions;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use RuntimeException;
 use Throwable;
 
-final class ModuleUpdateException extends RuntimeException
+final class ModuleUpdateException extends RuntimeException implements ModuleExceptionInterface
 {
     public static function forModule(string $moduleName, string $reason, ?Throwable $previous = null): self
     {

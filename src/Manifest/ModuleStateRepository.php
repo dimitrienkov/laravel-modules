@@ -47,7 +47,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
 
         if (! is_file($statePath)) {
             return new ModuleStateDocument(
-                ModuleState::disabledDefault(),
+                ModuleState::defaultDisabled(),
                 new FeatureValues($module->features, []),
             );
         }

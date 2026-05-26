@@ -108,7 +108,7 @@ final readonly class UpdateModuleUseCase
                 );
             }
 
-            $this->invalidator->invalidate();
+            $this->invalidator->flushAndReset();
 
             return new UpdateModuleResult(
                 name: $moduleName,

@@ -59,7 +59,7 @@ final class LifecycleRegistryInvalidatorTest extends TestCase
         [$cache, $registry] = $this->createServices();
         $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
 
-        $invalidator->invalidate();
+        $invalidator->flushAndReset();
 
         $this->assertFileDoesNotExist($cachePath);
     }
@@ -73,7 +73,7 @@ final class LifecycleRegistryInvalidatorTest extends TestCase
         [$cache, $registry] = $this->createServices();
         $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
 
-        $invalidator->invalidate();
+        $invalidator->flushAndReset();
 
         $this->assertFileDoesNotExist($cachePath);
     }
@@ -94,7 +94,7 @@ final class LifecycleRegistryInvalidatorTest extends TestCase
         $this->assertCount(1, $registry->all());
 
         $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
-        $invalidator->invalidate();
+        $invalidator->flushAndReset();
 
         $this->assertCount(0, $registry->all());
     }

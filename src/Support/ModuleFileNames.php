@@ -9,4 +9,7 @@ final class ModuleFileNames
     public const string MANIFEST = 'module.json';
 
     public const string STATE = 'state.json';
+    private function __construct()
+    {
+    }
 }

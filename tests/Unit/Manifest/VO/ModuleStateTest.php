@@ -66,7 +66,7 @@ final class ModuleStateTest extends TestCase
     #[Test]
     public function disabled_default_returns_disabled_state(): void
     {
-        $state = ModuleState::disabledDefault();
+        $state = ModuleState::defaultDisabled();
 
         self::assertFalse($state->enabled);
         self::assertNull($state->installedAt);
