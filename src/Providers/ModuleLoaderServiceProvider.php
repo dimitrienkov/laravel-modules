@@ -54,6 +54,7 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\MoonShine\MoonShineModuleAutoloader;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
 use DimitrienkoV\LaravelModules\Support\ApplicationNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
@@ -228,11 +229,17 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             fn (): ModuleRegistryCache => $this->app->make(ModuleRegistryCache::class),
         );
 
-        $this->app->singleton(ModuleRegistry::class, function (): ModuleRegistry {
-            return new ModuleRegistry(
+        $this->app->singleton(ModuleRegistrySnapshotBuilder::class, function (): ModuleRegistrySnapshotBuilder {
+            return new ModuleRegistrySnapshotBuilder(
+                scanner: $this->app->make(ModuleDirectoryScanner::class),
                 manifests: $this->app->make(ModuleManifestRepositoryInterface::class),
                 sorter: $this->app->make(TopologicalSorter::class),
-                scanner: $this->app->make(ModuleDirectoryScanner::class),
+            );
+        });
+
+        $this->app->singleton(ModuleRegistry::class, function (): ModuleRegistry {
+            return new ModuleRegistry(
+                builder: $this->app->make(ModuleRegistrySnapshotBuilder::class),
                 cache: $this->app->make(ModuleRegistryCacheInterface::class),
             );
         });

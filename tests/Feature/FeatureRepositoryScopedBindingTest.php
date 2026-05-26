@@ -18,6 +18,7 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -108,14 +109,16 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         ));
 
         $app->instance(ModuleRegistryInterface::class, new ModuleRegistry(
-            manifests: $app->make(ModuleManifestRepositoryInterface::class),
-            sorter: new TopologicalSorter(),
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new LocalFilesystem(new Filesystem()),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
+            builder: new ModuleRegistrySnapshotBuilder(
+                scanner: new ModuleDirectoryScanner(
+                    config: $config,
+                    filesystem: new LocalFilesystem(new Filesystem()),
+                    layout: $layout,
+                    basePath: $this->tempDir,
+                    appPath: $this->tempDir . '/app',
+                ),
+                manifests: $app->make(ModuleManifestRepositoryInterface::class),
+                sorter: new TopologicalSorter(),
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,

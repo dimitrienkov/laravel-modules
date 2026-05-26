@@ -48,10 +48,12 @@ final readonly class ModuleStatePaths
         $normalizedStateRoot = PathNormalizer::normalize($stateRoot);
 
         foreach ($directories as $directory) {
-            if (! \is_string($directory) || trim($directory) === '') {
+            if (! \is_string($directory)) {
                 continue;
             }
-
+            if (trim($directory) === '') {
+                continue;
+            }
             $resolved = PathNormalizer::resolveAbsolute($directory, $this->basePath);
             $normalizedDir = PathNormalizer::normalize($resolved);
 

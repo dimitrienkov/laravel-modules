@@ -18,6 +18,8 @@ use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleFileNames;
 use DimitrienkoV\LaravelModules\Support\ModulePermissions;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
+use JsonException;
 
 final readonly class ModuleStateRepository implements ModuleStateRepositoryInterface
 {
@@ -48,7 +50,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             );
         }
 
-        $raw = $this->readStateFile($statePath, $moduleName);
+        $raw = $this->readStateFile($statePath);
         $this->validateTopLevelKeys($raw, $statePath);
 
         $stateArray = $this->extractStateFields($raw);
@@ -168,17 +170,17 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
     /**
      * @return array<string, mixed>
      */
-    private function readStateFile(string $statePath, string $moduleName): array
+    private function readStateFile(string $statePath): array
     {
         try {
             $content = $this->filesystem->get($statePath);
-        } catch (\Illuminate\Contracts\Filesystem\FileNotFoundException $e) {
+        } catch (FileNotFoundException $e) {
             throw InvalidModuleStateException::forPath($statePath, 'state file could not be read.', $e);
         }
 
         try {
             $raw = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
+        } catch (JsonException $e) {
             throw InvalidModuleStateException::forPath($statePath, 'state file contains invalid JSON: ' . $e->getMessage(), $e);
         }
 

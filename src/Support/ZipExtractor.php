@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\ModuleArchiveException;
+use Throwable;
 use ZipArchive;
 
 final readonly class ZipExtractor
@@ -46,7 +47,7 @@ final readonly class ZipExtractor
 
         try {
             $this->extract($zipPath, $tempDir);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             if ($this->filesystem->isDirectory($tempDir)) {
                 $this->filesystem->deleteDirectory($tempDir);
             }

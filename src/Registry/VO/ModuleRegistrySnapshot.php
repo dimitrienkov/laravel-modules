@@ -1,0 +1,68 @@
+<?php
+
+declare(strict_types=1);
+
+namespace DimitrienkoV\LaravelModules\Registry\VO;
+
+use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
+use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+
+final readonly class ModuleRegistrySnapshot
+{
+    /** @var array<string, Module> */
+    private array $modules;
+
+    /**
+     * @param array<int, Module> $loadOrder
+     */
+    public function __construct(
+        public array $loadOrder,
+    ) {
+        $map = [];
+
+        foreach ($loadOrder as $module) {
+            if (isset($map[$module->name])) {
+                throw InvalidManifestException::forPath(
+                    $module->manifestPath(),
+                    "duplicate module name [{$module->name}].",
+                );
+            }
+
+            $map[$module->name] = $module;
+        }
+
+        $this->modules = $map;
+    }
+
+    /**
+     * @return array<int, Module>
+     */
+    public function all(): array
+    {
+        return $this->loadOrder;
+    }
+
+    /**
+     * @return array<int, Module>
+     */
+    public function loadOrder(): array
+    {
+        return $this->loadOrder;
+    }
+
+    public function find(string $name): Module
+    {
+        return $this->modules[$name] ?? throw ModuleNotFoundException::forName($name);
+    }
+
+    public function has(string $name): bool
+    {
+        return isset($this->modules[$name]);
+    }
+
+    public function count(): int
+    {
+        return \count($this->loadOrder);
+    }
+}

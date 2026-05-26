@@ -20,6 +20,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
+use Throwable;
 
 final readonly class UpdateModuleUseCase
 {
@@ -89,11 +90,11 @@ final readonly class UpdateModuleUseCase
                     $moduleName,
                     new ModuleStateDocument($preservedState, $mergedValues),
                 );
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 try {
-                    $this->directoryOps->restoreBackup($backupPath, $existingModule->path, $moduleName);
+                    $this->directoryOps->restoreBackup($backupPath, $existingModule->path);
                     $this->stateRepository->writeDocument($existingModule->name, $existingStateDocument);
-                } catch (\Throwable $restoreError) {
+                } catch (Throwable $restoreError) {
                     throw ModuleUpdateException::forModule(
                         $moduleName,
                         "persistence failed and restore also failed. Backup remains at [{$backupPath}]. Restore error: {$restoreError->getMessage()}",
@@ -147,7 +148,7 @@ final readonly class UpdateModuleUseCase
 
             try {
                 $merged[$key] = $definition->normalize($value, $manifestPath);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $skipped[] = new SkippedFeatureValue($key, 'invalid value: ' . $e->getMessage());
             }
         }

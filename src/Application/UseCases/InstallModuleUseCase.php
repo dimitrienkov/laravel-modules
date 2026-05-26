@@ -22,6 +22,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
+use Throwable;
 
 final readonly class InstallModuleUseCase
 {
@@ -88,7 +89,7 @@ final readonly class InstallModuleUseCase
                     $candidate->name,
                     new ModuleStateDocument($candidateState, $values),
                 );
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $cleanupNote = $this->rollback->rollback($moduleName, $targetPath);
 
                 throw ModuleInstallException::forModule(

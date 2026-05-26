@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\Support;
 
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
+use Throwable;
 
 final readonly class PartialModuleRollback
 {
@@ -23,7 +24,7 @@ final readonly class PartialModuleRollback
 
         try {
             $this->stateRepository->delete($moduleName);
-        } catch (\Throwable $cleanupError) {
+        } catch (Throwable $cleanupError) {
             return ' State cleanup also failed: ' . $cleanupError->getMessage();
         }
 

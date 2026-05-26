@@ -10,6 +10,7 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -48,7 +49,7 @@ final readonly class ModuleManifestRepository implements ModuleManifestRepositor
             namespace: $namespace,
             manifest: $manifest,
             manifestPath: $manifestPath,
-            state: \DimitrienkoV\LaravelModules\Manifest\VO\ModuleState::defaultDisabled(),
+            state: ModuleState::defaultDisabled(),
         );
 
         $state = $this->stateRepository->readState($moduleName, $manifestModule);

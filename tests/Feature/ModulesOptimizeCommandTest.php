@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Feature;
 
+use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
+use DimitrienkoV\LaravelModules\Application\UseCases\ClearModulesOptimizeCacheUseCase;
+use DimitrienkoV\LaravelModules\Application\UseCases\OptimizeModulesUseCase;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeClearCommand;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeCommand;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
@@ -14,6 +17,7 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -47,9 +51,21 @@ final class ModulesOptimizeCommandTest extends TestCase
         $this->writeManifest();
 
         $app = $this->application();
-        $registry = $this->registry();
+        $cache = $this->registryCache();
+        $builder = $this->snapshotBuilder();
+        $registry = $this->registry($builder, $cache);
+
+        $app->instance(ModuleRegistryCache::class, $cache);
+        $app->instance(ModuleRegistrySnapshotBuilder::class, $builder);
         $app->instance(ModuleRegistry::class, $registry);
-        $app->instance(ModuleRegistryCache::class, $this->registryCache());
+
+        $optimizeUseCase = new OptimizeModulesUseCase($builder, $cache);
+        $app->instance(OptimizeModulesUseCase::class, $optimizeUseCase);
+
+        $invalidator = new LifecycleRegistryInvalidator($cache, $registry);
+        $clearUseCase = new ClearModulesOptimizeCacheUseCase($cache, $invalidator);
+        $app->instance(ClearModulesOptimizeCacheUseCase::class, $clearUseCase);
+
         $app->make(Kernel::class)->registerCommand($app->make(ModulesOptimizeCommand::class));
         $app->make(Kernel::class)->registerCommand($app->make(ModulesOptimizeClearCommand::class));
     }
@@ -141,7 +157,7 @@ final class ModulesOptimizeCommandTest extends TestCase
         );
     }
 
-    private function registry(): ModuleRegistry
+    private function snapshotBuilder(): ModuleRegistrySnapshotBuilder
     {
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
@@ -155,7 +171,14 @@ final class ModulesOptimizeCommandTest extends TestCase
 
         $stateRepository = $this->stateRepository();
 
-        return new ModuleRegistry(
+        return new ModuleRegistrySnapshotBuilder(
+            scanner: new ModuleDirectoryScanner(
+                config: $config,
+                filesystem: new LocalFilesystem(new Filesystem()),
+                layout: $layout,
+                basePath: $this->tempDir,
+                appPath: $this->tempDir . '/app',
+            ),
             manifests: new ModuleManifestRepository(
                 layout: $layout,
                 writer: new AtomicJsonWriter(),
@@ -166,19 +189,16 @@ final class ModulesOptimizeCommandTest extends TestCase
                 filesystem: new LocalFilesystem(new Filesystem()),
             ),
             sorter: new TopologicalSorter(),
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new LocalFilesystem(new Filesystem()),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
-            ),
-            cache: new ModuleRegistryCache(
-                validator: $validator,
-                layout: $layout,
-                stateRepository: $stateRepository,
-                basePath: $this->tempDir,
-            ),
+        );
+    }
+
+    private function registry(
+        ModuleRegistrySnapshotBuilder $builder,
+        ModuleRegistryCache $cache,
+    ): ModuleRegistry {
+        return new ModuleRegistry(
+            builder: $builder,
+            cache: $cache,
         );
     }
 

@@ -38,7 +38,7 @@ final readonly class ModuleDirectoryOperations
         }
 
         if (! $this->filesystem->copyDirectory($replacementPath, $existingPath)) {
-            $this->restoreBackup($backupPath, $existingPath, $moduleName);
+            $this->restoreBackup($backupPath, $existingPath);
 
             throw DirectoryOperationException::forPath($replacementPath, "failed to copy source to target [{$existingPath}], restored from backup.");
         }
@@ -46,7 +46,7 @@ final readonly class ModuleDirectoryOperations
         return $backupPath;
     }
 
-    public function restoreBackup(string $backupPath, string $targetPath, string $moduleName): void
+    public function restoreBackup(string $backupPath, string $targetPath): void
     {
         if ($this->filesystem->isDirectory($targetPath)) {
             $this->filesystem->deleteDirectory($targetPath);

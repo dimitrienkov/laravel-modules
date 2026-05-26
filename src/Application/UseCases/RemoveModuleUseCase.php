@@ -13,6 +13,7 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleRemoveException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use Throwable;
 
 final readonly class RemoveModuleUseCase
 {
@@ -48,7 +49,7 @@ final readonly class RemoveModuleUseCase
     {
         try {
             $this->stateRepository->delete($module->name);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw ModuleRemoveException::forModule(
                 $module->name,
                 'state deletion failed, module directory was not touched.',
@@ -79,10 +80,10 @@ final readonly class RemoveModuleUseCase
 
         try {
             $this->stateRepository->moveToBackup($module->name, $backupPath);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             try {
-                $this->directoryOps->restoreBackup($backupPath, $module->path, $module->name);
-            } catch (\Throwable $restoreError) {
+                $this->directoryOps->restoreBackup($backupPath, $module->path);
+            } catch (Throwable $restoreError) {
                 throw ModuleRemoveException::forModule(
                     $module->name,
                     "state backup failed and restore also failed. Module backup at [{$backupPath}]. Restore error: {$restoreError->getMessage()}",

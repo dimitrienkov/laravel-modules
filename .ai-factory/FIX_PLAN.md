@@ -1,191 +1,172 @@
-# Fix Plan: Архитектурное разделение runtime, manifest schema и MoonShine-интеграции
+# Fix Plan: Закрыть хвосты review после runtime-рефакторинга
 
-**Problem:** текущий пакет уже работает как компактный modular monolith, но несколько классов совмещают слишком много ответственностей. Это затруднит развитие `settings.schema`, lifecycle-команд, module registry cache и optional MoonShine auto-discovery. Отдельно текущая MoonShine-регистрация зависит от того, был ли `CoreContract` уже bound в момент `register()`, хотя проектная архитектура требует `afterResolving(CoreContract::class)`.
-**Created:** 2026-05-24 18:06
+**Problem:** review текущего кода показал, что большая часть прежнего FIX_PLAN уже реализована, но остались архитектурные хвосты: `ModuleRegistry` всё ещё хранит snapshot как две array-shape переменные, optimize-команды завязаны на concrete runtime-классы вместо application/usecase boundary, а часть проектных правил AI Factory устарела относительно фактического `state.json` runtime. Обратная совместимость не требуется, поэтому BC-only пункты не включаются в работу. `label`, `group`, `description` в `settings.schema` считаются допустимым текущим контрактом.
+**Created:** 2026-05-26 20:12
 
 ## Analysis
 
-Что найдено в коде:
+Что найдено во время review:
 
-- `src/Manifest/FeatureDefinition.php` совмещает DTO, parser, whitelist validation, type-specific rules, value normalization и serialization. Это главный риск для будущего расширения schema UI: новые типы полей, видимость, секции, help text, casts, nullable/array values быстро превратят класс в монолит.
-- `src/Manifest/ManifestValidator.php`, `ManifestMeta.php`, `ManifestState.php`, `ModuleDependencies.php` и `FeatureDefinition.php` повторяют низкоуровневые проверки array/object/string/allowed keys. Это не критичный баг сейчас, но дальнейшее расширение манифеста будет дублировать ошибки.
-- `src/Manifest/ModuleRegistry.php` совмещает lazy runtime cache, сканирование директорий, чтение optimized cache, сборку load order и cache payload. Это мешает отдельно развивать install/update/remove invalidation и production cache.
-- `src/Providers/ModuleLoaderServiceProvider.php` одновременно wiring-класс, loader registry, optional integration gate и runner pipeline. Это усложнит добавление новых лоадеров и регистрацию кастомных pipeline-расширений.
-- `src/Loaders/MoonShineLoader.php` уже вызывает нативный `$core->autoload($module->namespace)`, а установленный `moonshine/contracts` 4.10.0 подтверждает сигнатуру `autoload(?string $namespace = null): static`. Но provider регистрирует loader только если `CoreContract` уже bound, что может пропустить MoonShine, если он резолвится позже.
-- `src/Services` пустой. Его лучше удалить или не использовать; для новых компонентов предпочтительнее явные namespace по роли (`Manifest/Schema`, `Manifest/IO`, `Registry`, `Loaders/Pipeline`, `MoonShine`), а не generic `Services`.
-- Рабочая копия уже содержит несохранённые изменения в manifest/runtime/tests. Реализация должна читать актуальные файлы перед каждым edit и не откатывать чужие изменения.
+- `src/Manifest/ModuleRegistry.php` уже использует выделенные `ModuleDirectoryScanner` и `ModuleRegistryCache`, но внутри хранит loaded state как две отдельные nullable array-переменные: `$modules` и `$orderedModules`. Это оставляет в registry array-shape протокол и дублирует инвариант "module map + load order".
+- `ModuleRegistry::writeCache()` остаётся public методом concrete registry. Из-за этого `modules:optimize` инжектит `DimitrienkoV\LaravelModules\Manifest\ModuleRegistry` напрямую, а не contract/usecase.
+- `modules:optimize-clear` инжектит concrete `ModuleRegistryCache` и `ModuleRegistry`, хотя архитектура задаёт направление `Console/Commands -> Application/UseCases + Contracts`.
+- Текущий fail-loud behavior для tagged non-loader services закреплён тестом и полезнее silent ignore. Это не нужно менять; нужно считать это принятым уточнением поведения.
+- `FeatureDefinition::fromArray()` не нужно возвращать: проект v2.0 не требует обратной совместимости, а parsing уже корректно вынесен в `FeatureDefinitionFactory`.
+- `label`, `description`, `group` уже поддержаны кодом, тестами и документацией manifest. Это допустимое расширение контракта и не является дефектом.
+- `.ai-factory/rules/base.md` и `.ai-factory/rules/manifest.md` местами противоречат текущему runtime: упоминают `settings.values`/state в `module.json`, `ModuleManifestRepository::save()` и list-form dependencies. Эти файлы нельзя править обычной fix-задачей без явного `$aif-rules` workflow, поэтому здесь только зафиксировать follow-up.
 
-Внешние аналоги и выводы:
+Root cause:
 
-- `nwidart/laravel-modules` позиционирует module как Laravel package-like единицу и автоматически регистрирует module service provider, чтобы routes/migrations/views/translations/commands обнаруживались без ручной настройки. В старой документации есть отдельная cache-настройка для множества `module.json`. Это подтверждает ценность registry/cache как отдельной границы, но не повод добавлять manifest autoload whitelist.
-- `akaunting/laravel-module` и Akaunting docs используют commercial/app-store сценарий: module похож на Laravel package, имеет `module.json`, providers, requires/settings и install flow. Это близко к целевому сценарию проекта, но у текущего пакета лучше сохранить JSON source of truth без БД.
-- `internachi/modular` делает другой tradeoff: Composer path repositories + Laravel package discovery, легче для организации кода, но сам README говорит, что для third-party modules с dynamic enable/disable больше подходит `laravel-modules`. Значит текущий пакет не должен уходить полностью в Composer package discovery, но может учесть `modules:cache`, `modules:sync` и module-aware `make:*`.
-- Laravel Pennant отделяет feature definition/checking/storage/testing и поддерживает drivers/cache/scope. Для этого пакета не нужно заменять module settings на Pennant, но стоит заимствовать идею маленьких границ: definition, repository, values, type/cast normalization, test helpers.
-- Spatie Laravel Settings показывает полезные идеи для typed settings: casts, repositories, cache, auto-discovery, clear-cache. Для текущего пакета это аргумент в пользу `FeatureType`/`FeatureValueNormalizer`/`FeatureFieldFactory`, а не разрастания `FeatureDefinition`.
-- MoonShine 4 docs говорят, что autoload pages/resources выключен по умолчанию и включается вызовом `autoload()`. Docs также фиксируют configurable `dir`/`namespace`, а локальный контракт поддерживает `autoload(?string $namespace = null)`, поэтому module namespace autoload является корректной интеграционной точкой.
-
-Источники:
-
-- https://laravelmodules.com/docs/13/getting-started/introduction
-- https://nwidart.com/laravel-modules/v6/basic-usage/configuration
-- https://akaunting.com/hc/docs/developers/modules/
-- https://packagist.org/packages/internachi/modular
-- https://laravel.com/docs/11.x/pennant
-- https://github.com/spatie/laravel-settings
-- https://getmoonshine.app/en/docs/4.x/model-resource/index
-- https://getmoonshine.app/en/docs/4.x/configuration
-- https://laravel.com/docs/10.x/packages
-
-Root cause / suspected root cause:
-
-- Архитектура описывает более зрелый package runtime, чем текущий код. Несколько классов пока выполняют роль "склеить минимальный MVP", поэтому границы для schema evolution, registry cache и optional integrations ещё не выделены.
-- MoonShine optional integration реализована как eager container-bound check, а должна быть lifecycle hook integration.
-- Manifest schema пока типизирована строками (`bool`, `int`, `string`, `enum`) и приватными static helper-методами, поэтому добавление UI-полей или rich values приведёт к каскадным изменениям.
+- После крупного рефакторинга остался смешанный слой orchestration: часть registry/cache операций уже вынесена, но snapshot и optimize use cases не получили отдельной application-level границы.
+- Старые AI Factory rules не были синхронизированы после перехода на отдельный `state.json` и запрета list-form dependencies.
 
 Impact scope:
 
-- Runtime boot пакета: service provider, loader pipeline, module registry cache.
-- Manifest parsing/validation: все VO манифеста и тесты `tests/Unit/Manifest/*`.
-- Optional MoonShine behavior: `MoonShineLoader`, provider tests, optional dependency tests.
-- Lifecycle future work: install/update/remove/list/enable/disable должны опираться на выделенный registry/cache invalidation и manifest writer.
+- Registry runtime и production cache generation.
+- Artisan optimize commands.
+- Feature/architecture tests вокруг command dependencies и registry snapshot.
+- Последующая синхронизация AI Factory rules отдельным rules workflow.
 
 ## Fix Steps
 
-1. [ ] Зафиксировать текущий baseline перед изменениями
-   - Прочитать актуальный `git diff -- src tests composer.json`, потому что рабочая копия уже dirty.
-   - Запустить targeted baseline при возможности: `composer test:unit` и `composer test:feature` или минимально manifest/provider tests.
-   - Ничего не откатывать без отдельного запроса.
+1. [ ] Зафиксировать актуальный baseline
+   - Прочитать текущие `src/Manifest/ModuleRegistry.php`, `src/Registry/ModuleRegistryCache.php`, optimize-команды и связанные тесты.
+   - Не менять manifest schema parsing ради BC: `FeatureDefinition::fromArray()` не возвращать.
+   - Не убирать `label`, `description`, `group`.
+   - Принять fail-loud поведение для invalid tagged loaders как текущее правило.
 
-2. [ ] Выделить manifest parsing primitives
-   - Добавить небольшой internal helper в `src/Manifest/Parsing/ManifestFieldReader.php` или аналогичный namespace.
-   - Ответственность: `requiredObject`, `optionalObject`, `requiredString`, `optionalString`, `optionalBool`, `optionalInt`, `assertAllowedKeys`, object-vs-list edge case.
-   - Использовать typed exceptions `InvalidManifestException::forPath(...)`.
-   - Не менять публичный manifest format.
-   - Перенести повторяющиеся проверки из `ManifestValidator`, `ManifestMeta`, `ManifestState`, `ModuleDependencies`, `FeatureDefinition`.
+2. [ ] Добавить typed registry snapshot
+   - Добавить `src/Registry/VO/ModuleRegistrySnapshot.php` как `final readonly` value object.
+   - Хранить внутри:
+     - `array<string, Module> $modules`
+     - `array<int, Module> $loadOrder`
+   - Добавить named constructor `fromLoadOrder(array $loadOrder)` или аналог, который строит map по module name и явно валидирует duplicate names через typed exception.
+   - Добавить методы `all()`, `loadOrder()`, `find(string $name)`, `has(string $name)`, `count()`.
+   - Сохранить deterministic order: `all()` возвращает modules в load order, а не случайный порядок map.
 
-3. [ ] Разделить feature schema model и normalization
-   - Оставить `FeatureDefinition` final readonly value object.
-   - Вынести сборку из array в `FeatureDefinitionFactory` или `FeatureDefinitionParser`.
-   - Вынести value normalization в `FeatureValueNormalizer`.
-   - Ввести `FeatureType` enum или final constants class для `bool`, `int`, `string`, `enum`; выбрать вариант, который проходит PHPStan level 8 и не усложняет serialization.
-   - Сохранить существующий публичный API `FeatureDefinition::fromArray()` как thin delegating factory, если это дешевле для обратной совместимости тестов.
-   - Подготовить расширяемость для будущих schema keys: `ui`, `nullable`, `help`, `placeholder`, `visibility`, `cast`, но не добавлять эти ключи сейчас без отдельной задачи.
+3. [ ] Вынести fresh scan/build snapshot из `ModuleRegistry`
+   - Добавить `src/Registry/ModuleRegistrySnapshotBuilder.php`.
+   - Builder должен зависеть от `ModuleDirectoryScanner`, `ModuleManifestRepositoryInterface`, `TopologicalSorter`.
+   - Builder выполняет текущую логику `scan()`:
+     - сканирует module directories;
+     - грузит manifests;
+     - сортирует через `TopologicalSorter`;
+     - возвращает `ModuleRegistrySnapshot`.
+   - `ModuleRegistry` должен хранить только `?ModuleRegistrySnapshot $snapshot = null`.
+   - `ModuleRegistry::ensureLoaded()` должен брать snapshot из cache или builder.
+   - Приватный `scan()` и array-shape return из `ModuleRegistry` убрать.
 
-4. [ ] Вынести registry scan/cache в отдельные компоненты
-   - Добавить `ModuleDirectoryScanner`: читает `modules.paths.directories`, проверяет `module.json` через `ModuleLayout`, сортирует пути.
-   - Добавить `ModuleRegistrySnapshot`: хранит `modules` map и `loadOrder` list, чтобы убрать array-shapes из `ModuleRegistry`.
-   - Добавить `ModuleRegistryCache` или `ModuleRegistryCacheRepository`: `cachePath`, `buildPayload`, `load`, `validatePayload`.
-   - Оставить `ModuleRegistryInterface` без расширения, если нет прямой необходимости.
-   - Подготовить метод invalidation для будущих lifecycle-команд, но не подключать install/update/remove пока они не реализуются.
+4. [ ] Адаптировать production cache к snapshot без расширения публичного API без нужды
+   - Минимальный вариант: оставить `ModuleRegistryCacheInterface::load()` с текущим array-shape, но сразу преобразовывать результат в `ModuleRegistrySnapshot` внутри `ModuleRegistry`.
+   - Более чистый вариант допустим только если не ломает architecture rules: добавить в cache concrete helper `loadSnapshot()`/`buildSnapshotPayload()` без протаскивания concrete Registry VO в публичные contracts.
+   - `ModuleRegistryCache::write()` может по-прежнему принимать `array<int, Module>` load order; optimize use case будет передавать `$snapshot->loadOrder()`.
+   - Проверить, что cache v3 по-прежнему не содержит state и `settings.values`.
 
-5. [ ] Вынести loader pipeline из service provider
-   - Добавить `ModuleLoaderPipeline` с ответственностью: получить `ModuleRegistryInterface`, получить iterable/tagged loaders, отсортировать по `priority()`, запустить loaders-first/modules-second, пропустить disabled modules.
-   - Service provider должен остаться wiring-классом: bindings, publishes, commands, optimizes, optional integrations.
-   - Сохранить `LoaderInterface` тонким: только `load(Module): void` и `priority(): int`.
-   - Проверить, что `FactoryLoader` остаётся singleton, иначе потеряет накопленные namespace mappings.
+5. [ ] Вынести optimize flow в Application use cases
+   - Добавить DTO:
+     - `src/Application/DTOs/OptimizeModulesResult.php` (`path`, `count`)
+     - `src/Application/DTOs/ClearModulesOptimizeCacheResult.php` (`cleared`)
+   - Добавить use cases:
+     - `src/Application/UseCases/OptimizeModulesUseCase.php`
+     - `src/Application/UseCases/ClearModulesOptimizeCacheUseCase.php`
+   - `OptimizeModulesUseCase` должен использовать `ModuleRegistrySnapshotBuilder` и `ModuleRegistryCacheInterface`, чтобы писать cache из fresh filesystem scan, а не из уже загруженного cache.
+   - `ClearModulesOptimizeCacheUseCase` должен использовать `LifecycleRegistryInvalidator`; если нужен message-level результат "No cache to clear", проверять `ModuleRegistryCacheInterface::exists()` до invalidation.
+   - Не добавлять runtime logging; для этого пакета feedback идёт через command output, typed exceptions и tests.
 
-6. [ ] Исправить optional MoonShine integration lifecycle
-   - Регистрировать `MoonShineLoader` без hard failure, только если интерфейс/класс MoonShine доступны.
-   - Использовать `$this->app->afterResolving(CoreContract::class, ...)`, чтобы module MoonShine Resources/Pages автоподгружались, когда MoonShine установлен и core реально появился.
-   - Не вызывать `$app->make(CoreContract::class)` самостоятельно, если MoonShine не установлен или core не bound.
-   - Убедиться, что без MoonShine не ломаются migration/config/provider/factory/route loaders.
-   - Сохранить вызов `$core->autoload($module->namespace)` для каждого enabled module, так как контракт поддерживает namespace argument.
+6. [ ] Обновить optimize-команды под command boundary
+   - `ModulesOptimizeCommand` должен инжектить `OptimizeModulesUseCase`, а не concrete `ModuleRegistry`.
+   - `ModulesOptimizeClearCommand` должен инжектить `ClearModulesOptimizeCacheUseCase`, а не concrete `ModuleRegistryCache`/`ModuleRegistry`.
+   - Сохранить текущие CLI messages и exit codes.
+   - Добавить или обновить architecture test, который запрещает optimize-командам зависеть от concrete `Manifest\ModuleRegistry` и `Registry\ModuleRegistryCache`.
 
-7. [ ] Подготовить lifecycle foundation без преждевременной реализации всех команд
-   - Добавить маленький `ModuleCacheInvalidator` или метод в cache-компоненте, который удаляет optimized cache.
-   - Использовать его в текущих optimize-clear tests или оставить как dependency для будущих enable/disable/install/update/remove.
-   - В план следующей реализации вынести lifecycle commands: `modules:list`, `modules:enable`, `modules:disable`, `modules:install`, `modules:update`, `modules:remove`.
-   - Не добавлять zip install/update в этот refactor, если это резко расширяет scope.
+7. [ ] Обновить tests под новую границу
+   - Добавить unit tests для `ModuleRegistrySnapshot`.
+   - Добавить unit tests для `ModuleRegistrySnapshotBuilder`.
+   - Обновить `tests/Unit/Manifest/ModuleRegistryTest.php`: registry должен работать через snapshot, `reset()` сбрасывает snapshot, cache path остаётся рабочим.
+   - Обновить/добавить tests для `OptimizeModulesUseCase`:
+     - пишет cache из fresh scan;
+     - возвращает path/count;
+     - не использует stale loaded cache как источник.
+   - Обновить/добавить tests для `ClearModulesOptimizeCacheUseCase`:
+     - удаляет cache;
+     - сбрасывает registry;
+     - корректно сообщает no-op, когда cache отсутствует.
+   - Обновить feature tests optimize-команд под usecase boundary.
 
-8. [ ] Обновить DI bindings
-   - Зарегистрировать новые internal components в `ModuleLoaderServiceProvider`.
-   - Убедиться, что singleton/scoped правила соответствуют runtime rules:
-     - immutable/stateless components: singleton;
-     - per-request caches: scoped;
-     - no mutable static state.
+8. [ ] Применить mechanical quality cleanup
+   - Запустить `composer rector:dry` и либо применить безопасные Rector changes через `composer rector`, либо вручную закрыть только релевантные замечания.
+   - Особое внимание: не удалять параметры из public methods, если они сознательно оставлены для будущего контракта; иначе принять Rector cleanup.
+   - После Rector cleanup запустить formatter.
 
-9. [ ] Обновить тесты
-   - Unit tests для `ManifestFieldReader`, `FeatureDefinitionFactory`, `FeatureValueNormalizer`.
-   - Unit tests для `ModuleDirectoryScanner`, `ModuleRegistrySnapshot`, `ModuleRegistryCache`.
-   - Feature tests для `ModuleLoaderPipeline`: порядок, disabled modules, non-loader tagged services ignored.
-   - Feature tests для MoonShine:
-     - provider boots without MoonShine classes/core binding;
-     - loader registered/executed via `afterResolving(CoreContract::class)`;
-     - late CoreContract binding/resolution still triggers module autoload;
-     - no duplicate autoload on repeated provider boot if behavior is observable.
-   - Architecture tests при необходимости: no generic `src/Services`, no facades/helpers, no static mutable state, readonly manifest VOs preserved.
+9. [ ] Проверить quality gates
+   - `composer format`
+   - `composer phpstan`
+   - `composer test`
+   - Дополнительно полезно: `composer rector:dry` должен завершаться без proposed changes.
 
-10. [ ] Проверить quality gates
-    - `composer format`
-    - `composer phpstan`
-    - `composer test`
-    - Если полный набор временно слишком широк из-за текущей dirty baseline, минимум: targeted tests по изменённым компонентам + отметить остаточный риск.
+10. [ ] Зафиксировать follow-up для AI Factory rules отдельно
+   - Не редактировать `.ai-factory/rules/*` в рамках этой fix-задачи.
+   - После code fix запустить отдельный `$aif-rules` или отдельную rules-задачу, чтобы синхронизировать:
+     - `module.json` содержит только `meta` и `settings.schema`;
+     - mutable state и `settings.values` живут в `state.json`;
+     - repository method называется `writeManifest()`, не `save()`;
+     - list-form dependencies не поддерживаются в v2.0 core.
 
 ## Files to Modify
 
-- `src/Manifest/FeatureDefinition.php` — оставить VO и публичную совместимость, вынести parsing/normalization.
-- `src/Manifest/FeatureSchema.php` — перейти на новый parser/factory.
-- `src/Manifest/FeatureValues.php` — использовать новый normalizer.
-- `src/Manifest/ManifestValidator.php` — убрать повтор primitive validation, оставить orchestration.
-- `src/Manifest/ManifestMeta.php` — использовать shared field reader.
-- `src/Manifest/ManifestState.php` — использовать shared field reader.
-- `src/Manifest/ModuleDependencies.php` — использовать shared identifier/dependency validation.
-- `src/Manifest/ModuleRegistry.php` — оставить registry facade, вынести scanner/cache/snapshot.
-- `src/Providers/ModuleLoaderServiceProvider.php` — обновить bindings, pipeline boot, MoonShine afterResolving.
-- `src/Loaders/MoonShineLoader.php` — при необходимости сменить форму с `LoaderInterface` на dedicated optional integration runner или оставить loader, если pipeline model остаётся единым.
-- `src/Contracts/*` — менять только если существующие контракты реально не покрывают новые границы; не расширять публичный API без необходимости.
-- `tests/Unit/Manifest/*` — обновить и расширить tests parsing/normalization.
-- `tests/Unit/Support/*` или новый `tests/Unit/Manifest/*Registry*` — тесты scanner/cache/snapshot.
-- `tests/Feature/ModuleLoaderServiceProviderTest.php` — pipeline/provider wiring.
-- `tests/Feature/OptionalMoonShineBootTest.php` — late resolving и absence behavior.
-- `tests/Architecture/*` — инварианты, если добавляются новые namespace conventions.
+- `src/Registry/VO/ModuleRegistrySnapshot.php` — новый snapshot VO для registry state.
+- `src/Registry/ModuleRegistrySnapshotBuilder.php` — fresh filesystem scan + sort + snapshot assembly.
+- `src/Manifest/ModuleRegistry.php` — заменить две nullable array cache-переменные на `?ModuleRegistrySnapshot`; убрать приватный array-shape `scan()`.
+- `src/Registry/ModuleRegistryCache.php` — при необходимости добавить helper для snapshot-oriented load/write без state values.
+- `src/Contracts/ModuleRegistryCacheInterface.php` — менять только если выбранный вариант не нарушает contract boundary.
+- `src/Application/DTOs/OptimizeModulesResult.php` — результат `modules:optimize`.
+- `src/Application/DTOs/ClearModulesOptimizeCacheResult.php` — результат `modules:optimize-clear`.
+- `src/Application/UseCases/OptimizeModulesUseCase.php` — application orchestration для cache warmup.
+- `src/Application/UseCases/ClearModulesOptimizeCacheUseCase.php` — application orchestration для cache clear + registry reset.
+- `src/Console/Commands/Modules/ModulesOptimizeCommand.php` — перейти на usecase.
+- `src/Console/Commands/Modules/ModulesOptimizeClearCommand.php` — перейти на usecase.
+- `src/Providers/ModuleLoaderServiceProvider.php` — зарегистрировать новые builder/usecase bindings только если autowiring недостаточно или нужен явный singleton.
+- `tests/Unit/Registry/ModuleRegistrySnapshotTest.php` — новый test suite.
+- `tests/Unit/Registry/ModuleRegistrySnapshotBuilderTest.php` — новый test suite.
+- `tests/Unit/Manifest/ModuleRegistryTest.php` — обновить ожидания registry snapshot/cache.
+- `tests/Unit/Application/UseCases/OptimizeModulesUseCaseTest.php` — новый test suite.
+- `tests/Unit/Application/UseCases/ClearModulesOptimizeCacheUseCaseTest.php` — новый test suite.
+- `tests/Feature/Commands/ModulesOptimizeCommandTest.php` — обновить command behavior при необходимости.
+- `tests/Architecture/ArchitectureTest.php` — добавить точечный guard против concrete optimize dependencies в commands.
 
 ## Risks & Considerations
 
-- Главный риск — случайно изменить публичный manifest format. Нельзя добавлять `autoload` или переносить source of truth из `module.json`.
-- Нельзя превращать MoonShine в обязательную runtime dependency. `composer.json` должен оставить MoonShine в `suggest`/`require-dev`.
-- Нельзя добавлять фасады или `\Log::*` в `src`; проектное правило запрещает глобальные side effects. Для observability использовать typed exceptions, command output и тесты. Если нужна debug-информация для фикса, она должна быть временной или CLI-only, без runtime logs.
-- `ModuleRegistry` singleton хранит in-memory snapshot; feature values должны оставаться scoped/current через `FeatureRepository`, а не через optimized cache.
-- В `src/Providers/ModuleLoaderServiceProvider.php` легко сломать ordering: loaders-first, modules-second, priority ascending.
-- `FactoryLoader` stateful by design; его lifecycle должен остаться singleton.
-- `afterResolving(CoreContract::class)` может сработать после основного module boot. Это нормально для MoonShine, если loader сам читает enabled modules из registry и вызывает `autoload`.
-- Удаление пустого `src/Services` возможно только если это не конфликтует с внешними инструментами; иначе оставить до отдельной cleanup-задачи.
+- Важно не начать повторный большой refactor manifest schema: parsing primitives, `FeatureType`, value normalizer и schema labels уже считаются закрытыми.
+- `OptimizeModulesUseCase` должен строить cache из fresh scan, иначе `modules:optimize` может законсервировать stale cache.
+- `ModuleRegistrySnapshot::all()` должен сохранять ожидаемый order. Если вернуть `array_values($modules)` из map, порядок будет зависеть от способа построения map; лучше явно возвращать `loadOrder`.
+- Не протаскивать mutable state или `settings.values` в cache payload.
+- Не добавлять Laravel facades или runtime logs в `src/`.
+- Если появится желание править `.ai-factory/rules/*`, остановиться и вынести это в `$aif-rules`, потому что проектное правило запрещает менять rules вручную в обычных задачах.
 
 ## Test Coverage
 
-- Manifest schema:
-  - unknown keys still fail;
-  - empty `{}` object accepted where expected;
-  - bool/int/string/enum normalization unchanged;
-  - UTF-8 string length still character-based;
-  - defaults and explicit values serialization unchanged.
-- Registry:
-  - scans only configured roots;
-  - ignores non-string config entries;
-  - includes only dirs with `module.json`;
-  - sorted deterministic paths;
-  - cache payload version validation;
-  - cache `load_order` references missing module fails;
-  - duplicate module names still fail through dependency/load-order path.
-- Pipeline:
-  - loaders execute by priority before moving to next loader;
-  - disabled modules skipped;
-  - tagged non-loader ignored;
-  - no duplicate execution on normal provider boot.
-- MoonShine:
-  - package boots without MoonShine installed/bound;
-  - when `CoreContract` resolves, each enabled module namespace is passed to `autoload`;
-  - disabled modules are not autoloaded;
-  - late core binding/resolution works;
-  - MoonShine absence does not affect migrations/routes/config/service providers.
+- Snapshot:
+  - строит map и load order из отсортированных modules;
+  - `all()` и `loadOrder()` возвращают deterministic order;
+  - `find()` бросает `ModuleNotFoundException`;
+  - duplicate module names дают typed manifest/cache exception.
+- Snapshot builder:
+  - сканирует только configured roots;
+  - игнорирует директории без `module.json`;
+  - сортирует dependencies через `TopologicalSorter`;
+  - не читает optimized cache.
+- Optimize use case:
+  - пишет cache из fresh snapshot;
+  - возвращает корректные path/count;
+  - cache payload не содержит state или `settings.values`.
+- Clear use case:
+  - удаляет cache и сбрасывает registry;
+  - idempotent при отсутствующем cache.
+- Commands:
+  - `modules:optimize` и `modules:optimize-clear` сохраняют CLI output и exit codes;
+  - commands не инжектят concrete `ModuleRegistry`/`ModuleRegistryCache`.
 - Quality:
   - `composer format`
   - `composer phpstan`
   - `composer test`
-
-## Implementation Notes
-
-- Делать refactor в небольших коммитоподобных порциях: manifest primitives, feature schema, registry cache, pipeline, MoonShine.
-- После каждого блока запускать targeted tests, чтобы проще локализовать regressions.
-- Не смешивать этот refactor с полным lifecycle feature implementation. Для install/update/remove/list лучше создать отдельный feature plan после стабилизации registry/cache boundaries.
-- Если во время реализации выяснится, что `FeatureDefinition::fromArray()` тяжело сохранить без service locator/static dependency, оставить parsing внутри класса на один шаг и вынести только `FeatureValueNormalizer`; затем вернуться ко factory вторым small refactor.
+  - `composer rector:dry`

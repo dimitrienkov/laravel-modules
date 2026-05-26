@@ -11,6 +11,7 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleFileNames;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
+use Throwable;
 
 final readonly class ModuleSourcePreparer
 {
@@ -82,7 +83,7 @@ final readonly class ModuleSourcePreparer
                 sourceKind: ModuleSourceKind::Zip,
                 filesystem: $this->filesystem,
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->filesystem->deleteDirectory($tempDir);
 
             throw $e;

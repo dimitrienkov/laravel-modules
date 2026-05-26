@@ -17,6 +17,7 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -82,14 +83,11 @@ trait CreatesLifecycleEnvironment
         );
     }
 
-    protected function lifecycleRegistry(
+    protected function lifecycleSnapshotBuilder(
         ModuleManifestRepository $manifests,
-        ModuleStateRepository $stateRepo,
         Repository $config,
-    ): ModuleRegistry {
-        return new ModuleRegistry(
-            manifests: $manifests,
-            sorter: new TopologicalSorter(),
+    ): ModuleRegistrySnapshotBuilder {
+        return new ModuleRegistrySnapshotBuilder(
             scanner: new ModuleDirectoryScanner(
                 config: $config,
                 filesystem: new LocalFilesystem(new Filesystem()),
@@ -97,6 +95,18 @@ trait CreatesLifecycleEnvironment
                 basePath: $this->tempDir,
                 appPath: $this->tempDir . '/app',
             ),
+            manifests: $manifests,
+            sorter: new TopologicalSorter(),
+        );
+    }
+
+    protected function lifecycleRegistry(
+        ModuleManifestRepository $manifests,
+        ModuleStateRepository $stateRepo,
+        Repository $config,
+    ): ModuleRegistry {
+        return new ModuleRegistry(
+            builder: $this->lifecycleSnapshotBuilder($manifests, $config),
             cache: $this->lifecycleRegistryCache($stateRepo),
         );
     }

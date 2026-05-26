@@ -8,6 +8,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModulePermissions;
+use Throwable;
 
 final readonly class ModuleSkeletonBuilder
 {
@@ -70,7 +71,7 @@ final readonly class ModuleSkeletonBuilder
 
         try {
             $this->fileWriter->write($providerPath, $content);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw ModuleScaffoldException::forModule(
                 $moduleName,
                 "failed to write provider [{$providerPath}].",

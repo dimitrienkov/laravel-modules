@@ -11,6 +11,8 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
+use ReflectionException;
+use ReflectionProperty;
 use Throwable;
 
 final class FactoryLoader implements LoaderInterface
@@ -93,10 +95,10 @@ final class FactoryLoader implements LoaderInterface
     private function currentFactoryNameResolver(): mixed
     {
         try {
-            $property = new \ReflectionProperty(Factory::class, 'factoryNameResolver');
+            $property = new ReflectionProperty(Factory::class, 'factoryNameResolver');
 
             return $property->getValue();
-        } catch (\ReflectionException) {
+        } catch (ReflectionException) {
             return null;
         }
     }

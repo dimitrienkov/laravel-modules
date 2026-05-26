@@ -26,6 +26,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 use Illuminate\Support\Str;
+use Throwable;
 
 final readonly class ScaffoldModuleUseCase
 {
@@ -88,7 +89,7 @@ final readonly class ScaffoldModuleUseCase
 
             $values = new FeatureValues($module->features, []);
             $this->stateRepository->writeDocument($config->name, new ModuleStateDocument($state, $values));
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $cleanupNote = $this->rollback->rollback($config->name, $targetPath);
 
             if ($e instanceof ModuleScaffoldException) {
@@ -118,7 +119,7 @@ final readonly class ScaffoldModuleUseCase
     {
         try {
             ManifestFieldReader::assertModuleName($name, 'name', 'scaffold');
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             throw ModuleScaffoldException::forModule($name, 'invalid module name — must be lowercase snake_case.', $e);
         }
     }

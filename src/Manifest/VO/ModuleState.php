@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Manifest\VO;
 
+use DateTimeImmutable;
+use DateTimeInterface;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 
 final readonly class ModuleState
@@ -37,19 +39,19 @@ final readonly class ModuleState
 
     public static function defaultDisabled(): self
     {
-        return new self(enabled: false, installedAt: null, updatedAt: null);
+        return new self(enabled: false, installedAt: null);
     }
 
     public static function initialState(bool $enabled = true): self
     {
-        $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
+        $now = (new DateTimeImmutable())->format(DateTimeInterface::ATOM);
 
         return new self(enabled: $enabled, installedAt: $now, updatedAt: $now);
     }
 
     public static function updatedFrom(self $previous): self
     {
-        $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
+        $now = (new DateTimeImmutable())->format(DateTimeInterface::ATOM);
 
         return new self(
             enabled: $previous->enabled,

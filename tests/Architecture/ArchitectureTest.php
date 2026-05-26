@@ -171,6 +171,20 @@ arch('application enums are string backed enums')
     ->expect('DimitrienkoV\LaravelModules\Application\Enums')
     ->toBeStringBackedEnums();
 
+arch('optimize commands do not depend on concrete registry or cache classes')
+    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeCommand')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
+    ]);
+
+arch('optimize clear command does not depend on concrete registry or cache classes')
+    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeClearCommand')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
+    ]);
+
 test('direct filesystem I/O is only allowed in specialized infrastructure classes', function (): void {
     $srcDir = realpath(__DIR__ . '/../../src');
     expect($srcDir)->not->toBeFalse();

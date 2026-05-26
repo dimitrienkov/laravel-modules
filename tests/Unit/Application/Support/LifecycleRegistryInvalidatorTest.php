@@ -13,6 +13,7 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -130,23 +131,27 @@ final class LifecycleRegistryInvalidatorTest extends TestCase
             basePath: $this->tempDir,
         );
 
+        $manifests = new ModuleManifestRepository(
+            layout: $layout,
+            writer: new AtomicJsonWriter(),
+            validator: $validator,
+            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+            documentReader: new ManifestDocumentReader(),
+            stateRepository: $stateRepo,
+            filesystem: new LocalFilesystem(new Filesystem()),
+        );
+
         $registry = new ModuleRegistry(
-            manifests: new ModuleManifestRepository(
-                layout: $layout,
-                writer: new AtomicJsonWriter(),
-                validator: $validator,
-                namespaceResolver: new FakeNamespaceResolver($this->tempDir),
-                documentReader: new ManifestDocumentReader(),
-                stateRepository: $stateRepo,
-                filesystem: new LocalFilesystem(new Filesystem()),
-            ),
-            sorter: new TopologicalSorter(),
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new LocalFilesystem(new Filesystem()),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
+            builder: new ModuleRegistrySnapshotBuilder(
+                scanner: new ModuleDirectoryScanner(
+                    config: $config,
+                    filesystem: new LocalFilesystem(new Filesystem()),
+                    layout: $layout,
+                    basePath: $this->tempDir,
+                    appPath: $this->tempDir . '/app',
+                ),
+                manifests: $manifests,
+                sorter: new TopologicalSorter(),
             ),
             cache: $cache,
         );

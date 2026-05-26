@@ -13,6 +13,7 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -113,22 +114,6 @@ final class ModuleRegistryTest extends TestCase
         $this->registry()->find('missing');
     }
 
-    #[Test]
-    public function it_writes_v3_cache_from_scanned_modules(): void
-    {
-        $this->writeModule('Users', 'users', '1.0.0');
-
-        $result = $this->registry()->writeCache();
-
-        self::assertFileExists($result['path']);
-        self::assertSame(1, $result['count']);
-
-        $payload = require $result['path'];
-        self::assertSame(3, $payload['version']);
-        self::assertSame(['users'], $payload['load_order']);
-        self::assertSame('App\\Modules\\Users', $payload['modules']['users']['namespace']);
-    }
-
     private function stateRepository(): ModuleStateRepository
     {
         $config = new Repository([
@@ -161,23 +146,27 @@ final class ModuleRegistryTest extends TestCase
             ],
         ]);
 
+        $manifests = new ModuleManifestRepository(
+            layout: $layout,
+            writer: new AtomicJsonWriter(),
+            validator: $validator,
+            namespaceResolver: new FakeNamespaceResolver($this->tempDir),
+            documentReader: new ManifestDocumentReader(),
+            stateRepository: $stateRepo,
+            filesystem: new LocalFilesystem(new Filesystem()),
+        );
+
         return new ModuleRegistry(
-            manifests: new ModuleManifestRepository(
-                layout: $layout,
-                writer: new AtomicJsonWriter(),
-                validator: $validator,
-                namespaceResolver: new FakeNamespaceResolver($this->tempDir),
-                documentReader: new ManifestDocumentReader(),
-                stateRepository: $stateRepo,
-                filesystem: new LocalFilesystem(new Filesystem()),
-            ),
-            sorter: new TopologicalSorter(),
-            scanner: new ModuleDirectoryScanner(
-                config: $config,
-                filesystem: new LocalFilesystem(new Filesystem()),
-                layout: $layout,
-                basePath: $this->tempDir,
-                appPath: $this->tempDir . '/app',
+            builder: new ModuleRegistrySnapshotBuilder(
+                scanner: new ModuleDirectoryScanner(
+                    config: $config,
+                    filesystem: new LocalFilesystem(new Filesystem()),
+                    layout: $layout,
+                    basePath: $this->tempDir,
+                    appPath: $this->tempDir . '/app',
+                ),
+                manifests: $manifests,
+                sorter: new TopologicalSorter(),
             ),
             cache: new ModuleRegistryCache(
                 validator: $validator,
