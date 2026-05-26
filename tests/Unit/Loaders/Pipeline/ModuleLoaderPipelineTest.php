@@ -245,9 +245,4 @@ final readonly class PipelineFakeRegistry implements ModuleRegistryInterface
     public function reset(): void
     {
     }
-
-    public function loadOrder(): array
-    {
-        return $this->modules;
-    }
 }

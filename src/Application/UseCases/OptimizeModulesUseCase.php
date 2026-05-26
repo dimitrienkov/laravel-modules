@@ -19,7 +19,7 @@ final readonly class OptimizeModulesUseCase
     public function execute(): OptimizeModulesResult
     {
         $snapshot = $this->builder->build();
-        $cachePath = $this->cache->write($snapshot->loadOrder());
+        $cachePath = $this->cache->write($snapshot->all());
 
         return new OptimizeModulesResult(
             path: $cachePath,

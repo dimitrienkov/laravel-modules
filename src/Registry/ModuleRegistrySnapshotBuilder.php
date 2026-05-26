@@ -25,8 +25,8 @@ final readonly class ModuleRegistrySnapshotBuilder
             $modules[] = $this->manifests->load($modulePath);
         }
 
-        $loadOrder = $this->sorter->sort($modules);
+        $sorted = $this->sorter->sort($modules);
 
-        return new ModuleRegistrySnapshot($loadOrder);
+        return new ModuleRegistrySnapshot($sorted);
     }
 }

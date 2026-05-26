@@ -236,8 +236,4 @@ final readonly class FakeRegistry implements ModuleRegistryInterface
     {
     }
 
-    public function loadOrder(): array
-    {
-        return $this->modules;
-    }
 }

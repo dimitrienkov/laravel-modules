@@ -59,7 +59,7 @@ final class ModuleRegistrySnapshotBuilderTest extends TestCase
         self::assertSame(2, $snapshot->count());
         self::assertSame(['users', 'blog'], array_map(
             static fn ($m): string => $m->name,
-            $snapshot->loadOrder(),
+            $snapshot->all(),
         ));
     }
 
@@ -70,7 +70,7 @@ final class ModuleRegistrySnapshotBuilderTest extends TestCase
         $snapshot = $builder->build();
 
         self::assertSame(0, $snapshot->count());
-        self::assertSame([], $snapshot->loadOrder());
+        self::assertSame([], $snapshot->all());
     }
 
     #[Test]

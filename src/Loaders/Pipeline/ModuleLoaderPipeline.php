@@ -25,7 +25,7 @@ final readonly class ModuleLoaderPipeline
     public function boot(): void
     {
         $sorted = $this->sortedLoaders();
-        $modules = $this->registry->loadOrder();
+        $modules = $this->registry->all();
 
         foreach ($sorted as $loader) {
             foreach ($modules as $module) {

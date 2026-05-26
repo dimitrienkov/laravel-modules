@@ -11,17 +11,17 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 final readonly class ModuleRegistrySnapshot
 {
     /** @var array<string, Module> */
-    private array $modules;
+    private array $moduleMap;
 
     /**
-     * @param array<int, Module> $loadOrder
+     * @param array<int, Module> $modules
      */
     public function __construct(
-        public array $loadOrder,
+        private array $modules,
     ) {
         $map = [];
 
-        foreach ($loadOrder as $module) {
+        foreach ($modules as $module) {
             if (isset($map[$module->name])) {
                 throw InvalidManifestException::forPath(
                     $module->manifestPath(),
@@ -32,7 +32,7 @@ final readonly class ModuleRegistrySnapshot
             $map[$module->name] = $module;
         }
 
-        $this->modules = $map;
+        $this->moduleMap = $map;
     }
 
     /**
@@ -40,29 +40,21 @@ final readonly class ModuleRegistrySnapshot
      */
     public function all(): array
     {
-        return $this->loadOrder;
-    }
-
-    /**
-     * @return array<int, Module>
-     */
-    public function loadOrder(): array
-    {
-        return $this->loadOrder;
+        return $this->modules;
     }
 
     public function find(string $name): Module
     {
-        return $this->modules[$name] ?? throw ModuleNotFoundException::forName($name);
+        return $this->moduleMap[$name] ?? throw ModuleNotFoundException::forName($name);
     }
 
     public function has(string $name): bool
     {
-        return isset($this->modules[$name]);
+        return isset($this->moduleMap[$name]);
     }
 
     public function count(): int
     {
-        return \count($this->loadOrder);
+        return \count($this->modules);
     }
 }

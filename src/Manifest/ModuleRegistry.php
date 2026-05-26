@@ -38,14 +38,6 @@ final class ModuleRegistry implements ModuleRegistryInterface
         return $this->ensureLoaded()->has($name);
     }
 
-    /**
-     * @return array<int, Module>
-     */
-    public function loadOrder(): array
-    {
-        return $this->ensureLoaded()->loadOrder();
-    }
-
     public function reset(): void
     {
         $this->snapshot = null;

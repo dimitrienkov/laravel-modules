@@ -10,7 +10,7 @@
 2. Provider регистрирует core bindings, default loaders и optional MoonShine integration.
 3. `boot()` публикует config, регистрирует console commands и подключает Laravel optimizer hooks.
 4. `boot()` создаёт `ModuleLoaderPipeline` из tagged loaders.
-5. Pipeline применяет отсортированные loaders к enabled-модулям из `ModuleRegistryInterface::loadOrder()`.
+5. Pipeline применяет отсортированные loaders к enabled-модулям из `ModuleRegistryInterface::all()`.
 
 ## Core services
 

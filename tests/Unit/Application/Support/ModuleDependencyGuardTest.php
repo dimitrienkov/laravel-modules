@@ -151,11 +151,6 @@ final class ModuleDependencyGuardTest extends TestCase
                 return $this->modules;
             }
 
-            public function loadOrder(): array
-            {
-                return $this->modules;
-            }
-
             public function find(string $name): Module
             {
                 foreach ($this->modules as $module) {

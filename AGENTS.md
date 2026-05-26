@@ -66,7 +66,7 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 | Файл | Назначение |
 |------|-----------|
 | `src/Providers/ModuleLoaderServiceProvider.php` | Главный service provider: DI bindings, default loaders, MoonShine bridge, optimizer hooks |
-| `src/Loaders/Pipeline/ModuleLoaderPipeline.php` | Сортирует лоадеры по `priority()` и применяет их к enabled-модулям в `ModuleRegistry::loadOrder()` |
+| `src/Loaders/Pipeline/ModuleLoaderPipeline.php` | Сортирует лоадеры по `priority()` и применяет их к enabled-модулям в `ModuleRegistry::all()` |
 | `src/Manifest/ModuleRegistry.php` | Реестр модулей: scan/cache, топологическая сортировка, lookup |
 | `src/Manifest/ModuleManifestRepository.php` | Чтение и запись иммутабельного manifest (`module.json`): `load()` и `writeManifest()` |
 | `src/Manifest/ModuleStateRepository.php` | Чтение/запись mutable state (`state.json`): enabled, timestamps, settings values |

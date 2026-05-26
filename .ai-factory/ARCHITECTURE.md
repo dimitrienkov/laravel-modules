@@ -117,7 +117,7 @@ src/
 6. `boot()` публикует config/stubs, регистрирует Artisan commands и Laravel optimizer hooks.
 7. `boot()` ставит MoonShine `callAfterResolving()` hook при доступном MoonShine.
 8. Provider резолвит tagged loaders. Любой tagged service не реализующий `LoaderInterface` падает fail-loud через `InvalidConfigurationException`.
-9. `ModuleLoaderPipeline` сортирует loaders по `priority()` и применяет их к enabled-модулям из `ModuleRegistryInterface::loadOrder()`.
+9. `ModuleLoaderPipeline` сортирует loaders по `priority()` и применяет их к enabled-модулям из `ModuleRegistryInterface::all()`.
 
 ## Manifest И State
 

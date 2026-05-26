@@ -149,8 +149,4 @@ final readonly class MoonShineFakeRegistry implements ModuleRegistryInterface
     {
     }
 
-    public function loadOrder(): array
-    {
-        return $this->modules;
-    }
 }

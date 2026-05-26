@@ -14,7 +14,7 @@ use PHPUnit\Framework\TestCase;
 final class ModuleRegistrySnapshotTest extends TestCase
 {
     #[Test]
-    public function it_builds_map_and_load_order_from_modules(): void
+    public function it_builds_map_from_modules(): void
     {
         $users = ModuleFactory::make(name: 'users');
         $blog = ModuleFactory::make(name: 'blog');
@@ -22,12 +22,11 @@ final class ModuleRegistrySnapshotTest extends TestCase
         $snapshot = new ModuleRegistrySnapshot([$users, $blog]);
 
         self::assertSame(2, $snapshot->count());
-        self::assertSame([$users, $blog], $snapshot->loadOrder());
         self::assertSame([$users, $blog], $snapshot->all());
     }
 
     #[Test]
-    public function all_and_load_order_return_deterministic_order(): void
+    public function all_returns_deterministic_order(): void
     {
         $a = ModuleFactory::make(name: 'alpha');
         $b = ModuleFactory::make(name: 'beta');
@@ -38,10 +37,6 @@ final class ModuleRegistrySnapshotTest extends TestCase
         self::assertSame(['beta', 'alpha', 'gamma'], array_map(
             static fn ($m): string => $m->name,
             $snapshot->all(),
-        ));
-        self::assertSame(['beta', 'alpha', 'gamma'], array_map(
-            static fn ($m): string => $m->name,
-            $snapshot->loadOrder(),
         ));
     }
 
@@ -94,6 +89,5 @@ final class ModuleRegistrySnapshotTest extends TestCase
 
         self::assertSame(0, $snapshot->count());
         self::assertSame([], $snapshot->all());
-        self::assertSame([], $snapshot->loadOrder());
     }
 }

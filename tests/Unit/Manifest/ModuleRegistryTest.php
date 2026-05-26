@@ -60,7 +60,7 @@ final class ModuleRegistryTest extends TestCase
 
         self::assertSame(['users', 'blog'], array_map(
             static fn ($module): string => $module->name,
-            $registry->loadOrder(),
+            $registry->all(),
         ));
         self::assertCount(2, $registry->all());
         self::assertSame('App\\Modules\\Blog', $registry->find('blog')->namespace);
@@ -87,7 +87,7 @@ final class ModuleRegistryTest extends TestCase
 
         self::assertSame(['cached'], array_map(
             static fn ($module): string => $module->name,
-            $registry->loadOrder(),
+            $registry->all(),
         ));
         self::assertSame('App\\Cached', $registry->find('cached')->namespace);
     }
@@ -101,7 +101,7 @@ final class ModuleRegistryTest extends TestCase
 
         self::assertSame(['users'], array_map(
             static fn ($module): string => $module->name,
-            $this->registry()->loadOrder(),
+            $this->registry()->all(),
         ));
     }
 

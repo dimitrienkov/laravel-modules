@@ -113,7 +113,7 @@ final class ModulesOptimizeCommandTest extends TestCase
 
         self::assertSame(['blog'], array_map(
             static fn (object $module): string => $module->name,
-            $registry->loadOrder(),
+            $registry->all(),
         ));
 
         $usersPath = $this->tempDir . '/app/Modules/Users';
@@ -126,7 +126,7 @@ final class ModulesOptimizeCommandTest extends TestCase
 
         self::assertSame(['blog', 'users'], array_map(
             static fn (object $module): string => $module->name,
-            $registry->loadOrder(),
+            $registry->all(),
         ));
     }
 

@@ -36,9 +36,9 @@ final class MoonShineModuleAutoloaderTest extends TestCase
 
         /** @var ModuleRegistryInterface&MockInterface $registry */
         $registry = Mockery::mock(ModuleRegistryInterface::class);
-        /** @var Expectation $loadOrder */
-        $loadOrder = $registry->shouldReceive('loadOrder');
-        $loadOrder->once()
+        /** @var Expectation $all */
+        $all = $registry->shouldReceive('all');
+        $all->once()
             ->andReturn([ModuleFactory::make(name: 'blog', namespace: 'App\\Modules\\Blog')]);
 
         (new MoonShineModuleAutoloader($registry))->autoload($core);
@@ -53,9 +53,9 @@ final class MoonShineModuleAutoloaderTest extends TestCase
 
         /** @var ModuleRegistryInterface&MockInterface $registry */
         $registry = Mockery::mock(ModuleRegistryInterface::class);
-        /** @var Expectation $loadOrder */
-        $loadOrder = $registry->shouldReceive('loadOrder');
-        $loadOrder->once()
+        /** @var Expectation $all */
+        $all = $registry->shouldReceive('all');
+        $all->once()
             ->andReturn([ModuleFactory::make(name: 'disabled', enabled: false)]);
 
         (new MoonShineModuleAutoloader($registry))->autoload($core);
