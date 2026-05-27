@@ -14,6 +14,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
@@ -251,6 +252,96 @@ final class ModuleStateRepositoryTest extends TestCase
         $this->repository->writeDocument('blog', new ModuleStateDocument($state, $values));
 
         $this->assertTrue($this->repository->exists('blog'));
+    }
+
+    #[Test]
+    public function readHydratesOriginFromSource(): void
+    {
+        $this->writeState('blog', '{"enabled": true, "source": {"kind": "zip", "installed_version": "1.0.0", "checksum": "abc123"}}');
+
+        $doc = $this->repository->read('blog', $this->makeModule('blog'));
+
+        $this->assertNotNull($doc->origin);
+        $this->assertSame('zip', $doc->origin->kind->value);
+        $this->assertSame('1.0.0', $doc->origin->installedVersion);
+        $this->assertSame('abc123', $doc->origin->checksum);
+    }
+
+    #[Test]
+    public function readReturnsNullOriginWhenSourceAbsent(): void
+    {
+        $this->writeState('blog', '{"enabled": true}');
+
+        $doc = $this->repository->read('blog', $this->makeModule('blog'));
+
+        $this->assertNull($doc->origin);
+    }
+
+    #[Test]
+    public function writeDocumentPersistsOrigin(): void
+    {
+        $module = $this->makeModule('blog');
+        $state = ModuleState::initialState();
+        $values = new FeatureValues($module->features, []);
+        $origin = ModuleOrigin::forZip('1.0.0', 'sha256hash');
+        $document = new ModuleStateDocument($state, $values, $origin);
+
+        $this->repository->writeDocument('blog', $document);
+
+        $raw = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayHasKey('source', $raw);
+        $this->assertSame('zip', $raw['source']['kind']);
+        $this->assertSame('1.0.0', $raw['source']['installed_version']);
+        $this->assertSame('sha256hash', $raw['source']['checksum']);
+    }
+
+    #[Test]
+    public function writeStatePreservesOrigin(): void
+    {
+        $module = $this->makeModule('blog');
+        $state = ModuleState::initialState();
+        $values = new FeatureValues($module->features, []);
+        $origin = ModuleOrigin::forLocal('1.0.0');
+        $this->repository->writeDocument('blog', new ModuleStateDocument($state, $values, $origin));
+
+        $newState = $state->withEnabled(false);
+        $this->repository->writeState($module, $newState);
+
+        $raw = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertFalse($raw['enabled']);
+        $this->assertArrayHasKey('source', $raw);
+        $this->assertSame('local', $raw['source']['kind']);
+    }
+
+    #[Test]
+    public function writeValuesPreservesOrigin(): void
+    {
+        $module = $this->makeModule('blog');
+        $state = ModuleState::initialState();
+        $values = new FeatureValues($module->features, []);
+        $origin = ModuleOrigin::forZip('1.0.0', 'deadbeef');
+        $this->repository->writeDocument('blog', new ModuleStateDocument($state, $values, $origin));
+
+        $this->repository->writeValues($module, $values);
+
+        $raw = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayHasKey('source', $raw);
+        $this->assertSame('zip', $raw['source']['kind']);
+        $this->assertSame('deadbeef', $raw['source']['checksum']);
+    }
+
+    #[Test]
+    public function writeDocumentOmitsSourceWhenOriginNull(): void
+    {
+        $module = $this->makeModule('blog');
+        $state = ModuleState::initialState();
+        $values = new FeatureValues($module->features, []);
+        $document = new ModuleStateDocument($state, $values);
+
+        $this->repository->writeDocument('blog', $document);
+
+        $raw = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayNotHasKey('source', $raw);
     }
 
     private function writeState(string $name, string $json): void

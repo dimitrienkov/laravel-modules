@@ -11,6 +11,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleStateWriteException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
@@ -28,6 +29,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
         'installed_at' => true,
         'updated_at' => true,
         'settings' => true,
+        'source' => true,
     ];
 
     private const array ALLOWED_SETTINGS_KEYS = ['values' => true];
@@ -56,6 +58,8 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
         $stateArray = $this->extractStateFields($raw);
         $valuesArray = $this->extractValues($raw, $statePath);
 
+        $origin = $this->extractOrigin($raw, $statePath);
+
         try {
             $state = ModuleState::fromArray($stateArray, $statePath);
             $values = FeatureValues::fromArray($valuesArray, $module->features, $moduleName, $statePath);
@@ -63,7 +67,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             throw InvalidModuleStateException::forPath($statePath, $e->getMessage(), $e);
         }
 
-        return new ModuleStateDocument($state, $values);
+        return new ModuleStateDocument($state, $values, $origin);
     }
 
     public function readState(string $moduleName, Module $module): ModuleState
@@ -89,22 +93,17 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
 
     public function writeState(Module $module, ModuleState $state): Module
     {
-        $currentValues = $this->readValues($module);
+        $current = $this->read($module->name, $module);
         $updated = $module->withState($state);
-        $this->writeDocument($module->name, new ModuleStateDocument($state, $currentValues));
+        $this->writeDocument($module->name, new ModuleStateDocument($state, $current->values, $current->origin));
 
         return $updated;
     }
 
     public function writeValues(Module $module, FeatureValues $values): void
     {
-        $statePath = $this->paths->file($module->name);
-
-        $state = $this->filesystem->isFile($statePath)
-            ? $this->readState($module->name, $module)
-            : $module->state;
-
-        $this->writeDocument($module->name, new ModuleStateDocument($state, $values));
+        $current = $this->read($module->name, $module);
+        $this->writeDocument($module->name, new ModuleStateDocument($current->state, $values, $current->origin));
     }
 
     public function delete(string $moduleName): void
@@ -246,6 +245,24 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
         }
 
         return $this->assertJsonObject($settings['values'], 'settings.values', $statePath) ?? [];
+    }
+
+    /**
+     * @param array<string, mixed> $raw
+     */
+    private function extractOrigin(array $raw, string $statePath): ?ModuleOrigin
+    {
+        if (! \array_key_exists('source', $raw)) {
+            return null;
+        }
+
+        $source = $raw['source'];
+
+        if (! \is_array($source) || ($source !== [] && array_is_list($source))) {
+            throw InvalidModuleStateException::forPath($statePath, 'source must be a JSON object.');
+        }
+
+        return ModuleOrigin::fromArray($source, $statePath);
     }
 
     /**

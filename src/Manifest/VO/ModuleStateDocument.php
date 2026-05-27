@@ -9,6 +9,7 @@ final readonly class ModuleStateDocument
     public function __construct(
         public ModuleState $state,
         public FeatureValues $values,
+        public ?ModuleOrigin $origin = null,
     ) {
     }
 
@@ -17,11 +18,17 @@ final readonly class ModuleStateDocument
      */
     public function toArray(): array
     {
-        return [
+        $data = [
             ...$this->state->toArray(),
             'settings' => [
                 'values' => $this->values->toArray(),
             ],
         ];
+
+        if ($this->origin !== null) {
+            $data['source'] = $this->origin->toArray();
+        }
+
+        return $data;
     }
 }
