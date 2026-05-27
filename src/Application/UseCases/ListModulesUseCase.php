@@ -16,7 +16,7 @@ final readonly class ListModulesUseCase
     ) {
     }
 
-    public function execute(?bool $enabledFilter = null, ?ModuleKind $kindFilter = null): ListModulesResult
+    public function execute(?bool $enabledFilter = null, ?ModuleKind $kindFilter = null, ?string $groupFilter = null): ListModulesResult
     {
         $modules = $this->registry->all();
 
@@ -31,6 +31,13 @@ final readonly class ListModulesUseCase
             $modules = array_filter(
                 $modules,
                 static fn (Module $m): bool => $m->meta->kind === $kindFilter,
+            );
+        }
+
+        if ($groupFilter !== null) {
+            $modules = array_filter(
+                $modules,
+                static fn (Module $m): bool => $m->meta->group === $groupFilter,
             );
         }
 

@@ -17,6 +17,7 @@ trait CreatesModuleFiles
         array $dependencies = [],
         array|object $schema = new \stdClass(),
         string $kind = 'module',
+        ?string $group = null,
     ): string {
         $studlyName = ucfirst($name);
         $modulePath = $modulesDir . '/' . $studlyName;
@@ -40,6 +41,10 @@ trait CreatesModuleFiles
 
         if ($dependencies !== []) {
             $manifest['meta']['dependencies'] = $dependencies;
+        }
+
+        if ($group !== null) {
+            $manifest['meta']['group'] = $group;
         }
 
         file_put_contents(

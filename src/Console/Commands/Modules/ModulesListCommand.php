@@ -15,7 +15,8 @@ final class ModulesListCommand extends Command
     protected $signature = 'modules:list
         {--enabled : Show only enabled modules}
         {--disabled : Show only disabled modules}
-        {--kind= : Filter by module kind (module, subsystem, integration)}';
+        {--kind= : Filter by module kind (module, subsystem, integration)}
+        {--group= : Filter by module group}';
 
     protected $description = 'List all registered modules';
 
@@ -42,6 +43,9 @@ final class ModulesListCommand extends Command
             }
         }
 
+        /** @var string|null $groupFilter */
+        $groupFilter = $this->option('group');
+
         try {
             $enabledFilter = match (true) {
                 (bool) $this->option('enabled') => true,
@@ -49,7 +53,7 @@ final class ModulesListCommand extends Command
                 default => null,
             };
 
-            $result = $useCase->execute($enabledFilter, $kindFilter);
+            $result = $useCase->execute($enabledFilter, $kindFilter, $groupFilter);
         } catch (ModuleExceptionInterface $e) {
             $this->components->error($e->getMessage());
 
@@ -65,6 +69,7 @@ final class ModulesListCommand extends Command
         $rows = array_map(static fn (Module $m): array => [
             $m->name,
             $m->meta->kind->value,
+            $m->meta->group ?? '',
             $m->displayName,
             $m->meta->version,
             $m->isEnabled() ? '<info>Yes</info>' : '<comment>No</comment>',
@@ -72,7 +77,7 @@ final class ModulesListCommand extends Command
         ], $result->modules);
 
         $this->table(
-            ['Name', 'Kind', 'Display Name', 'Version', 'Enabled', 'Path'],
+            ['Name', 'Kind', 'Group', 'Display Name', 'Version', 'Enabled', 'Path'],
             $rows,
         );
 

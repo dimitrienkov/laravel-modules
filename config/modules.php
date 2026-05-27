@@ -13,6 +13,10 @@ return [
         'backup' => storage_path('app/module-backups'),
         'state' => storage_path('app/private/modules'),
     ],
+    'groups' => [
+        // 'content' => 'Content Management',
+        // 'e-commerce' => 'E-Commerce',
+    ],
     'routing' => [
         'types' => [
             'api' => [

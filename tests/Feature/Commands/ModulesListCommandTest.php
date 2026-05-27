@@ -149,6 +149,42 @@ final class ModulesListCommandTest extends TestCase
             ->expectsOutputToContain('cannot be used together');
     }
 
+    #[Test]
+    public function listShowsGroupColumn(): void
+    {
+        $this->writeManifestWithGroup('blog', 'content');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list')
+            ->assertSuccessful()
+            ->expectsOutputToContain('Group')
+            ->expectsOutputToContain('content');
+    }
+
+    #[Test]
+    public function listFiltersByGroup(): void
+    {
+        $this->writeManifestWithGroup('blog', 'content');
+        $this->writeManifestWithGroup('stripe', 'payments');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list --group=content')
+            ->assertSuccessful()
+            ->expectsOutputToContain('blog')
+            ->doesntExpectOutputToContain('stripe');
+    }
+
+    #[Test]
+    public function listModuleWithoutGroupShowsEmptyCell(): void
+    {
+        $this->writeManifest('blog', enabled: true);
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list')
+            ->assertSuccessful()
+            ->expectsOutputToContain('blog');
+    }
+
     private function registerListCommand(): void
     {
         $config = $this->lifecycleConfig();
@@ -164,6 +200,12 @@ final class ModulesListCommandTest extends TestCase
     private function writeManifest(string $name, bool $enabled = true, string $kind = 'module'): void
     {
         $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, schema: [], kind: $kind);
+        $this->writeModuleState($this->stateRoot, $name, $enabled);
+    }
+
+    private function writeManifestWithGroup(string $name, string $group, bool $enabled = true): void
+    {
+        $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, schema: [], group: $group);
         $this->writeModuleState($this->stateRoot, $name, $enabled);
     }
 }
