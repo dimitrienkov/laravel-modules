@@ -6,6 +6,8 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\UseCases\ListModulesUseCase;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
+use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
@@ -77,16 +79,18 @@ final class ListModulesUseCaseTest extends TestCase
         return new ListModulesUseCase($registry);
     }
 
-    private function makeModule(string $name, bool $enabled): Module
+    private function makeModule(string $name, bool $enabled, ModuleKind $kind = ModuleKind::Module): Module
     {
         return new Module(
             name: $name,
             displayName: ucfirst($name),
             namespace: 'App\\Modules\\' . ucfirst($name),
             path: '/app/Modules/' . ucfirst($name),
+            schemaVersion: ManifestValidator::CURRENT_SCHEMA_VERSION,
             meta: new ManifestMeta(
                 name: $name,
                 displayName: ucfirst($name),
+                kind: $kind,
                 version: '1.0.0',
                 author: null,
                 description: null,

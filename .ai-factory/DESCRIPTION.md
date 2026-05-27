@@ -22,9 +22,9 @@
 
 ### Реализовано
 
-- Manifest contract: immutable `module.json` с `meta` и `settings.schema`; секции `state`, `settings.values` и `autoload` запрещены в manifest.
+- Manifest contract: immutable `module.json` с обязательным top-level `schema_version` (integer, strict-fail), `meta` (включая обязательный `kind`) и `settings.schema`; секции `state`, `settings.values` и `autoload` запрещены в manifest.
 - Отдельное state-хранилище: `state.json` в `storage/app/private/modules/{module-name}/` содержит `enabled`, `installed_at`, `updated_at` и `settings.values`.
-- Value objects и parser layer: `Module`, `ManifestMeta`, `ModuleState`, `ModuleStateDocument`, `ModuleDependencies`, `FeatureSchema`, `FeatureDefinition`, `FeatureValues`.
+- Value objects и parser layer: `Module`, `ManifestMeta`, `ModuleState`, `ModuleStateDocument`, `ModuleDependencies`, `FeatureSchema`, `FeatureDefinition`, `FeatureValues`. Enums: `FeatureType`, `ModuleKind` (`module`, `subsystem`, `integration`).
 - `ModuleManifestRepository` с методами `load()` и `writeManifest()` — единственная точка чтения/валидации/записи immutable `module.json`.
 - `ModuleStateRepositoryInterface` и `ModuleStateRepository` — чтение/запись mutable `state.json` (read, readState, readValues, writeDocument, writeState, writeValues, delete, moveToBackup, exists).
 - `ModuleStatePaths` — резолвинг путей state-файлов из конфига `modules.paths.state`.
@@ -34,7 +34,7 @@
 - `FeatureRepositoryInterface` с методами `get`, `getBool`, `getInt`, `getString`; реализация биндится как scoped. `FeatureRepository` читает values через `ModuleStateRepositoryInterface::readValues()`.
 - Команды `modules:optimize` и `modules:optimize-clear`, интегрированные с Laravel optimizer hooks.
 - Lifecycle UseCase-классы и Artisan-команды: enable/disable/settings writes меняют только `state.json`; scaffold/install/update пишут immutable descriptor через `ModuleManifestRepositoryInterface::writeManifest()`.
-- Registry cache (v3) кеширует только manifest descriptors (`meta` + `settings.schema`) и `load_order`; state и values НЕ кешируются — читаются свежими из `state.json` при каждом request.
+- Registry cache (v4) кеширует только manifest descriptors (`meta` + `settings.schema`) и `load_order`; state и values НЕ кешируются — читаются свежими из `state.json` при каждом request.
 - Optional MoonShine bridge через `MoonShineModuleAutoloader`.
 - Optional Inertia routes: `Routes/inertia.php` загружается только при наличии Inertia.
 - Pest architecture suite и PHPUnit unit/feature coverage для ядра.
@@ -65,13 +65,15 @@
 
 ## Manifest contract
 
-Каждый модуль должен иметь `module.json` в корне. `module.json` — immutable: разрешены только top-level ключи `meta` и `settings` (только `schema`). Ключи `state`, `settings.values`, `autoload` и неизвестные ключи считаются ошибкой.
+Каждый модуль должен иметь `module.json` в корне. `module.json` — immutable: разрешены только top-level ключи `schema_version`, `meta` и `settings` (только `schema`). Ключи `state`, `settings.values`, `autoload` и неизвестные ключи считаются ошибкой.
 
 ```json
 {
+  "schema_version": 1,
   "meta": {
     "name": "blog",
     "display_name": "Blog",
+    "kind": "module",
     "description": "Corporate blog with comments",
     "version": "1.0.0",
     "author": "Acme Studio",
@@ -122,7 +124,9 @@ Mutable state и explicit feature values хранятся в отдельном 
 
 Правила:
 
+- `schema_version` — обязательный top-level integer, версия формата manifest. Текущая версия: `1`. Неизвестная версия → `InvalidManifestException` (strict-fail, без fallback).
 - `meta.name` — canonical module name; `display_name` опционален и fallback'ается на `name`.
+- `meta.kind` — обязательный, backed string enum `ModuleKind` (`module`, `subsystem`, `integration`). Чисто презентационный: не влияет на loader pipeline, dependency resolution или enable/disable. При scaffold infer'ится из целевой директории (`Modules→module`, `Integrations→integration`, `Subsystems→subsystem`).
 - `meta.dependencies` принимает только объект `moduleName => Composer constraint`; wildcard constraint записывается явно как `"*"`.
 - `settings.schema` поддерживает типы `bool`, `int`, `string`, `enum`.
 - `settings.values` в `state.json` хранит только явные override-значения; defaults остаются в schema (`module.json`) и не записываются как values.
@@ -175,9 +179,9 @@ Route loading управляется `config/modules.php`:
 4. Резолвит namespace через `Application::getNamespace()` и `Application::path()`.
 5. Сортирует модули через `TopologicalSorter`.
 
-Registry cache (v3) кеширует manifest descriptors (`meta` + `settings.schema`), path, namespace и `load_order`. State и feature values НЕ кешируются — при загрузке из cache `ModuleRegistryCache` пересобирает `Module` из descriptor и дочитывает актуальный state из `state.json` через `ModuleStateRepositoryInterface::readState()`.
+Registry cache (v4) кеширует manifest descriptors (`meta` + `settings.schema`), path, namespace и `load_order`. State и feature values НЕ кешируются — при загрузке из cache `ModuleRegistryCache` пересобирает `Module` из descriptor и дочитывает актуальный state из `state.json` через `ModuleStateRepositoryInterface::readState()`.
 
-`modules:optimize` пишет cache payload с версией формата (v3), serialized manifest descriptors и `load_order`. `modules:optimize-clear` удаляет cache и сбрасывает in-memory registry.
+`modules:optimize` пишет cache payload с версией формата (v4), serialized manifest descriptors и `load_order`. `modules:optimize-clear` удаляет cache и сбрасывает in-memory registry.
 
 ## Feature toggles
 

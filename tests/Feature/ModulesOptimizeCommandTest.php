@@ -78,7 +78,7 @@ final class ModulesOptimizeCommandTest extends TestCase
     }
 
     #[Test]
-    public function optimize_writes_v3_module_cache(): void
+    public function optimize_writes_v4_module_cache(): void
     {
         $this->artisanCommand('modules:optimize')->assertSuccessful();
 
@@ -87,13 +87,13 @@ final class ModulesOptimizeCommandTest extends TestCase
 
         $payload = require $cachePath;
 
-        self::assertSame(3, $payload['version']);
+        self::assertSame(4, $payload['version']);
         self::assertSame(['blog'], $payload['load_order']);
         self::assertSame('App\\Modules\\Blog', $payload['modules']['blog']['namespace']);
     }
 
     #[Test]
-    public function optimize_clear_removes_only_v3_module_cache(): void
+    public function optimize_clear_removes_only_v4_module_cache(): void
     {
         mkdir($this->tempDir . '/bootstrap/cache', 0755, true);
         file_put_contents($this->tempDir . '/bootstrap/cache/modules.php', '<?php return [];');

@@ -25,8 +25,10 @@ final class ManifestValidatorTest extends TestCase
     public function it_validates_valid_manifest_successfully(): void
     {
         $this->validator->validate([
+            'schema_version' => 1,
             'meta' => [
                 'name' => 'blog',
+                'kind' => 'module',
                 'version' => '1.0.0',
                 'dependencies' => [],
             ],
@@ -50,7 +52,8 @@ final class ManifestValidatorTest extends TestCase
         $this->expectExceptionMessage('autoload section is not supported');
 
         $this->validator->validate([
-            'meta' => ['name' => 'blog', 'version' => '1.0.0', 'dependencies' => []],
+            'schema_version' => 1,
+            'meta' => ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'dependencies' => []],
             'settings' => ['schema' => []],
             'autoload' => ['psr-4' => []],
         ], '/tmp/module.json');
@@ -63,7 +66,8 @@ final class ManifestValidatorTest extends TestCase
         $this->expectExceptionMessage('unknown top-level key [plugins]');
 
         $this->validator->validate([
-            'meta' => ['name' => 'blog', 'version' => '1.0.0', 'dependencies' => []],
+            'schema_version' => 1,
+            'meta' => ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'dependencies' => []],
             'settings' => ['schema' => []],
             'plugins' => [],
         ], '/tmp/module.json');
@@ -76,7 +80,8 @@ final class ManifestValidatorTest extends TestCase
         $this->expectExceptionMessage('unknown top-level key [state]');
 
         $this->validator->validate([
-            'meta' => ['name' => 'blog', 'version' => '1.0.0', 'dependencies' => []],
+            'schema_version' => 1,
+            'meta' => ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'dependencies' => []],
             'settings' => ['schema' => []],
             'state' => ['enabled' => true],
         ], '/tmp/module.json');
@@ -89,7 +94,8 @@ final class ManifestValidatorTest extends TestCase
         $this->expectExceptionMessage('settings.schema must be an object');
 
         $this->validator->validate([
-            'meta' => ['name' => 'blog', 'version' => '1.0.0', 'dependencies' => []],
+            'schema_version' => 1,
+            'meta' => ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'dependencies' => []],
             'settings' => ['schema' => 'not-an-object'],
         ], '/tmp/module.json');
     }
@@ -101,8 +107,47 @@ final class ManifestValidatorTest extends TestCase
         $this->expectExceptionMessage('settings contains unknown key [values]');
 
         $this->validator->validate([
-            'meta' => ['name' => 'blog', 'version' => '1.0.0', 'dependencies' => []],
+            'schema_version' => 1,
+            'meta' => ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'dependencies' => []],
             'settings' => ['schema' => [], 'values' => []],
+        ], '/tmp/module.json');
+    }
+
+    #[Test]
+    public function it_rejects_manifest_without_schema_version(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('manifest.schema_version must be an integer');
+
+        $this->validator->validate([
+            'meta' => ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'dependencies' => []],
+            'settings' => ['schema' => []],
+        ], '/tmp/module.json');
+    }
+
+    #[Test]
+    public function it_rejects_string_schema_version(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('manifest.schema_version must be an integer');
+
+        $this->validator->validate([
+            'schema_version' => '1',
+            'meta' => ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'dependencies' => []],
+            'settings' => ['schema' => []],
+        ], '/tmp/module.json');
+    }
+
+    #[Test]
+    public function it_rejects_unsupported_schema_version(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('schema_version 2 is not supported; expected 1');
+
+        $this->validator->validate([
+            'schema_version' => 2,
+            'meta' => ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'dependencies' => []],
+            'settings' => ['schema' => []],
         ], '/tmp/module.json');
     }
 
@@ -113,7 +158,8 @@ final class ManifestValidatorTest extends TestCase
         $this->expectExceptionMessage('meta.name must be a non-empty string');
 
         $this->validator->validate([
-            'meta' => ['name' => '', 'version' => '1.0.0', 'dependencies' => []],
+            'schema_version' => 1,
+            'meta' => ['name' => '', 'kind' => 'module', 'version' => '1.0.0', 'dependencies' => []],
             'settings' => ['schema' => []],
         ], '/tmp/module.json');
     }

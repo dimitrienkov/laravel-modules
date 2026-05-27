@@ -43,9 +43,11 @@ final class ModuleRegistryCacheTest extends TestCase
 
         $payload = $cache->buildPayload([$module]);
 
-        self::assertSame(3, $payload->version);
+        self::assertSame(4, $payload->version);
         self::assertSame(['blog'], $payload->loadOrder);
         self::assertArrayHasKey('blog', $payload->modules);
+        self::assertArrayHasKey('schema_version', $payload->modules['blog']->manifest);
+        self::assertSame(1, $payload->modules['blog']->manifest['schema_version']);
         self::assertArrayNotHasKey('state', $payload->modules['blog']->manifest);
         self::assertArrayNotHasKey('values', $payload->modules['blog']->manifest['settings']);
     }
@@ -112,6 +114,22 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
+    public function it_rejects_v3_cache_payload(): void
+    {
+        $cache = $this->cache();
+        file_put_contents($cache->cachePath(), '<?php return ' . var_export([
+            'version' => 3,
+            'modules' => [],
+            'load_order' => [],
+        ], true) . ';');
+
+        $this->expectException(InvalidModuleCacheException::class);
+        $this->expectExceptionMessage('version is not supported');
+
+        $cache->load();
+    }
+
+    #[Test]
     public function it_throws_for_wrong_cache_version(): void
     {
         $cache = $this->cache();
@@ -144,7 +162,7 @@ final class ModuleRegistryCacheTest extends TestCase
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php return ' . var_export([
-            'version' => 3,
+            'version' => 4,
             'modules' => [],
             'load_order' => ['missing'],
         ], true) . ';');
@@ -160,7 +178,7 @@ final class ModuleRegistryCacheTest extends TestCase
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php return ' . var_export([
-            'version' => 3,
+            'version' => 4,
             'modules' => [
                 'blog' => ['path' => '/tmp/blog', 'namespace' => 'App\\Blog', 'manifest' => []],
             ],
@@ -178,7 +196,7 @@ final class ModuleRegistryCacheTest extends TestCase
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php return ' . var_export([
-            'version' => 3,
+            'version' => 4,
             'modules' => [
                 'blog' => ['path' => '/tmp/blog', 'namespace' => 'App\\Blog', 'manifest' => []],
                 'users' => ['path' => '/tmp/users', 'namespace' => 'App\\Users', 'manifest' => []],

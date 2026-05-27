@@ -8,11 +8,11 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
-use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
-use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
+use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\RegistersLifecycleCommands;
 use Illuminate\Filesystem\Filesystem;
@@ -90,6 +90,43 @@ final class MakeModuleCommandTest extends TestCase
         $this->artisanCommand('make:module blog')
             ->assertFailed()
             ->expectsOutputToContain('already exists');
+    }
+
+    #[Test]
+    public function scaffoldsModuleWithDefaultKindInference(): void
+    {
+        $this->artisanCommand('make:module blog')
+            ->assertSuccessful();
+
+        $manifest = json_decode(
+            file_get_contents($this->tempDir . '/app/Modules/Blog/module.json'),
+            true,
+        );
+
+        $this->assertSame(1, $manifest['schema_version']);
+        $this->assertSame('module', $manifest['meta']['kind']);
+    }
+
+    #[Test]
+    public function scaffoldsModuleWithExplicitKind(): void
+    {
+        $this->artisanCommand('make:module blog --kind=integration')
+            ->assertSuccessful();
+
+        $manifest = json_decode(
+            file_get_contents($this->tempDir . '/app/Modules/Blog/module.json'),
+            true,
+        );
+
+        $this->assertSame('integration', $manifest['meta']['kind']);
+    }
+
+    #[Test]
+    public function failsOnInvalidKind(): void
+    {
+        $this->artisanCommand('make:module blog --kind=invalid')
+            ->assertFailed()
+            ->expectsOutputToContain('allowed values: module, subsystem, integration');
     }
 
     #[Test]

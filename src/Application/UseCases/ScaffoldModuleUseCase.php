@@ -18,6 +18,8 @@ use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
+use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
+use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
@@ -67,6 +69,7 @@ final readonly class ScaffoldModuleUseCase
 
         $namespace = $this->namespaceResolver->resolve($targetPath);
         $studlyName = Str::studly($config->name);
+        $resolvedKind = $config->kind ?? $this->inferKind($targetRoot);
 
         try {
             $this->skeletonBuilder->build($targetPath, $namespace, $studlyName, $config->name);
@@ -78,9 +81,11 @@ final readonly class ScaffoldModuleUseCase
                 displayName: $studlyName,
                 namespace: $namespace,
                 path: $targetPath,
+                schemaVersion: ManifestValidator::CURRENT_SCHEMA_VERSION,
                 meta: new ManifestMeta(
                     name: $config->name,
                     displayName: $studlyName,
+                    kind: $resolvedKind,
                     version: '1.0.0',
                     author: null,
                     description: null,
@@ -128,6 +133,17 @@ final readonly class ScaffoldModuleUseCase
         } catch (Throwable $e) {
             throw ModuleScaffoldException::forModule($name, 'invalid module name — must be lowercase snake_case.', $e);
         }
+    }
+
+    private function inferKind(string $targetRoot): ModuleKind
+    {
+        $lastSegment = basename($targetRoot);
+
+        return match ($lastSegment) {
+            'Integrations' => ModuleKind::Integration,
+            'Subsystems' => ModuleKind::Subsystem,
+            default => ModuleKind::Module,
+        };
     }
 
     private function assertNotExists(string $name, string $targetPath, bool $force): void

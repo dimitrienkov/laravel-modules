@@ -7,6 +7,7 @@ namespace DimitrienkoV\LaravelModules\Application\Support;
 use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModulePermissions;
+use Throwable;
 
 final readonly class ModuleDirectoryOperations
 {
@@ -51,7 +52,7 @@ final readonly class ModuleDirectoryOperations
         if ($this->filesystem->isDirectory($targetPath)) {
             try {
                 $this->filesystem->deleteDirectory($targetPath);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 throw DirectoryOperationException::forPath(
                     $targetPath,
                     "failed to remove target before restore. Backup remains at [{$backupPath}].",
@@ -89,7 +90,11 @@ final readonly class ModuleDirectoryOperations
 
     public function tryDeleteDirectory(string $path): bool
     {
-        return $this->filesystem->deleteDirectory($path) || ! $this->filesystem->isDirectory($path);
+        if ($this->filesystem->deleteDirectory($path)) {
+            return true;
+        }
+
+        return ! $this->filesystem->isDirectory($path);
     }
 
     private function ensureBackupRootExists(string $backupPath): void

@@ -302,7 +302,8 @@ final class UpdateModuleUseCaseTest extends TestCase
         $this->filesystem->makeDirectory($dir, 0755, true);
 
         $manifest = [
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'version' => $version],
+            'schema_version' => 1,
+            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => $version],
             'settings' => [
                 'schema' => $schema ?: new \stdClass(),
             ],

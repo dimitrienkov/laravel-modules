@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Support;
 
+use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
+use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
@@ -23,6 +25,8 @@ final readonly class ModuleFactory
         array $dependencies = [],
         ?string $path = null,
         ?string $namespace = null,
+        ModuleKind $kind = ModuleKind::Module,
+        int $schemaVersion = ManifestValidator::CURRENT_SCHEMA_VERSION,
     ): Module {
         $path ??= sys_get_temp_dir() . '/laravel-modules/' . $name;
         $namespace ??= 'App\\Modules\\' . ucfirst($name);
@@ -32,9 +36,11 @@ final readonly class ModuleFactory
             displayName: ucfirst($name),
             namespace: $namespace,
             path: $path,
+            schemaVersion: $schemaVersion,
             meta: new ManifestMeta(
                 name: $name,
                 displayName: ucfirst($name),
+                kind: $kind,
                 version: $version,
                 author: null,
                 description: null,

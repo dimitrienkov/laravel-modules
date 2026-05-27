@@ -11,7 +11,10 @@ use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 
 final readonly class ManifestValidator implements ManifestValidatorInterface
 {
+    public const int CURRENT_SCHEMA_VERSION = 1;
+
     private const array ALLOWED_TOP_LEVEL_KEYS = [
+        'schema_version' => true,
         'meta' => true,
         'settings' => true,
     ];
@@ -27,6 +30,15 @@ final readonly class ManifestValidator implements ManifestValidatorInterface
     public function validate(array $manifest, string $manifestPath): void
     {
         $this->assertTopLevelKeys($manifest, $manifestPath);
+
+        $schemaVersion = ManifestFieldReader::requiredInt($manifest, 'schema_version', 'manifest', $manifestPath);
+
+        if ($schemaVersion !== self::CURRENT_SCHEMA_VERSION) {
+            throw InvalidManifestException::forPath(
+                $manifestPath,
+                "schema_version {$schemaVersion} is not supported; expected " . self::CURRENT_SCHEMA_VERSION . '.',
+            );
+        }
 
         $metaRaw = ManifestFieldReader::requiredObject($manifest, 'meta', $manifestPath);
         /** @var array<string, mixed> $metaRaw */

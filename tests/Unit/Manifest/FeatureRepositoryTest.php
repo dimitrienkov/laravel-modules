@@ -205,9 +205,11 @@ final class FeatureRepositoryTest extends TestCase
         file_put_contents(
             $this->modulePath . '/module.json',
             json_encode([
+                'schema_version' => 1,
                 'meta' => [
                     'name' => 'blog',
                     'display_name' => 'Blog',
+                    'kind' => 'module',
                     'version' => '1.0.0',
                     'dependencies' => [],
                 ],

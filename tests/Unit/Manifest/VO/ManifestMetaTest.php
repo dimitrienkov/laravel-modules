@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
+use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -17,7 +18,7 @@ final class ManifestMetaTest extends TestCase
     {
         foreach (['blog', 'catalog_product', 'a', 'users123'] as $name) {
             $meta = ManifestMeta::fromArray(
-                ['name' => $name, 'version' => '1.0.0'],
+                ['name' => $name, 'kind' => 'module', 'version' => '1.0.0'],
                 '/tmp/module.json',
             );
 
@@ -33,7 +34,7 @@ final class ManifestMetaTest extends TestCase
         $this->expectExceptionMessage('meta.name must be lowercase snake_case');
 
         ManifestMeta::fromArray(
-            ['name' => $name, 'version' => '1.0.0'],
+            ['name' => $name, 'kind' => 'module', 'version' => '1.0.0'],
             '/tmp/module.json',
         );
     }
@@ -59,7 +60,7 @@ final class ManifestMetaTest extends TestCase
         $this->expectExceptionMessage('meta contains unknown key [displayName]');
 
         ManifestMeta::fromArray(
-            ['name' => 'blog', 'version' => '1.0.0', 'displayName' => 'Blog'],
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'displayName' => 'Blog'],
             '/tmp/module.json',
         );
     }
@@ -68,7 +69,7 @@ final class ManifestMetaTest extends TestCase
     public function it_uses_display_name_snake_case_key(): void
     {
         $meta = ManifestMeta::fromArray(
-            ['name' => 'blog', 'version' => '1.0.0', 'display_name' => 'My Blog'],
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'display_name' => 'My Blog'],
             '/tmp/module.json',
         );
 
@@ -79,7 +80,7 @@ final class ManifestMetaTest extends TestCase
     public function it_falls_back_to_name_when_display_name_is_absent(): void
     {
         $meta = ManifestMeta::fromArray(
-            ['name' => 'blog', 'version' => '1.0.0'],
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0'],
             '/tmp/module.json',
         );
 
@@ -93,8 +94,60 @@ final class ManifestMetaTest extends TestCase
         $this->expectExceptionMessage('meta.version must be a non-empty string');
 
         ManifestMeta::fromArray(
-            ['name' => 'blog'],
+            ['name' => 'blog', 'kind' => 'module'],
             '/tmp/module.json',
         );
+    }
+
+    #[Test]
+    public function it_parses_kind_into_module_kind_enum(): void
+    {
+        $meta = ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'integration', 'version' => '1.0.0'],
+            '/tmp/module.json',
+        );
+
+        self::assertSame(ModuleKind::Integration, $meta->kind);
+    }
+
+    #[Test]
+    public function it_rejects_unknown_kind_value(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('meta.kind [plugin] is not valid');
+
+        ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'plugin', 'version' => '1.0.0'],
+            '/tmp/module.json',
+        );
+    }
+
+    #[Test]
+    public function it_rejects_missing_kind(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('meta.kind must be a non-empty string');
+
+        ManifestMeta::fromArray(
+            ['name' => 'blog', 'version' => '1.0.0'],
+            '/tmp/module.json',
+        );
+    }
+
+    #[Test]
+    public function kind_survives_round_trip(): void
+    {
+        $meta = ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'subsystem', 'version' => '1.0.0'],
+            '/tmp/module.json',
+        );
+
+        $array = $meta->toArray();
+
+        self::assertSame('subsystem', $array['kind']);
+
+        $restored = ManifestMeta::fromArray($array, '/tmp/module.json');
+
+        self::assertSame(ModuleKind::Subsystem, $restored->kind);
     }
 }

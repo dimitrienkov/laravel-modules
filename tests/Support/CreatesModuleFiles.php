@@ -16,6 +16,7 @@ trait CreatesModuleFiles
         string $version = '1.0.0',
         array $dependencies = [],
         array|object $schema = new \stdClass(),
+        string $kind = 'module',
     ): string {
         $studlyName = ucfirst($name);
         $modulePath = $modulesDir . '/' . $studlyName;
@@ -25,9 +26,11 @@ trait CreatesModuleFiles
         }
 
         $manifest = [
+            'schema_version' => 1,
             'meta' => [
                 'name' => $name,
                 'display_name' => $studlyName,
+                'kind' => $kind,
                 'version' => $version,
             ],
             'settings' => [

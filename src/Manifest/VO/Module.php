@@ -15,6 +15,7 @@ final readonly class Module
         public string $displayName,
         public string $namespace,
         public string $path,
+        public int $schemaVersion,
         public ManifestMeta $meta,
         public ModuleState $state,
         public FeatureSchema $features,
@@ -31,6 +32,8 @@ final readonly class Module
         string $manifestPath,
         ModuleState $state,
     ): self {
+        $schemaVersion = ManifestFieldReader::requiredInt($manifest, 'schema_version', 'manifest', $manifestPath);
+
         $metaRaw = ManifestFieldReader::requiredObject($manifest, 'meta', $manifestPath);
 
         $settingsRaw = $manifest['settings'] ?? null;
@@ -53,6 +56,7 @@ final readonly class Module
             displayName: $meta->displayName,
             namespace: $namespace,
             path: $path,
+            schemaVersion: $schemaVersion,
             meta: $meta,
             state: $state,
             features: $features,
@@ -76,6 +80,7 @@ final readonly class Module
             displayName: $this->displayName,
             namespace: $this->namespace,
             path: $this->path,
+            schemaVersion: $this->schemaVersion,
             meta: $this->meta,
             state: $state,
             features: $this->features,
@@ -88,6 +93,7 @@ final readonly class Module
     public function toDescriptorArray(): array
     {
         return [
+            'schema_version' => $this->schemaVersion,
             'meta' => $this->meta->toArray(),
             'settings' => [
                 'schema' => $this->features->toArray(),

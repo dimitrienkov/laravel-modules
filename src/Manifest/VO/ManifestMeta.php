@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
+use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 
 final readonly class ManifestMeta
@@ -12,6 +13,7 @@ final readonly class ManifestMeta
     private const array ALLOWED_KEYS = [
         'name' => true,
         'display_name' => true,
+        'kind' => true,
         'version' => true,
         'author' => true,
         'description' => true,
@@ -22,6 +24,7 @@ final readonly class ManifestMeta
     public function __construct(
         public string $name,
         public string $displayName,
+        public ModuleKind $kind,
         public string $version,
         public ?string $author,
         public ?string $description,
@@ -40,6 +43,18 @@ final readonly class ManifestMeta
         $name = ManifestFieldReader::requiredString($meta, 'name', 'meta', $manifestPath);
         ManifestFieldReader::assertModuleName($name, 'meta.name', $manifestPath);
 
+        $kindRaw = ManifestFieldReader::requiredString($meta, 'kind', 'meta', $manifestPath);
+        $kind = ModuleKind::tryFrom($kindRaw);
+
+        if ($kind === null) {
+            $allowed = implode(', ', array_column(ModuleKind::cases(), 'value'));
+
+            throw InvalidManifestException::forPath(
+                $manifestPath,
+                "meta.kind [{$kindRaw}] is not valid; allowed values: {$allowed}.",
+            );
+        }
+
         $version = ManifestFieldReader::requiredString($meta, 'version', 'meta', $manifestPath);
         $displayName = ManifestFieldReader::optionalString($meta, 'display_name', 'meta', $manifestPath) ?? $name;
         $author = ManifestFieldReader::optionalString($meta, 'author', 'meta', $manifestPath);
@@ -54,6 +69,7 @@ final readonly class ManifestMeta
         return new self(
             name: $name,
             displayName: $displayName,
+            kind: $kind,
             version: $version,
             author: $author,
             description: $description,
@@ -70,6 +86,7 @@ final readonly class ManifestMeta
         $meta = [
             'name' => $this->name,
             'display_name' => $this->displayName,
+            'kind' => $this->kind->value,
             'version' => $this->version,
             'dependencies' => $this->dependencies->toArray(),
         ];

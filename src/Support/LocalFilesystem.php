@@ -73,7 +73,11 @@ final readonly class LocalFilesystem
 
     public function deleteFileIfExists(string $path): bool
     {
-        return $this->filesystem->delete($path) || ! $this->filesystem->isFile($path);
+        if ($this->filesystem->delete($path)) {
+            return true;
+        }
+
+        return ! $this->filesystem->isFile($path);
     }
 
     public function deleteDirectory(string $path): bool
