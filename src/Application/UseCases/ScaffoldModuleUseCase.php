@@ -91,6 +91,7 @@ final readonly class ScaffoldModuleUseCase
                     description: null,
                     license: null,
                     dependencies: new ModuleDependencies([]),
+                    group: $config->group,
                 ),
                 state: $state,
                 features: new FeatureSchema([]),

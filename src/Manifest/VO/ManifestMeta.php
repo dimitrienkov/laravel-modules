@@ -10,10 +10,13 @@ use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 
 final readonly class ManifestMeta
 {
+    private const string GROUP_PATTERN = '/^[a-z][a-z0-9-]*$/';
+
     private const array ALLOWED_KEYS = [
         'name' => true,
         'display_name' => true,
         'kind' => true,
+        'group' => true,
         'version' => true,
         'author' => true,
         'description' => true,
@@ -30,6 +33,7 @@ final readonly class ManifestMeta
         public ?string $description,
         public ?string $license,
         public ModuleDependencies $dependencies,
+        public ?string $group = null,
     ) {
     }
 
@@ -61,6 +65,15 @@ final readonly class ManifestMeta
         $description = ManifestFieldReader::optionalString($meta, 'description', 'meta', $manifestPath);
         $license = ManifestFieldReader::optionalString($meta, 'license', 'meta', $manifestPath);
 
+        $group = ManifestFieldReader::optionalString($meta, 'group', 'meta', $manifestPath);
+
+        if ($group !== null && ! preg_match(self::GROUP_PATTERN, $group)) {
+            throw InvalidManifestException::forPath(
+                $manifestPath,
+                "meta.group [{$group}] must be kebab-case: lowercase letters, digits and hyphens, starting with a letter.",
+            );
+        }
+
         $dependenciesRaw = $meta['dependencies'] ?? [];
         if (! \is_array($dependenciesRaw)) {
             throw InvalidManifestException::forPath($manifestPath, 'meta.dependencies must be an array.');
@@ -75,6 +88,7 @@ final readonly class ManifestMeta
             description: $description,
             license: $license,
             dependencies: ModuleDependencies::fromArray($dependenciesRaw, $manifestPath),
+            group: $group,
         );
     }
 
@@ -101,6 +115,10 @@ final readonly class ManifestMeta
 
         if ($this->license !== null) {
             $meta['license'] = $this->license;
+        }
+
+        if ($this->group !== null) {
+            $meta['group'] = $this->group;
         }
 
         return $meta;

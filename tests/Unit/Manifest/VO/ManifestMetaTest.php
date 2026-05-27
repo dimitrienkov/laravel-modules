@@ -150,4 +150,105 @@ final class ManifestMetaTest extends TestCase
 
         self::assertSame(ModuleKind::Subsystem, $restored->kind);
     }
+
+    #[Test]
+    public function it_parses_group_when_present(): void
+    {
+        $meta = ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'group' => 'content'],
+            '/tmp/module.json',
+        );
+
+        self::assertSame('content', $meta->group);
+    }
+
+    #[Test]
+    public function it_allows_null_group_when_absent(): void
+    {
+        $meta = ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0'],
+            '/tmp/module.json',
+        );
+
+        self::assertNull($meta->group);
+    }
+
+    #[Test]
+    #[DataProvider('invalidGroupProvider')]
+    public function it_rejects_invalid_group_format(string $group): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('meta.group');
+
+        ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'group' => $group],
+            '/tmp/module.json',
+        );
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidGroupProvider(): array
+    {
+        return [
+            'PascalCase' => ['Content'],
+            'contains space' => ['my group'],
+            'contains underscore' => ['my_group'],
+            'starts with digit' => ['1content'],
+            'empty string' => [''],
+        ];
+    }
+
+    #[Test]
+    public function to_array_includes_group_when_non_null(): void
+    {
+        $meta = ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'group' => 'content'],
+            '/tmp/module.json',
+        );
+
+        $array = $meta->toArray();
+
+        self::assertSame('content', $array['group']);
+    }
+
+    #[Test]
+    public function to_array_omits_group_when_null(): void
+    {
+        $meta = ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0'],
+            '/tmp/module.json',
+        );
+
+        $array = $meta->toArray();
+
+        self::assertArrayNotHasKey('group', $array);
+    }
+
+    #[Test]
+    public function group_survives_round_trip(): void
+    {
+        $meta = ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'group' => 'content'],
+            '/tmp/module.json',
+        );
+
+        $restored = ManifestMeta::fromArray($meta->toArray(), '/tmp/module.json');
+
+        self::assertSame('content', $restored->group);
+    }
+
+    #[Test]
+    public function group_accepts_valid_kebab_case_values(): void
+    {
+        foreach (['content', 'e-commerce', 'core-services', 'a', 'billing2'] as $group) {
+            $meta = ManifestMeta::fromArray(
+                ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'group' => $group],
+                '/tmp/module.json',
+            );
+
+            self::assertSame($group, $meta->group);
+        }
+    }
 }

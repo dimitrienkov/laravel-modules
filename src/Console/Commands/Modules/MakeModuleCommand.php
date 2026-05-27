@@ -16,6 +16,7 @@ final class MakeModuleCommand extends Command
         {name : The module name (lowercase snake_case)}
         {--directory= : Target module root directory}
         {--kind= : Module kind (module, subsystem, integration)}
+        {--group= : Module group for UI/CLI grouping (kebab-case)}
         {--disabled : Create the module in disabled state}
         {--overwrite : Overwrite if module already exists}';
 
@@ -44,12 +45,16 @@ final class MakeModuleCommand extends Command
             }
         }
 
+        /** @var string|null $group */
+        $group = $this->option('group');
+
         $config = new ScaffoldModuleConfig(
             name: $name,
             directory: $directory,
             enabled: ! $this->option('disabled'),
             force: (bool) $this->option('overwrite'),
             kind: $kind,
+            group: $group,
         );
 
         try {

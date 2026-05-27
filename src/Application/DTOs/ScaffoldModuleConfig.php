@@ -14,6 +14,7 @@ final readonly class ScaffoldModuleConfig
         public bool $enabled = true,
         public bool $force = false,
         public ?ModuleKind $kind = null,
+        public ?string $group = null,
     ) {
     }
 }
