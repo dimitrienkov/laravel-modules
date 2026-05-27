@@ -115,6 +115,25 @@ final readonly class ManifestFieldReader
     /**
      * @param array<string, mixed> $data
      */
+    public static function requiredInt(
+        array $data,
+        string $key,
+        string $context,
+        string $manifestPath,
+    ): int {
+        if (! \array_key_exists($key, $data) || ! \is_int($data[$key])) {
+            throw InvalidManifestException::forPath(
+                $manifestPath,
+                "{$context}.{$key} must be an integer.",
+            );
+        }
+
+        return $data[$key];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function optionalInt(
         array $data,
         string $key,

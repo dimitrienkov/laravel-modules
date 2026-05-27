@@ -147,9 +147,11 @@ final class ModuleSourcePreparerTest extends TestCase
         mkdir($dir, 0755, true);
 
         $manifest = [
+            'schema_version' => 1,
             'meta' => [
                 'name' => $name,
                 'display_name' => ucfirst($name),
+                'kind' => 'module',
                 'version' => '1.0.0',
             ],
             'settings' => [
@@ -168,9 +170,11 @@ final class ModuleSourcePreparerTest extends TestCase
     private function createModuleZip(string $name): string
     {
         $manifest = json_encode([
+            'schema_version' => 1,
             'meta' => [
                 'name' => $name,
                 'display_name' => ucfirst($name),
+                'kind' => 'module',
                 'version' => '1.0.0',
             ],
             'settings' => [

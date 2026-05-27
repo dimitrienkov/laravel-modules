@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\VO;
 
+use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use PHPUnit\Framework\Attributes\Test;
@@ -26,7 +27,9 @@ final class ModuleTest extends TestCase
         self::assertSame('Blog', $module->displayName);
         self::assertSame('App\\Modules\\Blog', $module->namespace);
         self::assertSame('/app/Modules/Blog', $module->path);
+        self::assertSame(1, $module->schemaVersion);
         self::assertSame('1.0.0', $module->meta->version);
+        self::assertSame(ModuleKind::Module, $module->meta->kind);
     }
 
     #[Test]
@@ -88,6 +91,7 @@ final class ModuleTest extends TestCase
         self::assertTrue($module->isEnabled());
         self::assertFalse($updated->isEnabled());
         self::assertSame('blog', $updated->name);
+        self::assertSame(1, $updated->schemaVersion);
     }
 
     #[Test]
@@ -103,6 +107,8 @@ final class ModuleTest extends TestCase
 
         $descriptor = $module->toDescriptorArray();
 
+        self::assertArrayHasKey('schema_version', $descriptor);
+        self::assertSame(1, $descriptor['schema_version']);
         self::assertArrayHasKey('meta', $descriptor);
         self::assertArrayNotHasKey('state', $descriptor);
         self::assertArrayHasKey('settings', $descriptor);
@@ -136,9 +142,11 @@ final class ModuleTest extends TestCase
     private function validManifest(): array
     {
         return [
+            'schema_version' => 1,
             'meta' => [
                 'name' => 'blog',
                 'display_name' => 'Blog',
+                'kind' => 'module',
                 'version' => '1.0.0',
                 'dependencies' => [],
             ],

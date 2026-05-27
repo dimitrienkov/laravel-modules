@@ -9,7 +9,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 
 final readonly class ModuleRegistryCachePayload
 {
-    private const int SUPPORTED_VERSION = 3;
+    private const int SUPPORTED_VERSION = 4;
 
     /**
      * @param array<string, CachedModuleDescriptor> $modules

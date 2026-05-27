@@ -155,6 +155,73 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
+    public function required_int_returns_value(): void
+    {
+        self::assertSame(1, ManifestFieldReader::requiredInt(
+            ['schema_version' => 1],
+            'schema_version',
+            'manifest',
+            '/tmp/module.json',
+        ));
+    }
+
+    #[Test]
+    public function required_int_throws_for_missing_key(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('manifest.schema_version must be an integer');
+
+        ManifestFieldReader::requiredInt(
+            [],
+            'schema_version',
+            'manifest',
+            '/tmp/module.json',
+        );
+    }
+
+    #[Test]
+    public function required_int_throws_for_string_value(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('manifest.schema_version must be an integer');
+
+        ManifestFieldReader::requiredInt(
+            ['schema_version' => '1'],
+            'schema_version',
+            'manifest',
+            '/tmp/module.json',
+        );
+    }
+
+    #[Test]
+    public function required_int_throws_for_float_value(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('manifest.schema_version must be an integer');
+
+        ManifestFieldReader::requiredInt(
+            ['schema_version' => 1.0],
+            'schema_version',
+            'manifest',
+            '/tmp/module.json',
+        );
+    }
+
+    #[Test]
+    public function required_int_throws_for_null_value(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('manifest.schema_version must be an integer');
+
+        ManifestFieldReader::requiredInt(
+            ['schema_version' => null],
+            'schema_version',
+            'manifest',
+            '/tmp/module.json',
+        );
+    }
+
+    #[Test]
     public function optional_int_returns_null_when_absent(): void
     {
         self::assertNull(ManifestFieldReader::optionalInt(

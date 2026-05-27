@@ -155,6 +155,10 @@ arch('application DTOs are final readonly')
     ->toBeFinal()
     ->toBeReadonly();
 
+arch('loaders do not depend on ModuleKind')
+    ->expect('DimitrienkoV\LaravelModules\Loaders')
+    ->not->toUse('DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind');
+
 arch('application layer does not depend on loaders or moonshine')
     ->expect('DimitrienkoV\LaravelModules\Application')
     ->not->toUse([

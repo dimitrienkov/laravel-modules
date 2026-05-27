@@ -40,6 +40,7 @@ src/
 │   ├── DTOs/
 │   │   ├── ClearModulesOptimizeCacheResult.php
 │   │   ├── InstallModuleResult.php
+│   │   ├── ListModulesResult.php
 │   │   ├── OptimizeModulesResult.php
 │   │   ├── RemoveModuleResult.php
 │   │   ├── ScaffoldModuleConfig.php
@@ -62,6 +63,7 @@ src/
 │       ├── DisableModuleUseCase.php
 │       ├── EnableModuleUseCase.php
 │       ├── InstallModuleUseCase.php
+│       ├── ListModulesUseCase.php
 │       ├── OptimizeModulesUseCase.php
 │       ├── RemoveModuleUseCase.php
 │       ├── ScaffoldModuleUseCase.php
@@ -73,6 +75,8 @@ src/
 │   └── Pipeline/ModuleLoaderPipeline.php
 ├── Manifest/
 │   ├── Enums/
+│   │   ├── FeatureType.php
+│   │   └── ModuleKind.php
 │   ├── Parsing/
 │   └── VO/
 ├── MoonShine/
@@ -121,13 +125,15 @@ src/
 
 ## Manifest И State
 
-`module.json` разрешает только top-level ключи `meta` и `settings`.
+`module.json` разрешает только top-level ключи `schema_version`, `meta` и `settings`.
 
 ```json
 {
+  "schema_version": 1,
   "meta": {
     "name": "blog",
     "display_name": "Blog",
+    "kind": "module",
     "version": "1.0.0",
     "dependencies": {
       "users": "^1.5"
@@ -162,11 +168,13 @@ State и explicit values находятся в отдельном `state.json`:
 
 Инварианты:
 
+- `schema_version` — обязательный top-level integer. Текущая версия: `1`. Неизвестная или отсутствующая версия → strict-fail (`InvalidManifestException`), без fallback на default.
+- `meta.kind` — обязательный backed string enum `ModuleKind` (`module`, `subsystem`, `integration`). Чисто презентационный: не влияет на loader pipeline, dependency resolution или enable/disable. Arch-тест `loaders do not depend on ModuleKind` закрепляет эту границу.
 - `state`, `settings.values`, `autoload` и неизвестные top-level ключи запрещены в `module.json`.
 - `meta.dependencies` поддерживает только object-form `moduleName => Composer constraint`; list-form dependencies не являются текущим контрактом.
 - `settings.schema` поддерживает `bool`, `int`, `string`, `enum`; metadata `label`, `description`, `group` допустима.
 - `ModuleManifestRepository::load()` валидирует `module.json`, гидратирует `Module` и дочитывает актуальный state через `ModuleStateRepositoryInterface`.
-- `ModuleManifestRepository::writeManifest()` записывает только immutable descriptor (`meta` + `settings.schema`).
+- `ModuleManifestRepository::writeManifest()` записывает только immutable descriptor (`schema_version` + `meta` + `settings.schema`).
 - `ModuleStateRepositoryInterface` управляет `state.json`: state, values, delete, backup, existence checks.
 - `FeatureValues` валидирует explicit values против `FeatureSchema` при чтении и записи.
 
@@ -186,13 +194,13 @@ Fresh scan flow:
 3. `TopologicalSorter` сортирует modules по `meta.dependencies`, проверяет duplicate names, missing/disabled/incompatible dependencies и cycles.
 4. `ModuleRegistrySnapshot` строит ordered list и lookup-map; `all()` возвращает deterministic load order.
 
-Cache payload v3:
+Cache payload v4:
 
-- `version = 3`
-- `modules[name] = path + namespace + manifest descriptor`
+- `version = 4`
+- `modules[name] = path + namespace + manifest descriptor` (descriptor включает `schema_version`, `meta` с `kind`, `settings`)
 - `load_order = list<moduleName>`
 
-Cache не содержит state или `settings.values`. При чтении cache `ModuleRegistryCache` валидирует payload, пересобирает `Module` из manifest descriptor и дочитывает fresh state через `ModuleStateRepositoryInterface::readState()`.
+Cache не содержит state или `settings.values`. При чтении cache `ModuleRegistryCache` валидирует payload, пересобирает `Module` из manifest descriptor и дочитывает fresh state через `ModuleStateRepositoryInterface::readState()`. Cache v3 автоматически reject'ится при чтении.
 
 Optimize flow:
 

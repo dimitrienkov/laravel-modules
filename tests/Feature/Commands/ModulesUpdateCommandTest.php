@@ -95,7 +95,8 @@ final class ModulesUpdateCommandTest extends TestCase
         mkdir($dir, 0755, true);
 
         file_put_contents($dir . '/module.json', json_encode([
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'version' => $version],
+            'schema_version' => 1,
+            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => $version],
             'settings' => ['schema' => new \stdClass()],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 

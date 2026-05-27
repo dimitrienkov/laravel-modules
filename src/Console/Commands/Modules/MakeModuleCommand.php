@@ -7,6 +7,7 @@ namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 use DimitrienkoV\LaravelModules\Application\DTOs\ScaffoldModuleConfig;
 use DimitrienkoV\LaravelModules\Application\UseCases\ScaffoldModuleUseCase;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
+use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
 use Illuminate\Console\Command;
 
 final class MakeModuleCommand extends Command
@@ -14,6 +15,7 @@ final class MakeModuleCommand extends Command
     protected $signature = 'make:module
         {name : The module name (lowercase snake_case)}
         {--directory= : Target module root directory}
+        {--kind= : Module kind (module, subsystem, integration)}
         {--disabled : Create the module in disabled state}
         {--overwrite : Overwrite if module already exists}';
 
@@ -27,11 +29,27 @@ final class MakeModuleCommand extends Command
         /** @var string|null $directory */
         $directory = $this->option('directory');
 
+        /** @var string|null $kindRaw */
+        $kindRaw = $this->option('kind');
+        $kind = null;
+
+        if ($kindRaw !== null) {
+            $kind = ModuleKind::tryFrom($kindRaw);
+
+            if ($kind === null) {
+                $allowed = implode(', ', array_column(ModuleKind::cases(), 'value'));
+                $this->components->error("Invalid kind [{$kindRaw}]; allowed values: {$allowed}.");
+
+                return self::FAILURE;
+            }
+        }
+
         $config = new ScaffoldModuleConfig(
             name: $name,
             directory: $directory,
             enabled: ! $this->option('disabled'),
             force: (bool) $this->option('overwrite'),
+            kind: $kind,
         );
 
         try {

@@ -104,7 +104,8 @@ final class ModulesInstallCommandTest extends TestCase
         mkdir($dir, 0755, true);
 
         file_put_contents($dir . '/module.json', json_encode([
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'version' => '1.0.0'],
+            'schema_version' => 1,
+            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => '1.0.0'],
             'settings' => ['schema' => new \stdClass()],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 

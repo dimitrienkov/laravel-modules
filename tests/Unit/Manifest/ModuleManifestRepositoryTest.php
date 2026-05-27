@@ -204,9 +204,11 @@ final class ModuleManifestRepositoryTest extends TestCase
     private function validManifest(): array
     {
         return [
+            'schema_version' => 1,
             'meta' => [
                 'name' => 'blog',
                 'display_name' => 'Blog',
+                'kind' => 'module',
                 'version' => '1.0.0',
                 'dependencies' => ['users' => '^1.0'],
             ],

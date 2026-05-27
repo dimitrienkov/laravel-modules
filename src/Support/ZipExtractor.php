@@ -50,7 +50,7 @@ final readonly class ZipExtractor
         } catch (Throwable $e) {
             try {
                 $this->filesystem->deleteDirectory($tempDir);
-            } catch (\Throwable) {
+            } catch (Throwable) {
             }
 
             throw $e;

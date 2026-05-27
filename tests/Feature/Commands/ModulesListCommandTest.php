@@ -80,6 +80,56 @@ final class ModulesListCommandTest extends TestCase
     }
 
     #[Test]
+    public function listShowsKindColumn(): void
+    {
+        $this->writeManifest('blog', enabled: true);
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list')
+            ->assertSuccessful()
+            ->expectsOutputToContain('Kind')
+            ->expectsOutputToContain('module');
+    }
+
+    #[Test]
+    public function listFiltersByKind(): void
+    {
+        $this->writeManifest('blog', enabled: true, kind: 'module');
+        $this->writeManifest('stripe', enabled: true, kind: 'integration');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list --kind=integration')
+            ->assertSuccessful()
+            ->expectsOutputToContain('stripe')
+            ->doesntExpectOutputToContain('blog');
+    }
+
+    #[Test]
+    public function listRejectsInvalidKind(): void
+    {
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list --kind=invalid')
+            ->assertFailed()
+            ->expectsOutputToContain('allowed values: module, subsystem, integration');
+    }
+
+    #[Test]
+    public function listCombinesKindAndEnabledFilters(): void
+    {
+        $this->writeManifest('blog', enabled: true, kind: 'module');
+        $this->writeManifest('stripe', enabled: true, kind: 'integration');
+        $this->writeManifest('mailer', enabled: false, kind: 'integration');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list --kind=integration --enabled')
+            ->assertSuccessful()
+            ->expectsOutputToContain('stripe')
+            ->doesntExpectOutputToContain('mailer')
+            ->doesntExpectOutputToContain('blog');
+    }
+
+    #[Test]
     public function listShowsNoModulesMessage(): void
     {
         $this->registerListCommand();
@@ -111,9 +161,9 @@ final class ModulesListCommandTest extends TestCase
         $this->registerArtisanCommand(ModulesListCommand::class);
     }
 
-    private function writeManifest(string $name, bool $enabled = true): void
+    private function writeManifest(string $name, bool $enabled = true, string $kind = 'module'): void
     {
-        $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, schema: []);
+        $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, schema: [], kind: $kind);
         $this->writeModuleState($this->stateRoot, $name, $enabled);
     }
 }

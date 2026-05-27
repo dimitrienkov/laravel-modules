@@ -67,12 +67,12 @@ final class ModuleRegistryTest extends TestCase
     }
 
     #[Test]
-    public function it_reads_v3_cache_when_present(): void
+    public function it_reads_v4_cache_when_present(): void
     {
         $cachePath = $this->tempDir . '/bootstrap/cache/modules.php';
         mkdir(\dirname($cachePath), 0755, true);
         file_put_contents($cachePath, '<?php return ' . var_export([
-            'version' => 3,
+            'version' => 4,
             'modules' => [
                 'cached' => [
                     'path' => $this->tempDir . '/missing/Cached',
@@ -185,9 +185,11 @@ final class ModuleRegistryTest extends TestCase
     private function manifest(string $name, string $version, array $dependencies = []): array
     {
         return [
+            'schema_version' => 1,
             'meta' => [
                 'name' => $name,
                 'display_name' => ucfirst($name),
+                'kind' => 'module',
                 'version' => $version,
                 'dependencies' => $dependencies,
             ],

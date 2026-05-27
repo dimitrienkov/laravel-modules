@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleStateException;
-use DimitrienkoV\LaravelModules\Exceptions\ModuleStateWriteException;
+use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
+use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
@@ -268,9 +269,11 @@ final class ModuleStateRepositoryTest extends TestCase
             displayName: ucfirst($name),
             namespace: 'App\\Modules\\' . ucfirst($name),
             path: $this->tempDir . '/app/Modules/' . ucfirst($name),
+            schemaVersion: ManifestValidator::CURRENT_SCHEMA_VERSION,
             meta: new ManifestMeta(
                 name: $name,
                 displayName: ucfirst($name),
+                kind: ModuleKind::Module,
                 version: '1.0.0',
                 author: null,
                 description: null,
