@@ -48,7 +48,8 @@ src/
 │   │   ├── SkippedFeatureValue.php
 │   │   └── UpdateModuleResult.php
 │   ├── Enums/
-│   │   └── ModuleSourceKind.php
+│   │   ├── ModuleSourceKind.php
+│   │   └── RemoveStrategy.php
 │   ├── Support/
 │   │   ├── LifecycleRegistryInvalidator.php
 │   │   ├── ModuleDependencyGuard.php
@@ -76,7 +77,8 @@ src/
 ├── Manifest/
 │   ├── Enums/
 │   │   ├── FeatureType.php
-│   │   └── ModuleKind.php
+│   │   ├── ModuleKind.php
+│   │   └── ModuleOriginKind.php
 │   ├── Parsing/
 │   └── VO/
 ├── MoonShine/
@@ -134,6 +136,7 @@ src/
     "name": "blog",
     "display_name": "Blog",
     "kind": "module",
+    "group": "content",
     "version": "1.0.0",
     "dependencies": {
       "users": "^1.5"
@@ -158,6 +161,11 @@ State и explicit values находятся в отдельном `state.json`:
   "enabled": true,
   "installed_at": "2026-05-23T14:12:00+00:00",
   "updated_at": "2026-05-23T14:12:00+00:00",
+  "source": {
+    "installed_version": "1.0.0",
+    "kind": "zip",
+    "checksum": "sha256:abc123..."
+  },
   "settings": {
     "values": {
       "enable_comments": false
@@ -170,12 +178,14 @@ State и explicit values находятся в отдельном `state.json`:
 
 - `schema_version` — обязательный top-level integer. Текущая версия: `1`. Неизвестная или отсутствующая версия → strict-fail (`InvalidManifestException`), без fallback на default.
 - `meta.kind` — обязательный backed string enum `ModuleKind` (`module`, `subsystem`, `integration`). Чисто презентационный: не влияет на loader pipeline, dependency resolution или enable/disable. Arch-тест `loaders do not depend on ModuleKind` закрепляет эту границу.
+- `meta.group` — опциональный string, kebab-case (`/^[a-z][a-z0-9-]*$/`). Используется для логической группировки модулей (отображение в `modules:list`, конфигурация `modules.paths.groups`). Не влияет на loader pipeline и dependency resolution.
 - `state`, `settings.values`, `autoload` и неизвестные top-level ключи запрещены в `module.json`.
 - `meta.dependencies` поддерживает только object-form `moduleName => Composer constraint`; list-form dependencies не являются текущим контрактом.
 - `settings.schema` поддерживает `bool`, `int`, `string`, `enum`; metadata `label`, `description`, `group` допустима.
+- `source` — опциональная секция в `state.json`, записывается через `ModuleOrigin` VO. Содержит `kind` (`local` | `zip`), `installed_version` и опциональный `checksum`. Записывается lifecycle UseCase-классами (scaffold, install, update) для фиксации provenance установленного модуля. Не читается registry cache и не влияет на loader pipeline.
 - `ModuleManifestRepository::load()` валидирует `module.json`, гидратирует `Module` и дочитывает актуальный state через `ModuleStateRepositoryInterface`.
 - `ModuleManifestRepository::writeManifest()` записывает только immutable descriptor (`schema_version` + `meta` + `settings.schema`).
-- `ModuleStateRepositoryInterface` управляет `state.json`: state, values, delete, backup, existence checks.
+- `ModuleStateRepositoryInterface` управляет `state.json`: state, values, source origin, delete, backup, existence checks.
 - `FeatureValues` валидирует explicit values против `FeatureSchema` при чтении и записи.
 
 ## Registry И Cache

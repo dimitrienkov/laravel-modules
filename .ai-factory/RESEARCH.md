@@ -1,84 +1,87 @@
 # Research
 
-Updated: 2026-05-27 22:30
+Updated: 2026-05-27 23:55
 Status: active
 
 ## Active Summary (input for /aif-plan)
 <!-- aif:active-summary:start -->
-Topic: Добавление `schema_version` (top-level) и `meta.kind` (enum) в `module.json`
-Goal: Версионировать формат manifest и классифицировать модули по типу для UI/CLI навигации без runtime-ограничений
+Topic: Добавление `meta.group` в manifest и `source` descriptor в state.json
+Goal: Группировка модулей по бизнес-области в UI/CLI + хранение provenance для будущих обновлений
 Constraints:
-- `schema_version` — top-level integer, required, strict-fail (нет fallback на default), начинаем с 1
-- `meta.kind` — required backed string enum `ModuleKind` (`module` | `subsystem` | `integration`), чисто презентационное — loader pipeline и dependency resolution не зависят от kind
-- Kind immutable (живёт в `module.json`, не в `state.json`)
-- Cache payload version bump 3 → 4 (новые поля в descriptor)
-- Добавление опционального поля в `meta` (как будущий `group`) — НЕ breaking change, schema_version остаётся 1
-- Без `$schema` URI в v1 (можно позже для IDE tooling, runtime игнорирует)
+- `meta.group` — optional string в module.json, kebab-case (`/^[a-z][a-z0-9-]*$/`), чисто презентационное
+- `schema_version` остаётся 1 — optional field
+- Display labels для групп — в хост-конфиге `config/modules.php`, не в manifest
+- `source` — новая секция в state.json (host-owned, mutable)
+- Два отдельных enum: `ModuleSourceKind` (staging, Zip only) и `ModuleOriginKind` (provenance: Local | Zip)
+- `source` в state.json, НЕ в отдельном файле — state.json уже host-owned lifecycle + runtime
+- Registry cache не затрагивается — source живёт в state.json
+- Directory install удалён — модуль создают scaffold'ом или ставят из zip
+- locator удалён — provenance хранит kind + installed_version + ?checksum, без мёртвых ссылок на fs
 Decisions:
-- `schema_version` — top-level ключ (атрибут формата, не модуля), integer, не semver/URI
-- `meta.kind` — внутри meta (метаданные модуля), backed enum `ModuleKind` в `src/Manifest/Enums/`
-- Kind обязательный — scaffold подставляет из целевой директории (`app/Modules` → `module`, `app/Integrations` → `integration`, `app/Subsystems` → `subsystem`)
-- Kind НЕ расширяемый пользователем — конечный enum, новый case через minor release пакета
-- Kind НЕ влияет на runtime: не ограничивает зависимости, не определяет набор лоадеров, не влияет на enable/disable
-- `meta.group` для модулей — будущая задача (сейчас group есть только в `settings.schema.*.group` для feature definitions)
-- Все существующие тесты потребуют обновления формата manifest fixtures
-Open questions:
-- Нужен ли `--kind=` фильтр в `modules:list` сразу или отложить до MoonShine UI?
-- Нужен ли `meta.group` (опциональный) одновременно с `meta.kind` или отдельная задача?
+- **Group**: строка-code в `meta.group` + хост-конфиг `modules.groups` для display labels
+- **Provenance в state.json**: секция `source` внутри state.json, а не отдельный файл. Причины: state.json уже host-owned и mutable; `installed_at`/`updated_at` уже lifecycle; третий файл — лишняя сложность
+- **Два enum**: `ModuleSourceKind` (Application/Enums, staging: `Zip`) отвечает «что дали на вход?», `ModuleOriginKind` (Manifest/Enums, provenance: `Local` | `Zip`) отвечает «откуда модуль?» — разные концепции, разные слои
+- **Checksum**: sha256, считается при install из zip, до распаковки
+- **ModuleOrigin VO**: kind, installedVersion, ?checksum + `withInstalledVersion()` для update
+- **No locator**: путь к zip после установки мёртв — не хранить
+- **No directory install**: staging pipeline только zip; scaffold — отдельный UseCase
+- `ModuleStateDocument` расширяется: state + values + ?origin
+Open questions: нет (все вопросы разрешены)
 Success signals:
-- `module.json` с `schema_version: 1` и `meta.kind` проходит валидацию
-- Manifest без `schema_version` или с неизвестной версией — reject с `InvalidManifestException`
-- `make:module` и scaffold автоматически проставляют kind из целевой директории
-- `modules:list` показывает столбец Kind
-- Cache payload v4 сериализует/десериализует schema_version и kind
-- Все существующие тесты проходят с обновлённым форматом
-Next step: `/aif-plan` для создания плана реализации
+- module.json с `meta.group: "content"` проходит валидацию, без group — тоже
+- `modules:list` показывает колонку Group
+- Scaffold записывает `source.kind: "local"`, `source.installed_version` в state.json
+- Install из zip записывает `source.kind: "zip"`, `installed_version`, `checksum`
+- Update обновляет `source.installed_version`
+- Directory install отсутствует, `ModuleSourceKind::Directory` удалён
+Next step: `/aif-implement` для реализации плана
 <!-- aif:active-summary:end -->
 
 ## Sessions
 <!-- aif:sessions:start -->
-### 2026-05-27 22:30 — schema_version + meta.kind исследование
+### 2026-05-27 23:45 — meta.group + source descriptor исследование
 
 What changed:
-- Изучена текущая manifest-цепочка: `ManifestDocumentReader` → `ManifestValidator` → `Module::fromManifest()` → `ManifestMeta::fromArray()` → VO
-- Изучен cache payload v3 (`ModuleRegistryCachePayload`, `CachedModuleDescriptor`)
-- Изучены scaffold/install use cases — как пишется `module.json`
-- Проведено сравнение с другими системами: Drupal (type: required enum, strict-fail), Magento (dual-layer type), WordPress (по директории), nWidart (нет kind/schema version), Kubernetes (apiVersion + kind, strict-fail), Docker Compose (version obsolete — анти-паттерн), npm (type = module system, не taxonomy)
-- Strict-fail — доминирующий паттерн для production-систем
-- Integer schema version — совпадает с паттерном cache version (уже int в payload)
+- Исследован вопрос добавления `meta.group` в manifest для группировки модулей в UI/CLI
+- Сравнены три варианта: A) просто строка, B) объект {code, label}, C) строка-code + хост-конфиг
+- Выбран вариант C: code в manifest, display в `config/modules.php`
+- Исследован вопрос хранения provenance (откуда установлен модуль)
+- Проанализирована рекомендация ChatGPT 5.5 о третьем файле source.json — отклонена
+- Решение: секция `source` в state.json (host-owned, уже содержит lifecycle данные)
+- Спроектирован `ModuleOrigin` VO и `ModuleOriginKind` enum
+- Разделены концепции: `ModuleSourceKind` (staging: directory/zip) vs `ModuleOriginKind` (provenance: local/zip/registry/git)
+- Спроектирован update discovery flow для будущих registry-модулей
 
 Key notes:
-- `ManifestValidator::ALLOWED_TOP_LEVEL_KEYS` — точка добавления `schema_version`
-- `ManifestMeta::ALLOWED_KEYS` — точка добавления `kind`
-- `ModuleRegistryCachePayload::SUPPORTED_VERSION = 3` → bump до 4
-- `ModuleSourceKind` (Directory/Zip) уже существует в `Application/Enums/` — `ModuleKind` будет в `Manifest/Enums/` (отличный namespace)
-- `config/modules.php` `paths.directories` уже содержит три пути: `app/Modules`, `app/Integrations`, `app/Subsystems` — natural mapping для kind inference
-- `Module::toDescriptorArray()` — точка сериализации, должен включить `schema_version`
-- `ScaffoldModuleUseCase` создаёт `ManifestMeta` напрямую через конструктор — нужен новый параметр `kind`
+- `FeatureDefinition` уже имеет `?group` — это для группировки settings внутри модуля, не путать с `meta.group` для группировки модулей
+- `ModuleSourceKind` (Application/Enums) — staging concept, не трогать
+- `ModuleOriginKind` (Manifest/Enums) — provenance concept, новый enum
+- state.json совмещает lifecycle (installed_at, updated_at) и runtime (enabled, values) — source логично добавить к lifecycle
+- Третий файл source.json отклонён: лишняя точка отказа, лишняя сложность, state.json уже mutable host-owned
+- Для auto-update discovery нужен registry API + `source.registry_url` + `source.channel` — закладываем в VO, не реализуем
+
+### 2026-05-27 23:55 — /aif-improve v2: удаление directory install, enum split, drop locator
+
+What changed:
+- **Directory install удалён**: `ModuleSourceKind::Directory`, `prepareFromDirectory()`, directory-тесты — всё убрать. Модуль создают scaffold'ом или ставят из zip, третьего не дано.
+- **Два enum вместо одного**: staging (`ModuleSourceKind`: `Zip`) и provenance (`ModuleOriginKind`: `Local` | `Zip`). Staging = «что на входе pipeline?», provenance = «откуда модуль?».
+- **locator убран**: путь к zip-файлу после установки — мёртвая ссылка. Provenance = kind + installed_version + ?checksum.
+- **ModuleOrigin VO упрощён**: три поля вместо семи (убраны locator, registry_url, channel, checked_at — future scope без реализации).
+- **План перестроен**: Phase 0 (staging cleanup) → Phase 1 (meta.group) → Phase 2 (origin VO + state) → Phase 3 (lifecycle) → Phase 4 (CLI)
+
+Key notes:
+- `ModuleSourceKind` после удаления `Directory` остаётся с единственным кейсом `Zip` — для типизации staging pipeline этого достаточно
+- `ModuleOriginKind` живёт в `Manifest/Enums/` — это provenance-концепт, часть manifest layer
+- `PreparedSource` получит `?string $checksum` для передачи sha256 из preparer в UseCase
+- `ScaffoldModuleUseCase` → `ModuleOrigin::forLocal(version)`, `InstallModuleUseCase` → `ModuleOrigin::forZip(version, checksum)`
+- `UpdateModuleUseCase` → читает origin из document, если есть → `withInstalledVersion(newVersion)`, если нет → null
 
 Links (paths):
-- `src/Manifest/ManifestValidator.php` — top-level key validation
-- `src/Manifest/VO/ManifestMeta.php` — meta parsing и allowed keys
-- `src/Manifest/VO/Module.php` — fromManifest/toDescriptorArray
-- `src/Manifest/Enums/FeatureType.php` — пример существующего backed enum
-- `src/Application/Enums/ModuleSourceKind.php` — пример enum в Application слое
-- `src/Registry/VO/ModuleRegistryCachePayload.php` — cache version и payload format
-- `src/Registry/ModuleRegistryCache.php` — cache read/write
-- `src/Application/UseCases/ScaffoldModuleUseCase.php` — scaffold flow
-- `src/Console/Commands/Modules/ModulesListCommand.php` — list display
-- `config/modules.php` — paths.directories → kind inference
-
-Точки изменения (17 файлов/тестов):
-1. `ModuleKind` enum (NEW: `src/Manifest/Enums/ModuleKind.php`)
-2. `ManifestValidator` — ALLOWED_TOP_LEVEL_KEYS += schema_version, validate schema_version
-3. `ManifestMeta` — ALLOWED_KEYS += kind, + public ModuleKind $kind
-4. `Module` — toDescriptorArray() += schema_version, fromManifest() пробрасывает
-5. `ModuleRegistryCachePayload` — SUPPORTED_VERSION 3 → 4
-6. `ScaffoldModuleUseCase` — ManifestMeta с kind, module.json с schema_version
-7. `InstallModuleUseCase` — валидация schema_version при чтении source
-8. `ScaffoldModuleConfig` DTO — + ?ModuleKind $kind
-9. `ModulesListCommand` — столбец Kind, опционально --kind= фильтр
-10. `MakeModuleCommand` — --kind= опция
-11. `stubs/module.json.stub` — schema_version + kind
-12-17. Тесты: unit + feature + arch + regression fixtures
+- План: `.ai-factory/plans/feature-meta-group-source-origin.md` (v2)
+- `src/Application/Enums/ModuleSourceKind.php` — удалить `Directory`, оставить `Zip`
+- `src/Application/Support/ModuleSourcePreparer.php` — удалить `prepareFromDirectory()`, упростить `prepare()`
+- `src/Manifest/Enums/ModuleOriginKind.php` — новый enum (Local, Zip)
+- `src/Manifest/VO/ModuleOrigin.php` — новый VO (kind, installedVersion, ?checksum)
+- `src/Manifest/VO/ModuleStateDocument.php` — добавить ?origin
+- `src/Manifest/ModuleStateRepository.php` — парсить/писать source секцию
 <!-- aif:sessions:end -->

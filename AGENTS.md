@@ -16,7 +16,7 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 - **Optional integrations:** Inertia 2 для `Routes/inertia.php`
 - **Тесты:** Pest 3 + `pestphp/pest-plugin-arch` для архитектурных тестов; PHPUnit 11/12 + Orchestra Testbench 10/11 + Mockery для unit/feature
 - **Качество:** PHPStan 2 + Larastan 3, Rector 2, PHP-CS-Fixer; целевой стиль — PER Coding Style 3.0 с проектными правилами
-- **Без БД:** manifest (`module.json`) иммутабелен — хранит только `meta` и `settings.schema`; mutable state (`enabled`, timestamps, `settings.values`) хранится в `state.json` (`storage/app/private/modules/{name}/`)
+- **Без БД:** manifest (`module.json`) иммутабелен — хранит только `meta` (включая опциональный `group`) и `settings.schema`; mutable state (`enabled`, timestamps, `settings.values`, source provenance) хранится в `state.json` (`storage/app/private/modules/{name}/`)
 
 ## Структура проекта
 
@@ -25,7 +25,7 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 ├── src/                              # код пакета
 │   ├── Application/                  # lifecycle/optimize UseCase-классы, DTO и support-сервисы
 │   │   ├── DTOs/                     # results/config objects для команд
-│   │   ├── Enums/                    # ModuleSourceKind
+│   │   ├── Enums/                    # ModuleSourceKind, RemoveStrategy
 │   │   ├── Support/                  # source staging, directory ops, dependency guards, rollback
 │   │   └── UseCases/                 # scaffold/install/update/remove/enable/disable/optimize flows
 │   ├── Console/Commands/Modules/     # Artisan adapters: make:module и modules:* команды
@@ -34,9 +34,9 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 │   ├── Loaders/                      # реализации LoaderInterface
 │   │   └── Pipeline/                 # ModuleLoaderPipeline, оркестрация лоадеров
 │   ├── Manifest/                     # manifest services, state repository, parser helpers, VO, enums
-│   │   ├── Enums/                    # FeatureType
+│   │   ├── Enums/                    # FeatureType, ModuleKind, ModuleOriginKind
 │   │   ├── Parsing/                  # фабрики и нормализаторы manifest fields
-│   │   └── VO/                       # Module, ManifestMeta, ModuleState, ModuleStateDocument, FeatureValues и другие VO
+│   │   └── VO/                       # Module, ManifestMeta, ModuleState, ModuleStateDocument, ModuleOrigin, FeatureValues и другие VO
 │   ├── MoonShine/                    # MoonShineModuleAutoloader, optional bridge
 │   ├── Providers/                    # ModuleLoaderServiceProvider
 │   ├── Registry/                     # scanner, snapshot builder, cache и registry VO

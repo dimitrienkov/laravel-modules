@@ -22,14 +22,14 @@
 
 ### Реализовано
 
-- Manifest contract: immutable `module.json` с обязательным top-level `schema_version` (integer, strict-fail), `meta` (включая обязательный `kind`) и `settings.schema`; секции `state`, `settings.values` и `autoload` запрещены в manifest.
-- Отдельное state-хранилище: `state.json` в `storage/app/private/modules/{module-name}/` содержит `enabled`, `installed_at`, `updated_at` и `settings.values`.
-- Value objects и parser layer: `Module`, `ManifestMeta`, `ModuleState`, `ModuleStateDocument`, `ModuleDependencies`, `FeatureSchema`, `FeatureDefinition`, `FeatureValues`. Enums: `FeatureType`, `ModuleKind` (`module`, `subsystem`, `integration`).
+- Manifest contract: immutable `module.json` с обязательным top-level `schema_version` (integer, strict-fail), `meta` (включая обязательный `kind` и опциональный `group`) и `settings.schema`; секции `state`, `settings.values` и `autoload` запрещены в manifest.
+- Отдельное state-хранилище: `state.json` в `storage/app/private/modules/{module-name}/` содержит `enabled`, `installed_at`, `updated_at`, `settings.values` и опциональную секцию `source` (provenance: `kind`, `installed_version`, `checksum`).
+- Value objects и parser layer: `Module`, `ManifestMeta`, `ModuleState`, `ModuleStateDocument`, `ModuleDependencies`, `ModuleDependency`, `ModuleOrigin`, `FeatureSchema`, `FeatureDefinition`, `FeatureValues`. Enums: `FeatureType`, `ModuleKind` (`module`, `subsystem`, `integration`), `ModuleOriginKind` (`local`, `zip`).
 - `ModuleManifestRepository` с методами `load()` и `writeManifest()` — единственная точка чтения/валидации/записи immutable `module.json`.
 - `ModuleStateRepositoryInterface` и `ModuleStateRepository` — чтение/запись mutable `state.json` (read, readState, readValues, writeDocument, writeState, writeValues, delete, moveToBackup, exists).
 - `ModuleStatePaths` — резолвинг путей state-файлов из конфига `modules.paths.state`.
 - `ModuleDirectoryScanner`, `ModuleRegistry`, `ModuleRegistryCache`, `TopologicalSorter`, `ApplicationNamespaceResolver`.
-- Support-утилиты: `AtomicFileWriter` (shared atomic write), `AtomicJsonWriter` (JSON-обёртка), `ContainerLifecycleHooks` (safe `callAfterResolving`), `ModuleLayout` (пути и namespaces модуля), `ZipExtractor`.
+- Support-утилиты: `AtomicFileWriter` (shared atomic write), `AtomicJsonWriter` (JSON-обёртка), `ContainerLifecycleHooks` (safe `callAfterResolving`), `ModuleLayout` (пути и namespaces модуля), `ModuleFileNames` (константы имён файлов), `ModulePermissions` (константы прав доступа), `PathNormalizer` (нормализация путей), `ZipExtractor`.
 - Loader pipeline с 15 реализованными лоадерами: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`.
 - `FeatureRepositoryInterface` с методами `get`, `getBool`, `getInt`, `getString`; реализация биндится как scoped. `FeatureRepository` читает values через `ModuleStateRepositoryInterface::readValues()`.
 - Команды `modules:optimize` и `modules:optimize-clear`, интегрированные с Laravel optimizer hooks.
@@ -74,6 +74,7 @@
     "name": "blog",
     "display_name": "Blog",
     "kind": "module",
+    "group": "content",
     "description": "Corporate blog with comments",
     "version": "1.0.0",
     "author": "Acme Studio",
@@ -113,6 +114,11 @@ Mutable state и explicit feature values хранятся в отдельном 
   "enabled": true,
   "installed_at": "2026-05-23T14:12:00+00:00",
   "updated_at": "2026-05-23T14:12:00+00:00",
+  "source": {
+    "installed_version": "1.0.0",
+    "kind": "zip",
+    "checksum": "sha256:abc123..."
+  },
   "settings": {
     "values": {
       "enable_comments": false,
@@ -127,9 +133,11 @@ Mutable state и explicit feature values хранятся в отдельном 
 - `schema_version` — обязательный top-level integer, версия формата manifest. Текущая версия: `1`. Неизвестная версия → `InvalidManifestException` (strict-fail, без fallback).
 - `meta.name` — canonical module name; `display_name` опционален и fallback'ается на `name`.
 - `meta.kind` — обязательный, backed string enum `ModuleKind` (`module`, `subsystem`, `integration`). Чисто презентационный: не влияет на loader pipeline, dependency resolution или enable/disable. При scaffold infer'ится из целевой директории (`Modules→module`, `Integrations→integration`, `Subsystems→subsystem`).
+- `meta.group` — опциональный string, kebab-case (`/^[a-z][a-z0-9-]*$/`). Логическая группировка модулей для отображения (`modules:list`) и конфигурации (`modules.paths.groups`). Не влияет на loader pipeline и dependency resolution.
 - `meta.dependencies` принимает только объект `moduleName => Composer constraint`; wildcard constraint записывается явно как `"*"`.
 - `settings.schema` поддерживает типы `bool`, `int`, `string`, `enum`.
 - `settings.values` в `state.json` хранит только явные override-значения; defaults остаются в schema (`module.json`) и не записываются как values.
+- `source` — опциональная секция в `state.json`. `ModuleOrigin` VO содержит `kind` (enum `ModuleOriginKind`: `local`, `zip`), `installed_version` и опциональный `checksum`. Записывается lifecycle UseCase-классами (scaffold, install, update) для фиксации provenance. Не влияет на loader pipeline и registry cache.
 - `FeatureValues` валидирует значения против schema при чтении и записи.
 - Source-модуль НЕ ДОЛЖЕН содержать `state.json` — он принадлежит приватному хранилищу хоста.
 - `state.json` управляется через `ModuleStateRepositoryInterface`; enable/disable/settings writes модифицируют только `state.json`, а scaffold/install/update пишут `module.json` через `ModuleManifestRepositoryInterface::writeManifest()`.
