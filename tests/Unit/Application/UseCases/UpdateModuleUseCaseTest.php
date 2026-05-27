@@ -301,10 +301,6 @@ final class UpdateModuleUseCaseTest extends TestCase
     /**
      * @param array<string, mixed> $schema
      * @param array<string, mixed> $values
-     */
-    /**
-     * @param array<string, mixed> $schema
-     * @param array<string, mixed> $values
      * @param array<string, mixed>|null $source
      */
     private function createInstalledModule(

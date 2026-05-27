@@ -25,7 +25,7 @@ final readonly class ModuleStateDocument
             ],
         ];
 
-        if ($this->origin !== null) {
+        if ($this->origin instanceof ModuleOrigin) {
             $data['source'] = $this->origin->toArray();
         }
 

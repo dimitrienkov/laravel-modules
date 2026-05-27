@@ -17,6 +17,6 @@ final class ModuleSourceException extends RuntimeException implements ModuleExce
 
     public static function unsupportedType(string $sourcePath): self
     {
-        return new self("Unsupported module source type [{$sourcePath}]: expected a directory or .zip file.");
+        return new self("Unsupported module source type [{$sourcePath}]: expected a .zip file.");
     }
 }
