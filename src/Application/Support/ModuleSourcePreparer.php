@@ -46,6 +46,12 @@ final readonly class ModuleSourcePreparer
 
     private function prepareFromZip(string $sourcePath): PreparedSource
     {
+        $checksum = hash_file('sha256', $sourcePath);
+
+        if ($checksum === false) {
+            throw ModuleSourceException::forPath($sourcePath, 'failed to compute checksum for archive.');
+        }
+
         $tempDir = $this->zipExtractor->extractToTemp($sourcePath);
 
         try {
@@ -66,6 +72,7 @@ final readonly class ModuleSourcePreparer
                 manifest: $manifest,
                 temporaryRoot: $tempDir,
                 sourceKind: ModuleSourceKind::Zip,
+                checksum: $checksum,
             );
         } catch (Throwable $e) {
             $this->filesystem->deleteDirectory($tempDir);

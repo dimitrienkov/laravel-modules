@@ -18,6 +18,7 @@ final readonly class PreparedSource
         public array $manifest,
         public ?string $temporaryRoot,
         public ModuleSourceKind $sourceKind,
+        public ?string $checksum = null,
     ) {
     }
 

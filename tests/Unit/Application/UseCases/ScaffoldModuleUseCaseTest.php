@@ -182,6 +182,20 @@ final class ScaffoldModuleUseCaseTest extends TestCase
     }
 
     #[Test]
+    public function scaffoldWritesLocalSourceOrigin(): void
+    {
+        $useCase = $this->makeUseCase();
+
+        $result = $useCase->execute(new ScaffoldModuleConfig(name: 'blog'));
+
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayHasKey('source', $state);
+        $this->assertSame('local', $state['source']['kind']);
+        $this->assertSame('1.0.0', $state['source']['installed_version']);
+        $this->assertArrayNotHasKey('checksum', $state['source']);
+    }
+
+    #[Test]
     public function scaffoldForceRejectsNameCollisionInDifferentRoot(): void
     {
         $this->filesystem->makeDirectory($this->tempDir . '/app/OtherModules', 0755, true);

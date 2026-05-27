@@ -230,6 +230,35 @@ final class UpdateModuleUseCaseTest extends TestCase
     }
 
     #[Test]
+    public function updateUpdatesOriginInstalledVersion(): void
+    {
+        $this->createInstalledModule('blog', '1.0.0', source: ['kind' => 'zip', 'installed_version' => '1.0.0', 'checksum' => 'abc123']);
+        $zipPath = $this->createSourceZip('blog', '2.0.0');
+        $useCase = $this->makeUseCase();
+
+        $useCase->execute('blog', $zipPath);
+
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayHasKey('source', $state);
+        $this->assertSame('zip', $state['source']['kind']);
+        $this->assertSame('2.0.0', $state['source']['installed_version']);
+        $this->assertSame('abc123', $state['source']['checksum']);
+    }
+
+    #[Test]
+    public function updateWithoutSourceKeepsOriginNull(): void
+    {
+        $this->createInstalledModule('blog', '1.0.0');
+        $zipPath = $this->createSourceZip('blog', '2.0.0');
+        $useCase = $this->makeUseCase();
+
+        $useCase->execute('blog', $zipPath);
+
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayNotHasKey('source', $state);
+    }
+
+    #[Test]
     public function successfulUpdateCleansUpBackup(): void
     {
         $this->createInstalledModule('blog', '1.0.0');
@@ -273,6 +302,11 @@ final class UpdateModuleUseCaseTest extends TestCase
      * @param array<string, mixed> $schema
      * @param array<string, mixed> $values
      */
+    /**
+     * @param array<string, mixed> $schema
+     * @param array<string, mixed> $values
+     * @param array<string, mixed>|null $source
+     */
     private function createInstalledModule(
         string $name,
         string $version,
@@ -280,6 +314,7 @@ final class UpdateModuleUseCaseTest extends TestCase
         ?string $installedAt = null,
         array $schema = [],
         array $values = [],
+        ?array $source = null,
     ): void {
         $this->writeModuleManifest(
             $this->tempDir . '/app/Modules',
@@ -287,7 +322,7 @@ final class UpdateModuleUseCaseTest extends TestCase
             $version,
             schema: $schema ?: new \stdClass(),
         );
-        $this->writeModuleState($this->stateRoot, $name, $enabled, $installedAt, $values ?: new \stdClass());
+        $this->writeModuleState($this->stateRoot, $name, $enabled, $installedAt, $values ?: new \stdClass(), $source);
     }
 
     /**

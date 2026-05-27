@@ -20,6 +20,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleInstallException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 use Throwable;
@@ -85,9 +86,10 @@ final readonly class InstallModuleUseCase
                 $this->manifestRepository->writeManifest($candidate);
 
                 $values = new FeatureValues($candidate->features, []);
+                $origin = ModuleOrigin::forZip($candidate->meta->version, $prepared->checksum ?? '');
                 $this->stateRepository->writeDocument(
                     $candidate->name,
-                    new ModuleStateDocument($candidateState, $values),
+                    new ModuleStateDocument($candidateState, $values, $origin),
                 );
             } catch (Throwable $e) {
                 $cleanupNote = $this->rollback->rollback($moduleName, $targetPath);

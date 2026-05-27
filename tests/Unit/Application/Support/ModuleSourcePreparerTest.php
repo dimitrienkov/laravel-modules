@@ -60,6 +60,23 @@ final class ModuleSourcePreparerTest extends TestCase
     }
 
     #[Test]
+    public function prepareFromZipComputesSha256Checksum(): void
+    {
+        $zipPath = $this->createModuleZip('blog');
+        $expectedChecksum = hash_file('sha256', $zipPath);
+
+        $prepared = $this->preparer->prepare($zipPath);
+
+        try {
+            $this->assertNotNull($prepared->checksum);
+            $this->assertSame($expectedChecksum, $prepared->checksum);
+            $this->assertSame(64, \strlen($prepared->checksum));
+        } finally {
+            $this->preparer->cleanup($prepared);
+        }
+    }
+
+    #[Test]
     public function prepareThrowsOnDirectorySource(): void
     {
         $emptyDir = $this->tempDir . '/empty_module';

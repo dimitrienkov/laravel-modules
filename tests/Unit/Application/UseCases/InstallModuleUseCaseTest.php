@@ -59,6 +59,22 @@ final class InstallModuleUseCaseTest extends TestCase
     }
 
     #[Test]
+    public function installWritesZipSourceOriginWithChecksum(): void
+    {
+        $zipPath = $this->createSourceZip('blog');
+        $useCase = $this->makeUseCase();
+
+        $useCase->execute($zipPath);
+
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayHasKey('source', $state);
+        $this->assertSame('zip', $state['source']['kind']);
+        $this->assertSame('1.0.0', $state['source']['installed_version']);
+        $this->assertNotEmpty($state['source']['checksum']);
+        $this->assertSame(64, \strlen($state['source']['checksum']));
+    }
+
+    #[Test]
     public function installDisabled(): void
     {
         $zipPath = $this->createSourceZip('blog');

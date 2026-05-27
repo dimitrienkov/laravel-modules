@@ -63,8 +63,10 @@ final readonly class UpdateModuleUseCase
             );
             $this->dependencyGuard->assertGraphValid($candidateGraph);
 
-            $existingValues = $this->stateRepository->readValues($existingModule);
             $existingStateDocument = $this->stateRepository->read($existingModule->name, $existingModule);
+            $existingValues = $existingStateDocument->values;
+
+            $updatedOrigin = $existingStateDocument->origin?->withInstalledVersion($candidate->meta->version);
 
             try {
                 $backupPath = $this->directoryOps->replaceDirectoryWithBackup(
@@ -88,7 +90,7 @@ final readonly class UpdateModuleUseCase
 
                 $this->stateRepository->writeDocument(
                     $moduleName,
-                    new ModuleStateDocument($preservedState, $mergedValues),
+                    new ModuleStateDocument($preservedState, $mergedValues, $updatedOrigin),
                 );
             } catch (Throwable $e) {
                 try {

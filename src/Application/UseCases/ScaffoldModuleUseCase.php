@@ -26,6 +26,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 use DimitrienkoV\LaravelModules\Support\PathNormalizer;
@@ -100,7 +101,8 @@ final readonly class ScaffoldModuleUseCase
             $this->manifestRepository->writeManifest($module);
 
             $values = new FeatureValues($module->features, []);
-            $this->stateRepository->writeDocument($config->name, new ModuleStateDocument($state, $values));
+            $origin = ModuleOrigin::forLocal($module->meta->version);
+            $this->stateRepository->writeDocument($config->name, new ModuleStateDocument($state, $values, $origin));
         } catch (Throwable $e) {
             $cleanupNote = $this->rollback->rollback($config->name, $targetPath);
 

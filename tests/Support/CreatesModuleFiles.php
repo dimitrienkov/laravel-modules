@@ -53,12 +53,16 @@ trait CreatesModuleFiles
     /**
      * @param array<string, mixed>|object|null $values
      */
+    /**
+     * @param array<string, mixed>|null $source
+     */
     protected function writeModuleState(
         string $stateRoot,
         string $name,
         bool $enabled = true,
         ?string $installedAt = null,
         array|object|null $values = null,
+        ?array $source = null,
     ): void {
         $stateDir = $stateRoot . '/' . $name;
         if (! is_dir($stateDir)) {
@@ -73,6 +77,10 @@ trait CreatesModuleFiles
 
         if ($values !== null) {
             $state['settings'] = ['values' => $values];
+        }
+
+        if ($source !== null) {
+            $state['source'] = $source;
         }
 
         file_put_contents(
