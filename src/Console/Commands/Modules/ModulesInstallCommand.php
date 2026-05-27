@@ -14,12 +14,12 @@ final class ModulesInstallCommand extends Command
     use ConfirmableTrait;
 
     protected $signature = 'modules:install
-        {source : Path to module directory or .zip archive}
+        {source : Path to .zip archive}
         {--force : Force the operation to run in production}
         {--directory= : Target module root directory}
         {--disabled : Install in disabled state}';
 
-    protected $description = 'Install a module from a directory or archive';
+    protected $description = 'Install a module from an archive';
 
     public function handle(InstallModuleUseCase $useCase): int
     {

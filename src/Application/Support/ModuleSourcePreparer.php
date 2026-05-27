@@ -25,10 +25,6 @@ final readonly class ModuleSourcePreparer
 
     public function prepare(string $sourcePath): PreparedSource
     {
-        if ($this->filesystem->isDirectory($sourcePath)) {
-            return $this->prepareFromDirectory($sourcePath);
-        }
-
         if ($this->filesystem->isFile($sourcePath) && str_ends_with(strtolower($sourcePath), '.zip')) {
             return $this->prepareFromZip($sourcePath);
         }
@@ -46,28 +42,6 @@ final readonly class ModuleSourcePreparer
             $this->filesystem->deleteDirectory($source->temporaryRoot);
         } catch (Throwable) {
         }
-    }
-
-    private function prepareFromDirectory(string $sourcePath): PreparedSource
-    {
-        $manifestPath = $sourcePath . '/' . ModuleFileNames::MANIFEST;
-
-        if (! $this->filesystem->isFile($manifestPath)) {
-            throw ModuleSourceException::forPath($sourcePath, 'module.json not found in source directory.');
-        }
-
-        $this->assertNoStateFile($sourcePath);
-
-        $manifest = $this->documentReader->read($manifestPath);
-        $this->validator->validate($manifest, $manifestPath);
-
-        return new PreparedSource(
-            path: $sourcePath,
-            manifestPath: $manifestPath,
-            manifest: $manifest,
-            temporaryRoot: null,
-            sourceKind: ModuleSourceKind::Directory,
-        );
     }
 
     private function prepareFromZip(string $sourcePath): PreparedSource

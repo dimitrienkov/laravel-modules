@@ -44,22 +44,6 @@ final class ModuleSourcePreparerTest extends TestCase
     }
 
     #[Test]
-    public function prepareFromDirectorySource(): void
-    {
-        $sourceDir = $this->createModuleDirectory('blog');
-
-        $prepared = $this->preparer->prepare($sourceDir);
-
-        try {
-            $this->assertSame($sourceDir, $prepared->path);
-            $this->assertNull($prepared->temporaryRoot);
-            $this->assertSame('blog', $prepared->manifest['meta']['name']);
-        } finally {
-            $this->preparer->cleanup($prepared);
-        }
-    }
-
-    #[Test]
     public function prepareFromZipSource(): void
     {
         $zipPath = $this->createModuleZip('blog');
@@ -76,13 +60,13 @@ final class ModuleSourcePreparerTest extends TestCase
     }
 
     #[Test]
-    public function prepareThrowsOnMissingManifestInDirectory(): void
+    public function prepareThrowsOnDirectorySource(): void
     {
         $emptyDir = $this->tempDir . '/empty_module';
         mkdir($emptyDir, 0755, true);
 
         $this->expectException(ModuleSourceException::class);
-        $this->expectExceptionMessageMatches('/module\.json not found/');
+        $this->expectExceptionMessageMatches('/Unsupported/');
 
         $this->preparer->prepare($emptyDir);
     }
@@ -139,32 +123,6 @@ final class ModuleSourcePreparerTest extends TestCase
         $this->preparer->cleanup($prepared);
 
         $this->addToAssertionCount(1);
-    }
-
-    private function createModuleDirectory(string $name): string
-    {
-        $dir = $this->tempDir . '/' . ucfirst($name);
-        mkdir($dir, 0755, true);
-
-        $manifest = [
-            'schema_version' => 1,
-            'meta' => [
-                'name' => $name,
-                'display_name' => ucfirst($name),
-                'kind' => 'module',
-                'version' => '1.0.0',
-            ],
-            'settings' => [
-                'schema' => new \stdClass(),
-            ],
-        ];
-
-        file_put_contents(
-            $dir . '/module.json',
-            json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),
-        );
-
-        return $dir;
     }
 
     private function createModuleZip(string $name): string

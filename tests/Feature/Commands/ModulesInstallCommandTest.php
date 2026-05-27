@@ -50,11 +50,11 @@ final class ModulesInstallCommandTest extends TestCase
     }
 
     #[Test]
-    public function installFromDirectorySucceeds(): void
+    public function installFromZipSucceeds(): void
     {
-        $sourceDir = $this->createSourceModule('blog');
+        $zipPath = $this->createSourceZip('blog');
 
-        $this->artisanCommand("modules:install {$sourceDir}")
+        $this->artisanCommand("modules:install {$zipPath}")
             ->assertSuccessful()
             ->expectsOutputToContain('installed');
     }
@@ -69,20 +69,20 @@ final class ModulesInstallCommandTest extends TestCase
     #[Test]
     public function installOutputShowsModuleDetails(): void
     {
-        $sourceDir = $this->createSourceModule('blog');
+        $zipPath = $this->createSourceZip('blog');
 
-        $this->artisanCommand("modules:install {$sourceDir}")
+        $this->artisanCommand("modules:install {$zipPath}")
             ->assertSuccessful()
             ->expectsOutputToContain('blog')
-            ->expectsOutputToContain('directory');
+            ->expectsOutputToContain('zip');
     }
 
     #[Test]
     public function installWithDisabledFlag(): void
     {
-        $sourceDir = $this->createSourceModule('blog');
+        $zipPath = $this->createSourceZip('blog');
 
-        $this->artisanCommand("modules:install {$sourceDir} --disabled")
+        $this->artisanCommand("modules:install {$zipPath} --disabled")
             ->assertSuccessful()
             ->expectsOutputToContain('No');
     }
@@ -90,25 +90,28 @@ final class ModulesInstallCommandTest extends TestCase
     #[Test]
     public function installWithDirectoryOptionToConfiguredRoot(): void
     {
-        $sourceDir = $this->createSourceModule('blog');
+        $zipPath = $this->createSourceZip('blog');
         $configuredRoot = $this->tempDir . '/app/Modules';
 
-        $this->artisanCommand("modules:install {$sourceDir} --directory={$configuredRoot}")
+        $this->artisanCommand("modules:install {$zipPath} --directory={$configuredRoot}")
             ->assertSuccessful()
             ->expectsOutputToContain('installed');
     }
 
-    private function createSourceModule(string $name): string
+    private function createSourceZip(string $name): string
     {
-        $dir = $this->tempDir . '/sources/' . ucfirst($name);
-        mkdir($dir, 0755, true);
-
-        file_put_contents($dir . '/module.json', json_encode([
+        $manifest = json_encode([
             'schema_version' => 1,
             'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => '1.0.0'],
             'settings' => ['schema' => new \stdClass()],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
-        return $dir;
+        $zipPath = $this->tempDir . '/sources/' . $name . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($zipPath, \ZipArchive::CREATE);
+        $zip->addFromString('module.json', $manifest);
+        $zip->close();
+
+        return $zipPath;
     }
 }

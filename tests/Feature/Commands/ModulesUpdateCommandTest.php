@@ -51,7 +51,7 @@ final class ModulesUpdateCommandTest extends TestCase
     public function updateSucceeds(): void
     {
         $this->installModule('blog', '1.0.0');
-        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
 
         $this->artisanCommand("modules:update blog {$sourceDir}")
             ->assertSuccessful()
@@ -61,7 +61,7 @@ final class ModulesUpdateCommandTest extends TestCase
     #[Test]
     public function updateFailsWhenModuleNotFound(): void
     {
-        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
 
         $this->artisanCommand("modules:update nonexistent {$sourceDir}")
             ->assertFailed()
@@ -72,7 +72,7 @@ final class ModulesUpdateCommandTest extends TestCase
     public function updateOutputShowsVersionInfo(): void
     {
         $this->installModule('blog', '1.0.0');
-        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
 
         $this->artisanCommand("modules:update blog {$sourceDir}")
             ->assertSuccessful()
@@ -86,20 +86,20 @@ final class ModulesUpdateCommandTest extends TestCase
         $this->writeModuleState($this->stateRoot, $name, true, values: new \stdClass());
     }
 
-    private function createSourceModule(string $name, string $version): string
+    private function createSourceZip(string $name, string $version): string
     {
-        $dir = $this->tempDir . '/sources/' . ucfirst($name);
-        if (is_dir($dir)) {
-            (new Filesystem())->deleteDirectory($dir);
-        }
-        mkdir($dir, 0755, true);
-
-        file_put_contents($dir . '/module.json', json_encode([
+        $manifest = json_encode([
             'schema_version' => 1,
             'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => $version],
             'settings' => ['schema' => new \stdClass()],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
-        return $dir;
+        $zipPath = $this->tempDir . '/sources/' . $name . '-' . $version . '.zip';
+        $zip = new \ZipArchive();
+        $zip->open($zipPath, \ZipArchive::CREATE);
+        $zip->addFromString('module.json', $manifest);
+        $zip->close();
+
+        return $zipPath;
     }
 }

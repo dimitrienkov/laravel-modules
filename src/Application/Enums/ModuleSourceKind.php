@@ -6,6 +6,5 @@ namespace DimitrienkoV\LaravelModules\Application\Enums;
 
 enum ModuleSourceKind: string
 {
-    case Directory = 'directory';
     case Zip = 'zip';
 }
