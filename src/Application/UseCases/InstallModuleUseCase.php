@@ -86,7 +86,7 @@ final readonly class InstallModuleUseCase
                 $this->manifestRepository->writeManifest($candidate);
 
                 $values = new FeatureValues($candidate->features, []);
-                $origin = ModuleOrigin::forZip($candidate->meta->version, $prepared->checksum ?? '');
+                $origin = ModuleOrigin::forZip($candidate->meta->version, $prepared->checksum);
                 $this->stateRepository->writeDocument(
                     $candidate->name,
                     new ModuleStateDocument($candidateState, $values, $origin),

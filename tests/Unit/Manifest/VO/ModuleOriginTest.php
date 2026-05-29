@@ -33,14 +33,14 @@ final class ModuleOriginTest extends TestCase
     }
 
     #[Test]
-    public function toArrayProducesKsortedOutput(): void
+    public function toArrayProducesDeterministicOrder(): void
     {
         $origin = ModuleOrigin::forZip('1.0.0', 'sha256hash');
 
         $array = $origin->toArray();
 
         $keys = array_keys($array);
-        self::assertSame(['checksum', 'installed_version', 'kind'], $keys);
+        self::assertSame(['kind', 'installed_version', 'checksum'], $keys);
         self::assertSame('zip', $array['kind']);
         self::assertSame('1.0.0', $array['installed_version']);
         self::assertSame('sha256hash', $array['checksum']);
@@ -54,7 +54,7 @@ final class ModuleOriginTest extends TestCase
         $array = $origin->toArray();
 
         self::assertArrayNotHasKey('checksum', $array);
-        self::assertSame(['installed_version', 'kind'], array_keys($array));
+        self::assertSame(['kind', 'installed_version'], array_keys($array));
     }
 
     #[Test]
@@ -79,19 +79,6 @@ final class ModuleOriginTest extends TestCase
         self::assertSame(ModuleOriginKind::Local, $restored->kind);
         self::assertSame('1.0.0', $restored->installedVersion);
         self::assertNull($restored->checksum);
-    }
-
-    #[Test]
-    public function withInstalledVersionReturnsNewInstance(): void
-    {
-        $origin = ModuleOrigin::forZip('1.0.0', 'sha256hash');
-
-        $updated = $origin->withInstalledVersion('2.0.0');
-
-        self::assertSame('2.0.0', $updated->installedVersion);
-        self::assertSame(ModuleOriginKind::Zip, $updated->kind);
-        self::assertSame('sha256hash', $updated->checksum);
-        self::assertSame('1.0.0', $origin->installedVersion);
     }
 
     #[Test]

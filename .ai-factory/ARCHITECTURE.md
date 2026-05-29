@@ -162,9 +162,9 @@ State и explicit values находятся в отдельном `state.json`:
   "installed_at": "2026-05-23T14:12:00+00:00",
   "updated_at": "2026-05-23T14:12:00+00:00",
   "source": {
-    "installed_version": "1.0.0",
     "kind": "zip",
-    "checksum": "sha256:abc123..."
+    "installed_version": "1.0.0",
+    "checksum": "e3b0c44298fc1c149afbf4c8996fb924..."
   },
   "settings": {
     "values": {
@@ -178,7 +178,7 @@ State и explicit values находятся в отдельном `state.json`:
 
 - `schema_version` — обязательный top-level integer. Текущая версия: `1`. Неизвестная или отсутствующая версия → strict-fail (`InvalidManifestException`), без fallback на default.
 - `meta.kind` — обязательный backed string enum `ModuleKind` (`module`, `subsystem`, `integration`). Чисто презентационный: не влияет на loader pipeline, dependency resolution или enable/disable. Arch-тест `loaders do not depend on ModuleKind` закрепляет эту границу.
-- `meta.group` — опциональный string, kebab-case (`/^[a-z][a-z0-9-]*$/`). Используется для логической группировки модулей (отображение в `modules:list`, конфигурация `modules.paths.groups`). Не влияет на loader pipeline и dependency resolution.
+- `meta.group` — опциональный string, kebab-case (`/^[a-z][a-z0-9-]*$/`). Используется для логической группировки модулей (отображение в `modules:list`, конфигурация `modules.groups`). Не влияет на loader pipeline и dependency resolution.
 - `state`, `settings.values`, `autoload` и неизвестные top-level ключи запрещены в `module.json`.
 - `meta.dependencies` поддерживает только object-form `moduleName => Composer constraint`; list-form dependencies не являются текущим контрактом.
 - `settings.schema` поддерживает `bool`, `int`, `string`, `enum`; metadata `label`, `description`, `group` допустима.

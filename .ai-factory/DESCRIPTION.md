@@ -115,9 +115,9 @@ Mutable state и explicit feature values хранятся в отдельном 
   "installed_at": "2026-05-23T14:12:00+00:00",
   "updated_at": "2026-05-23T14:12:00+00:00",
   "source": {
-    "installed_version": "1.0.0",
     "kind": "zip",
-    "checksum": "sha256:abc123..."
+    "installed_version": "1.0.0",
+    "checksum": "e3b0c44298fc1c149afbf4c8996fb924..."
   },
   "settings": {
     "values": {
@@ -133,7 +133,7 @@ Mutable state и explicit feature values хранятся в отдельном 
 - `schema_version` — обязательный top-level integer, версия формата manifest. Текущая версия: `1`. Неизвестная версия → `InvalidManifestException` (strict-fail, без fallback).
 - `meta.name` — canonical module name; `display_name` опционален и fallback'ается на `name`.
 - `meta.kind` — обязательный, backed string enum `ModuleKind` (`module`, `subsystem`, `integration`). Чисто презентационный: не влияет на loader pipeline, dependency resolution или enable/disable. При scaffold infer'ится из целевой директории (`Modules→module`, `Integrations→integration`, `Subsystems→subsystem`).
-- `meta.group` — опциональный string, kebab-case (`/^[a-z][a-z0-9-]*$/`). Логическая группировка модулей для отображения (`modules:list`) и конфигурации (`modules.paths.groups`). Не влияет на loader pipeline и dependency resolution.
+- `meta.group` — опциональный string, kebab-case (`/^[a-z][a-z0-9-]*$/`). Логическая группировка модулей для отображения (`modules:list`) и конфигурации (`modules.groups`). Не влияет на loader pipeline и dependency resolution.
 - `meta.dependencies` принимает только объект `moduleName => Composer constraint`; wildcard constraint записывается явно как `"*"`.
 - `settings.schema` поддерживает типы `bool`, `int`, `string`, `enum`.
 - `settings.values` в `state.json` хранит только явные override-значения; defaults остаются в schema (`module.json`) и не записываются как values.

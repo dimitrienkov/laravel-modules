@@ -18,6 +18,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleUpdateException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 use Throwable;
@@ -66,7 +67,7 @@ final readonly class UpdateModuleUseCase
             $existingStateDocument = $this->stateRepository->read($existingModule->name, $existingModule);
             $existingValues = $existingStateDocument->values;
 
-            $updatedOrigin = $existingStateDocument->origin?->withInstalledVersion($candidate->meta->version);
+            $updatedOrigin = ModuleOrigin::forZip($candidate->meta->version, $prepared->checksum);
 
             try {
                 $backupPath = $this->directoryOps->replaceDirectoryWithBackup(

@@ -272,4 +272,31 @@ final class ManifestFieldReaderTest extends TestCase
 
         ManifestFieldReader::assertModuleName('1blog', 'meta.name', '/tmp/module.json');
     }
+
+    #[Test]
+    public function assert_module_group_passes_for_valid_groups_and_null(): void
+    {
+        ManifestFieldReader::assertModuleGroup('blog-tools', 'meta.group', '/tmp/module.json');
+        ManifestFieldReader::assertModuleGroup('a1', 'meta.group', '/tmp/module.json');
+        ManifestFieldReader::assertModuleGroup(null, 'meta.group', '/tmp/module.json');
+
+        $this->expectNotToPerformAssertions();
+    }
+
+    #[Test]
+    public function assert_module_group_throws_for_whitespace(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('meta.group [Bad Group] must be kebab-case');
+
+        ManifestFieldReader::assertModuleGroup('Bad Group', 'meta.group', '/tmp/module.json');
+    }
+
+    #[Test]
+    public function assert_module_group_rejects_snake_case(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+
+        ManifestFieldReader::assertModuleGroup('my_group', 'meta.group', '/tmp/module.json');
+    }
 }

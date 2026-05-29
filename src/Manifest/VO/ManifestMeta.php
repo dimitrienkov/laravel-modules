@@ -10,8 +10,6 @@ use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 
 final readonly class ManifestMeta
 {
-    private const string GROUP_PATTERN = '/^[a-z][a-z0-9-]*$/';
-
     private const array ALLOWED_KEYS = [
         'name' => true,
         'display_name' => true,
@@ -66,13 +64,7 @@ final readonly class ManifestMeta
         $license = ManifestFieldReader::optionalString($meta, 'license', 'meta', $manifestPath);
 
         $group = ManifestFieldReader::optionalString($meta, 'group', 'meta', $manifestPath);
-
-        if ($group !== null && ! preg_match(self::GROUP_PATTERN, $group)) {
-            throw InvalidManifestException::forPath(
-                $manifestPath,
-                "meta.group [{$group}] must be kebab-case: lowercase letters, digits and hyphens, starting with a letter.",
-            );
-        }
+        ManifestFieldReader::assertModuleGroup($group, 'meta.group', $manifestPath);
 
         $dependenciesRaw = $meta['dependencies'] ?? [];
         if (! \is_array($dependenciesRaw)) {

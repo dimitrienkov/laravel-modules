@@ -130,6 +130,40 @@ final class MakeModuleCommandTest extends TestCase
     }
 
     #[Test]
+    public function scaffoldsModuleWithValidGroup(): void
+    {
+        $this->artisanCommand('make:module blog --group=blog-tools')
+            ->assertSuccessful();
+
+        $manifest = json_decode(
+            file_get_contents($this->tempDir . '/app/Modules/Blog/module.json'),
+            true,
+        );
+
+        $this->assertSame('blog-tools', $manifest['meta']['group']);
+    }
+
+    #[Test]
+    public function failsOnEmptyGroup(): void
+    {
+        $this->artisanCommand('make:module blog --group=')
+            ->assertFailed()
+            ->expectsOutputToContain('kebab-case');
+
+        $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
+    }
+
+    #[Test]
+    public function failsOnInvalidGroup(): void
+    {
+        $this->artisanCommand('make:module blog --group="Bad Group"')
+            ->assertFailed()
+            ->expectsOutputToContain('kebab-case');
+
+        $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
+    }
+
+    #[Test]
     public function forceOverwritesExisting(): void
     {
         $this->artisanCommand('make:module blog')->assertSuccessful();

@@ -79,25 +79,14 @@ final readonly class ModuleOrigin
     public function toArray(): array
     {
         $data = [
-            'installed_version' => $this->installedVersion,
             'kind' => $this->kind->value,
+            'installed_version' => $this->installedVersion,
         ];
 
         if ($this->checksum !== null) {
             $data['checksum'] = $this->checksum;
         }
 
-        ksort($data);
-
         return $data;
-    }
-
-    public function withInstalledVersion(string $version): self
-    {
-        return new self(
-            kind: $this->kind,
-            installedVersion: $version,
-            checksum: $this->checksum,
-        );
     }
 }

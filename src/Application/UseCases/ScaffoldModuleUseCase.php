@@ -51,6 +51,7 @@ final readonly class ScaffoldModuleUseCase
     public function execute(ScaffoldModuleConfig $config): ScaffoldModuleResult
     {
         $this->validateName($config->name);
+        $this->validateGroup($config->group);
 
         $targetRoot = $config->directory !== null
             ? $this->paths->resolveTargetRoot($config->directory)
@@ -135,6 +136,15 @@ final readonly class ScaffoldModuleUseCase
             ManifestFieldReader::assertModuleName($name, 'name', 'scaffold');
         } catch (Throwable $e) {
             throw ModuleScaffoldException::forModule($name, 'invalid module name — must be lowercase snake_case.', $e);
+        }
+    }
+
+    private function validateGroup(?string $group): void
+    {
+        try {
+            ManifestFieldReader::assertModuleGroup($group, 'group', 'scaffold');
+        } catch (Throwable $e) {
+            throw ModuleScaffoldException::forModule($group ?? '', 'invalid module group — must be kebab-case.', $e);
         }
     }
 

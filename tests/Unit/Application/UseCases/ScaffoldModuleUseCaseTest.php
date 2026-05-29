@@ -17,6 +17,7 @@ use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use Illuminate\Filesystem\Filesystem;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -99,6 +100,46 @@ final class ScaffoldModuleUseCaseTest extends TestCase
         $this->expectExceptionMessageMatches('/invalid module name/');
 
         $useCase->execute(new ScaffoldModuleConfig(name: 'Invalid-Name!'));
+    }
+
+    #[Test]
+    #[DataProvider('invalidGroupProvider')]
+    public function scaffoldThrowsOnInvalidGroupBeforeBuildingSkeleton(string $group): void
+    {
+        $useCase = $this->makeUseCase();
+
+        try {
+            $useCase->execute(new ScaffoldModuleConfig(name: 'blog', group: $group));
+            $this->fail('Expected ModuleScaffoldException');
+        } catch (ModuleScaffoldException $e) {
+            $this->assertStringContainsString('kebab-case', $e->getMessage());
+        }
+
+        $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
+        $this->assertFileDoesNotExist($this->stateRoot . '/blog/state.json');
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidGroupProvider(): array
+    {
+        return [
+            'whitespace' => ['Bad Group'],
+            'snake_case' => ['my_group'],
+            'empty string' => [''],
+        ];
+    }
+
+    #[Test]
+    public function scaffoldWritesValidGroupToManifest(): void
+    {
+        $useCase = $this->makeUseCase();
+
+        $result = $useCase->execute(new ScaffoldModuleConfig(name: 'blog', group: 'blog-tools'));
+
+        $manifest = json_decode(file_get_contents($result->path . '/module.json'), true);
+        $this->assertSame('blog-tools', $manifest['meta']['group']);
     }
 
     #[Test]

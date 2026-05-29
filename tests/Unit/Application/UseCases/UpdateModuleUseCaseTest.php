@@ -242,11 +242,11 @@ final class UpdateModuleUseCaseTest extends TestCase
         $this->assertArrayHasKey('source', $state);
         $this->assertSame('zip', $state['source']['kind']);
         $this->assertSame('2.0.0', $state['source']['installed_version']);
-        $this->assertSame('abc123', $state['source']['checksum']);
+        $this->assertSame(hash_file('sha256', $zipPath), $state['source']['checksum']);
     }
 
     #[Test]
-    public function updateWithoutSourceKeepsOriginNull(): void
+    public function updateWritesArchiveProvenanceWhenSourceAbsent(): void
     {
         $this->createInstalledModule('blog', '1.0.0');
         $zipPath = $this->createSourceZip('blog', '2.0.0');
@@ -255,7 +255,25 @@ final class UpdateModuleUseCaseTest extends TestCase
         $useCase->execute('blog', $zipPath);
 
         $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
-        $this->assertArrayNotHasKey('source', $state);
+        $this->assertArrayHasKey('source', $state);
+        $this->assertSame('zip', $state['source']['kind']);
+        $this->assertSame('2.0.0', $state['source']['installed_version']);
+        $this->assertSame(hash_file('sha256', $zipPath), $state['source']['checksum']);
+    }
+
+    #[Test]
+    public function updateRewritesLocalOriginToZip(): void
+    {
+        $this->createInstalledModule('blog', '1.0.0', source: ['kind' => 'local', 'installed_version' => '1.0.0']);
+        $zipPath = $this->createSourceZip('blog', '2.0.0');
+        $useCase = $this->makeUseCase();
+
+        $useCase->execute('blog', $zipPath);
+
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertSame('zip', $state['source']['kind']);
+        $this->assertSame('2.0.0', $state['source']['installed_version']);
+        $this->assertSame(hash_file('sha256', $zipPath), $state['source']['checksum']);
     }
 
     #[Test]
