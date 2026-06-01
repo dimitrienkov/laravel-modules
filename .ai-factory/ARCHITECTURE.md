@@ -247,7 +247,7 @@ Default loaders:
 | `PolicyLoader` | 37 | `Domain/Policies/` |
 | `CommandLoader` | 40 | `Console/Commands/` |
 | `MiddlewareLoader` | 45 | `Http/Middleware/` |
-| `RouteLoader` | 50 | `Routes/api.php`, `Routes/api/*.php`, `Routes/web.php`, `Routes/inertia.php` |
+| `RouteLoader` | 50 | `Routes/<type>.php` for each `modules.routing.types` (`Routes/api.php`, `Routes/web.php`, `Routes/inertia.php`, …) |
 | `ConsoleRouteLoader` | 51 | `Routes/console.php` |
 | `BroadcastLoader` | 52 | `Routes/channels.php` |
 

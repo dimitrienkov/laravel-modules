@@ -67,18 +67,6 @@ final readonly class RouteLoader implements LoaderInterface
             }
         }
 
-        foreach ($this->versionedApiRoutes($module) as $version => $routeFile) {
-            $attributes = $this->attributesFor('api');
-            $prefixValue = $attributes['prefix'] ?? 'api';
-            $prefix = trim(\is_string($prefixValue) ? $prefixValue : 'api', '/');
-            $attributes['prefix'] = trim($prefix . '/' . $version, '/');
-
-            $routes[] = [
-                'path' => $routeFile,
-                'attributes' => $attributes,
-            ];
-        }
-
         return $routes;
     }
 
@@ -117,33 +105,6 @@ final readonly class RouteLoader implements LoaderInterface
         }
 
         return $result;
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function versionedApiRoutes(Module $module): array
-    {
-        $apiDir = $this->layout->routesDir($module) . '/api';
-
-        if (! $this->filesystem->isDirectory($apiDir)) {
-            return [];
-        }
-
-        $files = $this->filesystem->glob($apiDir . '/*.php') ?: [];
-        $routes = [];
-
-        foreach ($files as $file) {
-            if (! \is_string($file)) {
-                continue;
-            }
-
-            $routes[basename($file, '.php')] = $file;
-        }
-
-        ksort($routes);
-
-        return $routes;
     }
 
     private function inertiaAvailable(): bool

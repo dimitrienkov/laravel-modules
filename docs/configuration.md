@@ -15,9 +15,6 @@ php artisan vendor:publish --tag=modules-config
 ```php
 <?php
 
-use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
-use Illuminate\Routing\Middleware\SubstituteBindings;
-
 return [
     'paths' => [
         'directories' => [
@@ -36,7 +33,7 @@ return [
         'types' => [
             'api' => [
                 'prefix' => 'api',
-                'middleware' => [SubstituteBindings::class, ConvertEmptyStringsToNull::class, 'api'],
+                'middleware' => ['api'],
             ],
             'web' => [
                 'prefix' => null,
@@ -46,6 +43,14 @@ return [
                 'prefix' => null,
                 'middleware' => ['web'],
             ],
+            // Versioned API is just another config-driven type. Uncomment to load
+            // `Routes/api_v1.php` under the `api/v1` prefix with a dedicated
+            // `api_v1` middleware group (declare that group in the host app's
+            // bootstrap/app.php).
+            // 'api_v1' => [
+            //     'prefix' => 'api/v1',
+            //     'middleware' => ['api_v1'],
+            // ],
         ],
     ],
 ];
@@ -109,7 +114,9 @@ php artisan vendor:publish --tag=modules-stubs
 
 ## Route types
 
-`RouteLoader` читает `modules.routing.types`. Каждый type соответствует файлу `Routes/<type>.php`.
+`RouteLoader` полностью config-driven: он читает `modules.routing.types` и для каждого
+объявленного `<type>` загружает файл `Routes/<type>.php` с его attributes. Других
+conventions нет — добавить новый route-тип значит добавить ключ в config.
 
 | Config key | Route file | Notes |
 |------------|------------|-------|
@@ -117,18 +124,32 @@ php artisan vendor:publish --tag=modules-stubs
 | `web` | `Routes/web.php` | Использует web route attributes |
 | `inertia` | `Routes/inertia.php` | Skipped, если Inertia не установлена |
 
-Attributes передаются в Laravel router groups после удаления `null` values.
+Attributes передаются в Laravel router groups после удаления `null` values. Порядок
+групп детерминирован и совпадает с порядком ключей в `modules.routing.types`.
 
 ## Versioned API routes
 
-Файлы в `Routes/api/*.php` загружаются как versioned API routes. Имя файла становится suffix после API prefix.
+Версионирование — это обычный config-driven type, а не отдельная convention.
+Объявите профиль (например `api_v1`) с нужным prefix и middleware-группой, и
+`RouteLoader` загрузит соответствующий flat-файл `Routes/api_v1.php`.
 
-```text
-Routes/api/v1.php -> api/v1
-Routes/api/v2.php -> api/v2
+```php
+'routing' => [
+    'types' => [
+        'api_v1' => [
+            'prefix' => 'api/v1',
+            'middleware' => ['api_v1'],
+        ],
+    ],
+],
 ```
 
-Loader сортирует эти файлы по имени для deterministic route registration.
+```text
+Routes/api_v1.php -> api/v1   (middleware: api_v1)
+```
+
+Middleware-группу `api_v1` host-приложение объявляет в `bootstrap/app.php`. Для
+второй версии добавьте аналогичный тип `api_v2` → `Routes/api_v2.php`.
 
 ## Routes cache
 

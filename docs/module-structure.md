@@ -30,9 +30,7 @@ app/Modules/Blog/
 |   `-- views/
 |-- Routes/
 |   |-- api.php
-|   |-- api/
-|   |   |-- v1.php
-|   |   `-- v2.php
+|   |-- api_v1.php
 |   |-- web.php
 |   |-- inertia.php
 |   |-- console.php
@@ -60,8 +58,8 @@ Host-приложение может хранить внутри модуля с
 | `Domain/Policies/` | `PolicyLoader` | 37 | Регистрирует policies для matching моделей |
 | `Console/Commands/` | `CommandLoader` | 40 | Регистрирует command paths через Laravel kernel |
 | `Http/Middleware/` | `MiddlewareLoader` | 45 | Регистрирует middleware aliases `<module>.<snake_name>` |
+| `Routes/<type>.php` | `RouteLoader` | 50 | Загружает для каждого `<type>` из `modules.routing.types` с его attributes (config-driven). Версионирование — обычный flat-тип, напр. `api_v1` → `Routes/api_v1.php` (prefix `api/v1`) |
 | `Routes/api.php` | `RouteLoader` | 50 | Загружает с attributes из `modules.routing.types.api` |
-| `Routes/api/*.php` | `RouteLoader` | 50 | Загружает versioned API routes, например `api/v1` |
 | `Routes/web.php` | `RouteLoader` | 50 | Загружает с attributes из `modules.routing.types.web` |
 | `Routes/inertia.php` | `RouteLoader` | 50 | Загружает только при установленной Inertia |
 | `Routes/console.php` | `ConsoleRouteLoader` | 51 | Регистрирует console routes через kernel (deferred до boot) |
