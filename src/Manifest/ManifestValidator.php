@@ -41,11 +41,9 @@ final readonly class ManifestValidator implements ManifestValidatorInterface
         }
 
         $metaRaw = ManifestFieldReader::requiredObject($manifest, 'meta', $manifestPath);
-        /** @var array<string, mixed> $metaRaw */
         $meta = ManifestMeta::fromArray($metaRaw, $manifestPath);
 
         $settings = ManifestFieldReader::requiredObject($manifest, 'settings', $manifestPath);
-        /** @var array<string, mixed> $settings */
         $this->settingsValidator->validate($settings, $meta->name, $manifestPath);
     }
 
