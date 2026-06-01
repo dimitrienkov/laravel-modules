@@ -59,6 +59,27 @@ arch('value objects are final readonly')
     ->toBeReadonly()
     ->toBeFinal();
 
+arch('loader value objects are final readonly')
+    ->expect([
+        'DimitrienkoV\LaravelModules\Loaders\VO\LoadReport',
+        'DimitrienkoV\LaravelModules\Loaders\VO\PipelineRunSummary',
+    ])
+    ->toBeReadonly()
+    ->toBeFinal();
+
+arch('loader value object enums are string backed')
+    ->expect([
+        'DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus',
+        'DimitrienkoV\LaravelModules\Loaders\VO\SkipReason',
+    ])
+    ->toBeStringBackedEnums();
+
+arch('diagnostics implementations are final and implement the contract')
+    ->expect('DimitrienkoV\LaravelModules\Support\Logging')
+    ->classes()
+    ->toBeFinal()
+    ->toImplement('DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface');
+
 arch('loaders are final and implement LoaderInterface')
     ->expect('DimitrienkoV\LaravelModules\Loaders')
     ->classes()
