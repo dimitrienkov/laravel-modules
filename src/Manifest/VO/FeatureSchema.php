@@ -19,7 +19,7 @@ final readonly class FeatureSchema
     }
 
     /**
-     * @param array<string, mixed> $schema
+     * @param array<array-key, mixed> $schema
      */
     public static function fromArray(array $schema, string $manifestPath): self
     {

@@ -114,6 +114,29 @@ final class ModuleStateRepositoryTest extends TestCase
     }
 
     #[Test]
+    public function throwsOnIntegerKeyedStateObject(): void
+    {
+        // JSON {"1": ...} decodes to a non-list array with an integer key.
+        $this->writeRawState($this->stateRoot, 'blog', '{"1": "enabled"}');
+
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/state file must be a JSON object/');
+
+        $this->repository->read('blog', $this->makeModule('blog'));
+    }
+
+    #[Test]
+    public function throwsOnIntegerKeyedSettingsValues(): void
+    {
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "settings": {"values": {"1": "x"}}}');
+
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/settings\.values must be a JSON object/');
+
+        $this->repository->read('blog', $this->makeModule('blog'));
+    }
+
+    #[Test]
     public function throwsOnUnknownSettingsKey(): void
     {
         $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "settings": {"values": {}, "extra": "bad"}}');
@@ -293,6 +316,17 @@ final class ModuleStateRepositoryTest extends TestCase
     public function readThrowsWhenSourceIsScalar(): void
     {
         $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "source": "zip"}');
+
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/source must be a JSON object/');
+
+        $this->repository->read('blog', $this->makeModule('blog'));
+    }
+
+    #[Test]
+    public function readThrowsWhenSourceHasIntegerKeys(): void
+    {
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "source": {"1": "zip"}}');
 
         $this->expectException(InvalidModuleStateException::class);
         $this->expectExceptionMessageMatches('/source must be a JSON object/');

@@ -69,7 +69,8 @@ final readonly class RouteLoader implements LoaderInterface
 
         foreach ($this->versionedApiRoutes($module) as $version => $routeFile) {
             $attributes = $this->attributesFor('api');
-            $prefix = trim((string) ($attributes['prefix'] ?? 'api'), '/');
+            $prefixValue = $attributes['prefix'] ?? 'api';
+            $prefix = trim(\is_string($prefixValue) ? $prefixValue : 'api', '/');
             $attributes['prefix'] = trim($prefix . '/' . $version, '/');
 
             $routes[] = [
@@ -107,10 +108,15 @@ final readonly class RouteLoader implements LoaderInterface
             return [];
         }
 
-        return array_filter(
-            $attributes,
-            static fn (mixed $value): bool => $value !== null,
-        );
+        $result = [];
+
+        foreach ($attributes as $key => $value) {
+            if (\is_string($key) && $value !== null) {
+                $result[$key] = $value;
+            }
+        }
+
+        return $result;
     }
 
     /**

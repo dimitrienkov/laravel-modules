@@ -80,6 +80,20 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
+    public function requiredObjectThrowsForIntegerKeys(): void
+    {
+        // A non-list array with an integer key is not a JSON object.
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('meta must be an object');
+
+        ManifestFieldReader::requiredObject(
+            ['meta' => [1 => 'a']],
+            'meta',
+            '/tmp/module.json',
+        );
+    }
+
+    #[Test]
     public function requiredStringReturnsValue(): void
     {
         $result = ManifestFieldReader::requiredString(

@@ -4,11 +4,11 @@ includes:
 parameters:
     paths:
         - src
-    level: 8
-    reportUnmatchedIgnoredErrors: false
-    treatPhpDocTypesAsCertain: false
+    level: max
+    reportUnmatchedIgnoredErrors: true
+    treatPhpDocTypesAsCertain: true
     parallel:
-        maximumNumberOfProcesses: 1
+        maximumNumberOfProcesses: 2
     ignoreErrors: []
     excludePaths:
         - vendor/*

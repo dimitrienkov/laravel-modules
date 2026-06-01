@@ -48,7 +48,17 @@ final readonly class ManifestFieldReader
             throw InvalidManifestException::forPath($manifestPath, "{$key} must be an object.");
         }
 
-        return $value;
+        $object = [];
+
+        foreach ($value as $objectKey => $objectValue) {
+            if (! \is_string($objectKey)) {
+                throw InvalidManifestException::forPath($manifestPath, "{$key} must be an object.");
+            }
+
+            $object[$objectKey] = $objectValue;
+        }
+
+        return $object;
     }
 
     /**

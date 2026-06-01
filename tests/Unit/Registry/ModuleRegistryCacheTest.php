@@ -196,6 +196,24 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
+    public function throwsWhenCachedManifestHasIntegerKeys(): void
+    {
+        $cache = $this->cache();
+        file_put_contents($cache->cachePath(), '<?php return ' . var_export([
+            'version' => 4,
+            'modules' => [
+                'blog' => ['path' => '/tmp/blog', 'namespace' => 'App\\Blog', 'manifest' => [1 => 'x']],
+            ],
+            'load_order' => ['blog'],
+        ], true) . ';');
+
+        $this->expectException(InvalidModuleCacheException::class);
+        $this->expectExceptionMessage('manifest must be an object');
+
+        $cache->load();
+    }
+
+    #[Test]
     public function throwsWhenModuleAbsentFromLoadOrder(): void
     {
         $cache = $this->cache();

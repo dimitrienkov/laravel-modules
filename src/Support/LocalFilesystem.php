@@ -33,7 +33,10 @@ final readonly class LocalFilesystem
      */
     public function directories(string $directory): array
     {
-        return array_values($this->filesystem->directories($directory));
+        return array_values(array_filter(
+            $this->filesystem->directories($directory),
+            'is_string',
+        ));
     }
 
     public function get(string $path): string

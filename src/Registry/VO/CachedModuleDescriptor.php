@@ -20,26 +20,39 @@ final readonly class CachedModuleDescriptor
     }
 
     /**
-     * @param array<string, mixed> $entry
+     * @param array<array-key, mixed> $entry
      */
     public static function fromCacheEntry(string $name, array $entry, string $cachePath): self
     {
-        if (
-            ! \is_string($entry['path'] ?? null)
-            || ! \is_string($entry['namespace'] ?? null)
-            || ! \is_array($entry['manifest'] ?? null)
-        ) {
+        $path = $entry['path'] ?? null;
+        $namespace = $entry['namespace'] ?? null;
+        $manifest = $entry['manifest'] ?? null;
+
+        if (! \is_string($path) || ! \is_string($namespace) || ! \is_array($manifest)) {
             throw InvalidModuleCacheException::forPath(
                 $cachePath,
                 "module cache entry [{$name}] must contain path, namespace and manifest.",
             );
         }
 
+        $manifestObject = [];
+
+        foreach ($manifest as $key => $value) {
+            if (! \is_string($key)) {
+                throw InvalidModuleCacheException::forPath(
+                    $cachePath,
+                    "module cache entry [{$name}] manifest must be an object.",
+                );
+            }
+
+            $manifestObject[$key] = $value;
+        }
+
         return new self(
             name: $name,
-            path: $entry['path'],
-            namespace: $entry['namespace'],
-            manifest: $entry['manifest'],
+            path: $path,
+            namespace: $namespace,
+            manifest: $manifestObject,
         );
     }
 

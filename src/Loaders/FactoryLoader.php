@@ -73,7 +73,11 @@ final class FactoryLoader implements LoaderInterface
         }
 
         if (\is_callable($this->previousFactoryNameResolver)) {
-            return ($this->previousFactoryNameResolver)($modelClass);
+            $resolved = ($this->previousFactoryNameResolver)($modelClass);
+
+            if (\is_string($resolved)) {
+                return $resolved;
+            }
         }
 
         return $this->defaultFactoryClassFor($modelClass);

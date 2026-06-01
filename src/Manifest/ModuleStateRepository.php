@@ -187,7 +187,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             throw InvalidModuleStateException::forPath($statePath, 'state file must contain a JSON object.');
         }
 
-        return $raw;
+        return $this->requireStringKeys($raw, 'state file', $statePath);
     }
 
     /**
@@ -262,7 +262,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             throw InvalidModuleStateException::forPath($statePath, 'source must be a JSON object.');
         }
 
-        return ModuleOrigin::fromArray($source, $statePath);
+        return ModuleOrigin::fromArray($this->requireStringKeys($source, 'source', $statePath), $statePath);
     }
 
     /**
@@ -286,6 +286,30 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             throw InvalidModuleStateException::forPath($statePath, "{$fieldName} must be a JSON object.");
         }
 
-        return $value;
+        return $this->requireStringKeys($value, $fieldName, $statePath);
+    }
+
+    /**
+     * Guarantee a decoded JSON value is a string-keyed object. PHP coerces
+     * numeric-string JSON keys to integers, so a non-list array can still
+     * carry integer keys — reject those instead of trusting the type.
+     *
+     * @param array<array-key, mixed> $value
+     *
+     * @return array<string, mixed>
+     */
+    private function requireStringKeys(array $value, string $fieldName, string $statePath): array
+    {
+        $object = [];
+
+        foreach ($value as $key => $item) {
+            if (! \is_string($key)) {
+                throw InvalidModuleStateException::forPath($statePath, "{$fieldName} must be a JSON object.");
+            }
+
+            $object[$key] = $item;
+        }
+
+        return $object;
     }
 }
