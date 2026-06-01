@@ -64,7 +64,7 @@ arch('loaders are final and implement LoaderInterface')
     ->classes()
     ->toBeFinal()
     ->toImplement(LoaderInterface::class)
-    ->ignoring(ModuleLoaderPipeline::class);
+    ->ignoring([ModuleLoaderPipeline::class, 'DimitrienkoV\LaravelModules\Loaders\VO']);
 
 test('src does not contain debug or termination calls', function (): void {
     $srcDir = realpath(__DIR__ . '/../../src');
@@ -286,7 +286,7 @@ arch('loaders use the Loader suffix')
     ->expect('DimitrienkoV\LaravelModules\Loaders')
     ->classes()
     ->toHaveSuffix('Loader')
-    ->ignoring(ModuleLoaderPipeline::class);
+    ->ignoring([ModuleLoaderPipeline::class, 'DimitrienkoV\LaravelModules\Loaders\VO']);
 
 arch('console commands do not depend on concrete persistence or registry internals')
     ->expect('DimitrienkoV\LaravelModules\Console\Commands')
