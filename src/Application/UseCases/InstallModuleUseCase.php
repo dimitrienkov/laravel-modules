@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\DTOs\InstallModuleResult;
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
@@ -23,6 +25,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use Throwable;
 
 final readonly class InstallModuleUseCase
@@ -38,6 +41,7 @@ final readonly class InstallModuleUseCase
         private LifecycleRegistryInvalidator $invalidator,
         private NamespaceResolverInterface $namespaceResolver,
         private PartialModuleRollback $rollback,
+        private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
     ) {
     }
 
@@ -49,6 +53,8 @@ final readonly class InstallModuleUseCase
             $moduleName = $prepared->moduleName();
 
             $this->assertNotInRegistry($moduleName);
+
+            $this->diagnostics->lifecycleStarted(LifecycleOperation::Install, $moduleName, $prepared->sourceKind->value);
 
             $targetRoot = $directory !== null
                 ? $this->paths->resolveTargetRoot($directory)
@@ -94,6 +100,8 @@ final readonly class InstallModuleUseCase
             } catch (Throwable $e) {
                 $cleanupNote = $this->rollback->rollback($moduleName, $targetPath);
 
+                $this->diagnostics->lifecycleRolledBack(LifecycleOperation::Install, $moduleName, 'persistence');
+
                 throw ModuleInstallException::forModule(
                     $moduleName,
                     'persistence failed after copy, rolled back target directory.' . $cleanupNote,
@@ -102,6 +110,8 @@ final readonly class InstallModuleUseCase
             }
 
             $this->invalidator->flushAndReset();
+
+            $this->diagnostics->lifecycleSucceeded(LifecycleOperation::Install, $moduleName);
 
             return new InstallModuleResult(
                 name: $candidate->name,

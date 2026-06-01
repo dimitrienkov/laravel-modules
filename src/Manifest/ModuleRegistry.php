@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Manifest;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryCacheInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
 use DimitrienkoV\LaravelModules\Registry\VO\ModuleRegistrySnapshot;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 
 final class ModuleRegistry implements ModuleRegistryInterface
 {
@@ -17,6 +19,7 @@ final class ModuleRegistry implements ModuleRegistryInterface
     public function __construct(
         private readonly ModuleRegistrySnapshotBuilder $builder,
         private readonly ModuleRegistryCacheInterface $cache,
+        private readonly ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
     ) {
     }
 
@@ -49,9 +52,15 @@ final class ModuleRegistry implements ModuleRegistryInterface
             return $this->snapshot;
         }
 
-        $this->snapshot = $this->cache->exists()
-            ? $this->loadFromCache()
-            : $this->builder->build();
+        if ($this->cache->exists()) {
+            $this->snapshot = $this->loadFromCache();
+            $this->diagnostics->cacheHit(\count($this->snapshot->all()));
+
+            return $this->snapshot;
+        }
+
+        $this->diagnostics->cacheMiss();
+        $this->snapshot = $this->builder->build();
 
         return $this->snapshot;
     }

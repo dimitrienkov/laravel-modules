@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Application\UseCases;
 
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyDisabledException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 
 final readonly class DisableModuleUseCase
 {
@@ -19,6 +22,7 @@ final readonly class DisableModuleUseCase
         private ModuleStateRepositoryInterface $stateRepository,
         private ModuleDependencyGuard $dependencyGuard,
         private LifecycleRegistryInvalidator $invalidator,
+        private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
     ) {
     }
 
@@ -32,10 +36,14 @@ final readonly class DisableModuleUseCase
 
         $this->dependencyGuard->assertCanDisable($module);
 
+        $this->diagnostics->lifecycleStarted(LifecycleOperation::Disable, $moduleName);
+
         $newState = ModuleState::updatedFrom($module->state)->withEnabled(false);
 
         $updated = $this->stateRepository->writeState($module, $newState);
         $this->invalidator->flushAndReset();
+
+        $this->diagnostics->lifecycleSucceeded(LifecycleOperation::Disable, $moduleName);
 
         return $updated;
     }

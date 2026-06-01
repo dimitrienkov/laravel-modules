@@ -6,10 +6,12 @@ namespace DimitrienkoV\LaravelModules\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\DTOs\SkippedFeatureValue;
 use DimitrienkoV\LaravelModules\Application\DTOs\UpdateModuleResult;
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
@@ -21,6 +23,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use Throwable;
 
 final readonly class UpdateModuleUseCase
@@ -33,6 +36,7 @@ final readonly class UpdateModuleUseCase
         private ModuleDependencyGuard $dependencyGuard,
         private ModuleDirectoryOperations $directoryOps,
         private LifecycleRegistryInvalidator $invalidator,
+        private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
     ) {
     }
 
@@ -46,6 +50,8 @@ final readonly class UpdateModuleUseCase
             if ($sourceName !== $moduleName) {
                 throw ModuleUpdateException::nameMismatch($moduleName, $sourceName);
             }
+
+            $this->diagnostics->lifecycleStarted(LifecycleOperation::Update, $moduleName, $prepared->sourceKind->value);
 
             $preservedState = ModuleState::updatedFrom($existingModule->state);
 
@@ -79,6 +85,8 @@ final readonly class UpdateModuleUseCase
                 throw ModuleUpdateException::forModule($moduleName, $e->getMessage(), $e);
             }
 
+            $this->diagnostics->lifecycleBackupCreated(LifecycleOperation::Update, $moduleName, $backupPath);
+
             try {
                 $this->manifestRepository->writeManifest($candidate);
 
@@ -106,6 +114,8 @@ final readonly class UpdateModuleUseCase
                     );
                 }
 
+                $this->diagnostics->lifecycleRolledBack(LifecycleOperation::Update, $moduleName, 'persistence');
+
                 throw ModuleUpdateException::forModule(
                     $moduleName,
                     'persistence failed after directory replacement, restored from backup.',
@@ -116,6 +126,8 @@ final readonly class UpdateModuleUseCase
             $this->invalidator->flushAndReset();
 
             $this->directoryOps->tryDeleteDirectory($backupPath);
+
+            $this->diagnostics->lifecycleSucceeded(LifecycleOperation::Update, $moduleName);
 
             return new UpdateModuleResult(
                 name: $moduleName,

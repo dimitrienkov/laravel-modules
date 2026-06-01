@@ -271,6 +271,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 layout: $this->app->make(ModuleLayout::class),
                 basePath: $this->app->basePath(),
                 appPath: $this->app->path(),
+                diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
             );
         });
 
@@ -280,6 +281,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 layout: $this->app->make(ModuleLayout::class),
                 stateRepository: $this->app->make(ModuleStateRepositoryInterface::class),
                 basePath: $this->app->basePath(),
+                diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
             );
         });
 
@@ -293,6 +295,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 scanner: $this->app->make(ModuleDirectoryScanner::class),
                 manifests: $this->app->make(ModuleManifestRepositoryInterface::class),
                 sorter: $this->app->make(TopologicalSorter::class),
+                diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
             );
         });
 
@@ -300,6 +303,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             return new ModuleRegistry(
                 builder: $this->app->make(ModuleRegistrySnapshotBuilder::class),
                 cache: $this->app->make(ModuleRegistryCacheInterface::class),
+                diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
             );
         });
         $this->app->singleton(

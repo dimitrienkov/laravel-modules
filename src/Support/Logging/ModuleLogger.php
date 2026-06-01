@@ -215,13 +215,17 @@ final readonly class ModuleLogger implements ModuleDiagnosticsInterface
         $this->logger->log(LogLevel::DEBUG, 'pipeline.finished', $summary->toArray());
     }
 
-    public function lifecycleStarted(LifecycleOperation $operation, string $module, ?string $sourceKind = null): void
+    public function lifecycleStarted(LifecycleOperation $operation, ?string $module = null, ?string $sourceKind = null): void
     {
         if (! $this->shouldLog(self::CATEGORY_LIFECYCLE, LogLevel::INFO)) {
             return;
         }
 
-        $context = ['module' => $module];
+        $context = [];
+
+        if ($module !== null) {
+            $context['module'] = $module;
+        }
 
         if ($sourceKind !== null) {
             $context['source'] = $sourceKind;
@@ -230,13 +234,15 @@ final readonly class ModuleLogger implements ModuleDiagnosticsInterface
         $this->logger->log(LogLevel::INFO, "lifecycle.{$operation->value}.started", $context);
     }
 
-    public function lifecycleSucceeded(LifecycleOperation $operation, string $module): void
+    public function lifecycleSucceeded(LifecycleOperation $operation, ?string $module = null): void
     {
         if (! $this->shouldLog(self::CATEGORY_LIFECYCLE, LogLevel::INFO)) {
             return;
         }
 
-        $this->logger->log(LogLevel::INFO, "lifecycle.{$operation->value}.succeeded", ['module' => $module]);
+        $context = $module !== null ? ['module' => $module] : [];
+
+        $this->logger->log(LogLevel::INFO, "lifecycle.{$operation->value}.succeeded", $context);
     }
 
     public function lifecycleRolledBack(LifecycleOperation $operation, string $module, string $stage): void

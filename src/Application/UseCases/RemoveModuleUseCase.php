@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\DTOs\RemoveModuleResult;
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Application\Enums\RemoveStrategy;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleRemoveException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use Throwable;
 
 final readonly class RemoveModuleUseCase
@@ -24,6 +27,7 @@ final readonly class RemoveModuleUseCase
         private ModuleDependencyGuard $dependencyGuard,
         private ModuleDirectoryOperations $directoryOps,
         private LifecycleRegistryInvalidator $invalidator,
+        private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
     ) {
     }
 
@@ -33,11 +37,15 @@ final readonly class RemoveModuleUseCase
 
         $this->dependencyGuard->assertCanRemove($module);
 
+        $this->diagnostics->lifecycleStarted(LifecycleOperation::Remove, $moduleName);
+
         $backupPath = $strategy === RemoveStrategy::Permanent
             ? $this->removePermanently($module)
             : $this->removeWithBackup($module);
 
         $this->invalidator->flushAndReset();
+
+        $this->diagnostics->lifecycleSucceeded(LifecycleOperation::Remove, $moduleName);
 
         return new RemoveModuleResult(
             name: $moduleName,
@@ -73,6 +81,8 @@ final readonly class RemoveModuleUseCase
                 );
             }
 
+            $this->diagnostics->lifecycleRolledBack(LifecycleOperation::Remove, $module->name, 'directory_removal');
+
             throw ModuleRemoveException::forModule(
                 $module->name,
                 "directory removal failed, restored state. Directory at [{$module->path}].",
@@ -91,6 +101,8 @@ final readonly class RemoveModuleUseCase
             throw ModuleRemoveException::forModule($module->name, $e->getMessage(), $e);
         }
 
+        $this->diagnostics->lifecycleBackupCreated(LifecycleOperation::Remove, $module->name, $backupPath);
+
         try {
             $this->stateRepository->moveToBackup($module->name, $backupPath);
         } catch (Throwable $e) {
@@ -103,6 +115,8 @@ final readonly class RemoveModuleUseCase
                     $e,
                 );
             }
+
+            $this->diagnostics->lifecycleRolledBack(LifecycleOperation::Remove, $module->name, 'state_backup');
 
             throw ModuleRemoveException::forModule(
                 $module->name,

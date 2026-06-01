@@ -72,11 +72,11 @@ final class NullModuleDiagnostics implements ModuleDiagnosticsInterface
     {
     }
 
-    public function lifecycleStarted(LifecycleOperation $operation, string $module, ?string $sourceKind = null): void
+    public function lifecycleStarted(LifecycleOperation $operation, ?string $module = null, ?string $sourceKind = null): void
     {
     }
 
-    public function lifecycleSucceeded(LifecycleOperation $operation, string $module): void
+    public function lifecycleSucceeded(LifecycleOperation $operation, ?string $module = null): void
     {
     }
 
