@@ -48,7 +48,7 @@ Default loaders tagged через `ModuleLoaderServiceProvider::LOADER_TAG`.
 | `ConsoleRouteLoader` | 51 | `Routes/console.php` |
 | `BroadcastLoader` | 52 | `Routes/channels.php` |
 
-Меньшее значение priority выполняется раньше. Pipeline изолирует ошибки: исключение в одном loader не останавливает загрузку остальных.
+Меньшее значение priority выполняется раньше. Pipeline изолирует ошибки: исключение в одном loader не останавливает загрузку остальных. Каждый `load()` возвращает `LoadReport`, а pipeline скармливает его инъецированному `ModuleDiagnosticsInterface` (см. [Logging](logging.md)).
 
 ## Custom loader example
 
@@ -60,13 +60,20 @@ declare(strict_types=1);
 namespace App\Modules\Support;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 
 final readonly class TranslationLoader implements LoaderInterface
 {
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
+        // Ранний return при отсутствии предусловия:
+        // return LoadReport::skipped(SkipReason::NoDirectory);
+
         // Register module translations here.
+
+        return LoadReport::applied(['translations' => ['Lang']]);
     }
 
     public function priority(): int
@@ -75,6 +82,10 @@ final readonly class TranslationLoader implements LoaderInterface
     }
 }
 ```
+
+`LoaderInterface::load()` возвращает `LoadReport` (`applied(artifacts)` либо
+`skipped(reason)`) — это субстрат для централизованной диагностики в pipeline.
+Контракт остаётся тонким: только `load()` и `priority()`.
 
 Зарегистрируйте и tagged loader в service provider host-приложения:
 
@@ -167,11 +178,27 @@ Lifecycle-команды не запускают и не откатывают м
 - `Application/DTOs` → `∅` (value objects без зависимостей).
 - `Application` не зависит от `Loaders`, `Providers`, `MoonShine`.
 - `Console/Commands` → `Application/UseCases + Contracts`.
+- `Contracts` могут зависеть от typed data: `Manifest\VO\Module`, `Loaders\VO\LoadReport`/`PipelineRunSummary`, `Application\Enums\LifecycleOperation` — это значения, не реализации.
+- `Support\Logging` (диагностический adapter) зависит от `Contracts + Psr\Log + Loaders\VO + Application\Enums` — допустимое cross-cutting направление для `Support`.
 - Optional integrations должны оставаться guarded и optional.
-- Runtime code в `src/` должен оставаться DI-first, без Laravel facades.
+- Runtime code в `src/` остаётся DI-first, без Laravel facades и без global logging helpers (`Log::*`, `logger()`, `info()`). Инъецированный `ModuleDiagnosticsInterface` (обёртка над `Psr\Log\LoggerInterface`) — единственный sanctioned путь логирования.
+
+## Diagnostic logging
+
+Opt-in диагностический слой переводит события discovery, cache, loader pipeline и
+lifecycle в структурные лог-записи. Контракт `Contracts\ModuleDiagnosticsInterface`
+реализуют `Support\Logging\ModuleLogger` (поверх инъецированного
+`Psr\Log\LoggerInterface`-канала) и `Support\Logging\NullModuleDiagnostics`
+(silent default). `ModuleLoaderServiceProvider` биндит реализацию singleton'ом по
+`modules.logging.enabled`, читая конфиг через типизированный `Repository` и резолвя
+канал через `$app->make('log')->channel($name)`. Потребители (scanner, snapshot
+builder, registry, cache, pipeline, lifecycle UseCases) тайпхинтят интерфейс с
+дефолт-резолвом в null-object. Context — только whitelisted-скаляры; feature values
+и секреты не логируются. Подробности — в [Logging](logging.md).
 
 ## See Also
 
 - [Manifest](manifest.md) - manifest validation и write boundary.
 - [Feature Toggles](feature-toggles.md) - scoped runtime values.
+- [Logging](logging.md) - диагностический слой, каталог событий, whitelist.
 - [CLI](cli.md) - cache commands и optimizer hooks.

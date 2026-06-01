@@ -120,6 +120,7 @@ final readonly class PostController
 | [Configuration](docs/configuration.md) | Конфиг и routing options |
 | [Architecture](docs/architecture.md) | Registry, cache, loaders, lifecycle |
 | [Feature Toggles](docs/feature-toggles.md) | Runtime settings API |
+| [Logging](docs/logging.md) | Opt-in диагностический слой и каталог событий |
 | [CLI](docs/cli.md) | Реализованные Artisan-команды |
 | [Contributing](docs/contributing.md) | Quality gates и PR rules |
 

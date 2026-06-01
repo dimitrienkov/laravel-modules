@@ -39,11 +39,11 @@ final readonly class LoadReport
         public array $artifacts = [],
         public ?SkipReason $reason = null,
     ) {
-        if ($status === LoadStatus::Applied && $reason !== null) {
+        if ($status === LoadStatus::Applied && $reason instanceof SkipReason) {
             throw new InvalidArgumentException('An applied LoadReport must not carry a skip reason.');
         }
 
-        if ($status === LoadStatus::Skipped && $reason === null) {
+        if ($status === LoadStatus::Skipped && ! $reason instanceof SkipReason) {
             throw new InvalidArgumentException('A skipped LoadReport must carry a skip reason.');
         }
 

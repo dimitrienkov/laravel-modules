@@ -51,7 +51,7 @@
 
 - **PHP:** 8.3+
 - **Laravel:** 12 / 13
-- **Runtime dependencies:** `composer/semver`, `ext-mbstring`, `ext-zip`
+- **Runtime dependencies:** `composer/semver`, `psr/log`, `ext-mbstring`, `ext-zip`
 - **Optional integrations:** MoonShine 4, Inertia 2
 - **Manifest storage:** immutable `module.json` (meta + schema) + mutable `state.json` (state + values) в `storage/app/private/modules/`, без БД
 - **Dependency management между модулями:** Composer SemVer constraints в `meta.dependencies`
