@@ -12,7 +12,9 @@ use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
+use DimitrienkoV\LaravelModules\Manifest\VO\Version;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -80,7 +82,7 @@ final class ListModulesUseCaseTest extends TestCase
         ];
         $useCase = $this->makeUseCase($modules);
 
-        $result = $useCase->execute(groupFilter: 'content');
+        $result = $useCase->execute(groupFilter: new ModuleGroup('content'));
 
         $this->assertCount(1, $result->modules);
         $this->assertSame('blog', $result->modules[0]->name);
@@ -95,7 +97,7 @@ final class ListModulesUseCaseTest extends TestCase
         ];
         $useCase = $this->makeUseCase($modules);
 
-        $result = $useCase->execute(groupFilter: 'missing');
+        $result = $useCase->execute(groupFilter: new ModuleGroup('missing'));
 
         $this->assertSame([], $result->modules);
     }
@@ -124,12 +126,12 @@ final class ListModulesUseCaseTest extends TestCase
                 name: $name,
                 displayName: ucfirst($name),
                 kind: $kind,
-                version: '1.0.0',
+                version: new Version('1.0.0'),
                 author: null,
                 description: null,
                 license: null,
                 dependencies: new ModuleDependencies([]),
-                group: $group,
+                group: $group === null ? null : new ModuleGroup($group),
             ),
             state: new ModuleState(enabled: $enabled, installedAt: '2026-01-01T00:00:00+00:00'),
             features: new FeatureSchema([]),

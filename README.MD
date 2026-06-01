@@ -51,9 +51,12 @@ php artisan make:module blog
 
 ```json
 {
+  "schema_version": 1,
   "meta": {
     "name": "blog",
     "display_name": "Blog",
+    "kind": "module",
+    "group": "content",
     "version": "1.0.0"
   },
   "settings": {
@@ -66,6 +69,8 @@ php artisan make:module blog
   }
 }
 ```
+
+`schema_version`, `meta.name`, `meta.kind` и `meta.version` — обязательные; `meta.group` — необязательное (kebab-case группа для отображения в `modules:list`). Полный контракт — в [docs/manifest.md](docs/manifest.md).
 
 `storage/app/private/modules/blog/state.json`:
 

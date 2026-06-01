@@ -208,7 +208,23 @@ final class ModulesListCommandTest extends TestCase
 
         $this->artisanCommand('modules:list --group=bad_group')
             ->assertFailed()
-            ->expectsOutputToContain('Invalid group [bad_group]');
+            ->expectsOutputToContain('Module group [bad_group]');
+    }
+
+    #[Test]
+    public function listFailsWhenConfiguredGroupLabelIsNotString(): void
+    {
+        // A present group whose configured label is non-string is malformed config.
+        // Rendering the row drives ModuleGroupLabelResolver's lazy validation, which
+        // throws InvalidConfigurationException — caught by the command as a clean
+        // FAILURE. This exercises the resolver throw-path end-to-end via modules:list.
+        $this->app['config']->set('modules.groups', ['content' => ['nested' => 'value']]);
+        $this->writeManifestWithGroup('blog', 'content');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list')
+            ->assertFailed()
+            ->expectsOutputToContain('label for group [content] must be a non-empty string');
     }
 
     #[Test]

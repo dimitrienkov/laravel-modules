@@ -197,10 +197,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             throw InvalidModuleStateException::forPath($statePath, 'state file must contain a JSON object.');
         }
 
-        return StringKeyedObject::toStringKeyedObject(
-            $raw,
-            static fn (): InvalidModuleStateException => InvalidModuleStateException::forPath($statePath, 'state file must be a JSON object.'),
-        );
+        return $this->objectOrFail($raw, 'state file must be a JSON object.', $statePath);
     }
 
     /**
@@ -275,10 +272,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             throw InvalidModuleStateException::forPath($statePath, 'source must be a JSON object.');
         }
 
-        $sourceObject = StringKeyedObject::toStringKeyedObject(
-            $source,
-            static fn (): InvalidModuleStateException => InvalidModuleStateException::forPath($statePath, 'source must be a JSON object.'),
-        );
+        $sourceObject = $this->objectOrFail($source, 'source must be a JSON object.', $statePath);
 
         return ModuleOrigin::fromArray($sourceObject, $statePath);
     }
@@ -298,9 +292,24 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             throw InvalidModuleStateException::forPath($statePath, "{$fieldName} must be a JSON object.");
         }
 
+        return $this->objectOrFail($value, "{$fieldName} must be a JSON object.", $statePath);
+    }
+
+    /**
+     * Coerce a decoded JSON object into a guaranteed string-keyed array, failing
+     * with a state-path error built from {@see $message} when an integer key is
+     * present. Single owner of the `$onError` closure shared by every state
+     * object that needs string keys.
+     *
+     * @param array<array-key, mixed> $value
+     *
+     * @return array<string, mixed>
+     */
+    private function objectOrFail(array $value, string $message, string $statePath): array
+    {
         return StringKeyedObject::toStringKeyedObject(
             $value,
-            static fn (): InvalidModuleStateException => InvalidModuleStateException::forPath($statePath, "{$fieldName} must be a JSON object."),
+            static fn (): InvalidModuleStateException => InvalidModuleStateException::forPath($statePath, $message),
         );
     }
 }

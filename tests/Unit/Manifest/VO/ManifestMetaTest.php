@@ -163,7 +163,7 @@ final class ManifestMetaTest extends TestCase
             '/tmp/module.json',
         );
 
-        self::assertSame('content', $meta->group);
+        self::assertSame('content', $meta->group?->value);
     }
 
     #[Test]
@@ -182,7 +182,7 @@ final class ManifestMetaTest extends TestCase
     public function rejectsInvalidGroupFormat(string $group): void
     {
         $this->expectException(InvalidManifestException::class);
-        $this->expectExceptionMessage('meta.group');
+        $this->expectExceptionMessage('must be kebab-case');
 
         ManifestMeta::fromArray(
             ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'group' => $group],
@@ -242,7 +242,7 @@ final class ManifestMetaTest extends TestCase
 
         $restored = ManifestMeta::fromArray($meta->toArray(), '/tmp/module.json');
 
-        self::assertSame('content', $restored->group);
+        self::assertSame('content', $restored->group?->value);
     }
 
     #[Test]
@@ -254,7 +254,7 @@ final class ManifestMetaTest extends TestCase
                 '/tmp/module.json',
             );
 
-            self::assertSame($group, $meta->group);
+            self::assertSame($group, $meta->group?->value);
         }
     }
 }

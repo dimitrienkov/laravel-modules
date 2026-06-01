@@ -7,6 +7,7 @@ namespace DimitrienkoV\LaravelModules\Manifest\VO;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
+use InvalidArgumentException;
 
 final readonly class ManifestMeta
 {
@@ -26,12 +27,12 @@ final readonly class ManifestMeta
         public string $name,
         public string $displayName,
         public ModuleKind $kind,
-        public string $version,
+        public Version $version,
         public ?string $author,
         public ?string $description,
         public ?string $license,
         public ModuleDependencies $dependencies,
-        public ?string $group = null,
+        public ?ModuleGroup $group = null,
     ) {
     }
 
@@ -57,14 +58,26 @@ final readonly class ManifestMeta
             );
         }
 
-        $version = ManifestFieldReader::requiredString($meta, 'version', 'meta', $manifestPath);
+        $versionRaw = ManifestFieldReader::requiredString($meta, 'version', 'meta', $manifestPath);
+
+        try {
+            $version = new Version($versionRaw);
+        } catch (InvalidArgumentException $e) {
+            throw InvalidManifestException::forPath($manifestPath, $e->getMessage(), $e);
+        }
+
         $displayName = ManifestFieldReader::optionalString($meta, 'display_name', 'meta', $manifestPath) ?? $name;
         $author = ManifestFieldReader::optionalString($meta, 'author', 'meta', $manifestPath);
         $description = ManifestFieldReader::optionalString($meta, 'description', 'meta', $manifestPath);
         $license = ManifestFieldReader::optionalString($meta, 'license', 'meta', $manifestPath);
 
-        $group = ManifestFieldReader::optionalString($meta, 'group', 'meta', $manifestPath);
-        ManifestFieldReader::assertModuleGroup($group, 'meta.group', $manifestPath);
+        $groupRaw = ManifestFieldReader::optionalString($meta, 'group', 'meta', $manifestPath);
+
+        try {
+            $group = $groupRaw === null ? null : new ModuleGroup($groupRaw);
+        } catch (InvalidArgumentException $e) {
+            throw InvalidManifestException::forPath($manifestPath, $e->getMessage(), $e);
+        }
 
         $dependenciesRaw = $meta['dependencies'] ?? [];
         if (! \is_array($dependenciesRaw)) {
@@ -93,7 +106,7 @@ final readonly class ManifestMeta
             'name' => $this->name,
             'display_name' => $this->displayName,
             'kind' => $this->kind->value,
-            'version' => $this->version,
+            'version' => $this->version->value,
             'dependencies' => $this->dependencies->toArray(),
         ];
 
@@ -109,8 +122,8 @@ final readonly class ManifestMeta
             $meta['license'] = $this->license;
         }
 
-        if ($this->group !== null) {
-            $meta['group'] = $this->group;
+        if ($this->group instanceof ModuleGroup) {
+            $meta['group'] = $this->group->value;
         }
 
         return $meta;

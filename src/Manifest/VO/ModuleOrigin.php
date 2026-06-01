@@ -12,7 +12,7 @@ final readonly class ModuleOrigin
 {
     public function __construct(
         public ModuleOriginKind $kind,
-        public string $installedVersion,
+        public Version $installedVersion,
         public ?Checksum $checksum = null,
     ) {
         if ($kind->requiresChecksum() && ! $checksum instanceof Checksum) {
@@ -24,7 +24,7 @@ final readonly class ModuleOrigin
         }
     }
 
-    public static function forLocal(string $version): self
+    public static function forLocal(Version $version): self
     {
         return new self(
             kind: ModuleOriginKind::Local,
@@ -32,7 +32,7 @@ final readonly class ModuleOrigin
         );
     }
 
-    public static function forZip(string $version, Checksum $checksum): self
+    public static function forZip(Version $version, Checksum $checksum): self
     {
         return new self(
             kind: ModuleOriginKind::Zip,
@@ -77,12 +77,13 @@ final readonly class ModuleOrigin
         }
 
         try {
-            // The kind <-> checksum invariant lives in the constructor (single
-            // owner); fromArray only parses the raw value and re-throws the
-            // constructor's domain error with state-path context attached.
+            // The kind <-> checksum invariant lives in the constructor and the
+            // semver grammar lives in Version (single owners); fromArray only
+            // parses the raw values and re-throws those domain errors with
+            // state-path context attached.
             return new self(
                 kind: $kind,
-                installedVersion: $version,
+                installedVersion: new Version($version),
                 checksum: self::parseChecksum($data, $statePath),
             );
         } catch (InvalidArgumentException $e) {
@@ -97,7 +98,7 @@ final readonly class ModuleOrigin
     {
         $data = [
             'kind' => $this->kind->value,
-            'installed_version' => $this->installedVersion,
+            'installed_version' => $this->installedVersion->value,
         ];
 
         if ($this->checksum instanceof Checksum) {

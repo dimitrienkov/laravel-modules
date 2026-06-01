@@ -100,7 +100,7 @@ storage/app/private/modules/{name}/state.json
   "source": {
     "kind": "zip",
     "installed_version": "1.0.0",
-    "checksum": "e3b0c44298fc1c149afbf4c8996fb924..."
+    "checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
   "settings": {
     "values": {

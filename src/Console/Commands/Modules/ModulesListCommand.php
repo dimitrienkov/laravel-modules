@@ -8,9 +8,10 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleGroupLabelResolver;
 use DimitrienkoV\LaravelModules\Application\UseCases\ListModulesUseCase;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
-use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
 use Illuminate\Console\Command;
+use InvalidArgumentException;
 
 final class ModulesListCommand extends Command
 {
@@ -45,24 +46,27 @@ final class ModulesListCommand extends Command
             }
         }
 
-        /** @var string|null $groupFilter */
-        $groupFilter = $this->option('group');
+        /** @var string|null $groupRaw */
+        $groupRaw = $this->option('group');
+        $groupFilter = null;
 
-        if ($groupFilter !== null && ! $this->isValidGroup($groupFilter)) {
-            $this->components->error(
-                "Invalid group [{$groupFilter}]; expected kebab-case: lowercase letters and digits in hyphen-separated segments.",
-            );
+        if ($groupRaw !== null) {
+            try {
+                $groupFilter = new ModuleGroup($groupRaw);
+            } catch (InvalidArgumentException $e) {
+                $this->components->error($e->getMessage());
 
-            return self::FAILURE;
+                return self::FAILURE;
+            }
         }
 
-        try {
-            $enabledFilter = match (true) {
-                (bool) $this->option('enabled') => true,
-                (bool) $this->option('disabled') => false,
-                default => null,
-            };
+        $enabledFilter = match (true) {
+            (bool) $this->option('enabled') => true,
+            (bool) $this->option('disabled') => false,
+            default => null,
+        };
 
+        try {
             $result = $useCase->execute($enabledFilter, $kindFilter, $groupFilter);
 
             if ($result->modules === []) {
@@ -76,7 +80,7 @@ final class ModulesListCommand extends Command
                 $m->meta->kind->value,
                 $groupLabels->displayLabel($m->meta->group),
                 $m->displayName,
-                $m->meta->version,
+                $m->meta->version->value,
                 $m->isEnabled() ? '<info>Yes</info>' : '<comment>No</comment>',
                 $m->path,
             ], $result->modules);
@@ -94,21 +98,10 @@ final class ModulesListCommand extends Command
         return self::SUCCESS;
     }
 
-    private function isValidGroup(string $group): bool
+    private function emptyMessage(?ModuleGroup $groupFilter): string
     {
-        try {
-            ManifestFieldReader::assertModuleGroup($group, '--group', 'modules:list');
-
-            return true;
-        } catch (ModuleExceptionInterface) {
-            return false;
-        }
-    }
-
-    private function emptyMessage(?string $groupFilter): string
-    {
-        return $groupFilter !== null
-            ? "No modules found in group [{$groupFilter}]."
+        return $groupFilter instanceof ModuleGroup
+            ? "No modules found in group [{$groupFilter->value}]."
             : 'No modules found.';
     }
 }

@@ -89,7 +89,7 @@ storage/app/private/modules/
     └── state.json
 ```
 
-`state.json` хранит `enabled`, `installed_at`, `updated_at`, опциональную секцию `source` (provenance) и `settings.values`. `ModuleStatePaths` валидирует, что state root не пересекается с module directories.
+`state.json` хранит `enabled`, `installed_at`, `updated_at`, опциональную секцию `source` (provenance: `kind`, `installed_version` и `checksum` для `zip`-origin) и `settings.values`. Полная структура `source` и пример `state.json` — в [docs/manifest.md](manifest.md). `ModuleStatePaths` валидирует, что state root не пересекается с module directories.
 
 ## Module groups
 

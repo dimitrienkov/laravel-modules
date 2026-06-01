@@ -11,7 +11,7 @@ trait CreatesSourceArchive
      *
      * The parent directory is created if missing. Additional raw entries may be
      * supplied as `entry name => contents` for scenarios that need extra files
-     * alongside the manifest.
+     * alongside the manifest (e.g. a forbidden `state.json`).
      *
      * @param array<string, mixed>  $manifest
      * @param array<string, string> $extraEntries

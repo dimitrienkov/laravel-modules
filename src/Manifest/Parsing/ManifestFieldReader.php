@@ -11,8 +11,6 @@ final readonly class ManifestFieldReader
 {
     private const string MODULE_NAME_PATTERN = '/^[a-z][a-z0-9_]*$/';
 
-    private const string MODULE_GROUP_PATTERN = '/^[a-z0-9]+(-[a-z0-9]+)*$/';
-
     /**
      * @param array<string, mixed> $data
      * @param array<string, true>  $allowedKeys
@@ -169,23 +167,6 @@ final readonly class ManifestFieldReader
             throw InvalidManifestException::forPath(
                 $manifestPath,
                 "{$field} must be lowercase snake_case (a-z, 0-9, underscore, starting with a letter).",
-            );
-        }
-    }
-
-    public static function assertModuleGroup(
-        ?string $group,
-        string $field,
-        string $manifestPath,
-    ): void {
-        if ($group === null) {
-            return;
-        }
-
-        if (! preg_match(self::MODULE_GROUP_PATTERN, $group)) {
-            throw InvalidManifestException::forPath(
-                $manifestPath,
-                "{$field} [{$group}] must be kebab-case: lowercase letters and digits in hyphen-separated segments.",
             );
         }
     }

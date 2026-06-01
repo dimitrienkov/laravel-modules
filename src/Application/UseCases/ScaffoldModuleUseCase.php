@@ -29,6 +29,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
+use DimitrienkoV\LaravelModules\Manifest\VO\Version;
 use DimitrienkoV\LaravelModules\Support\PathNormalizer;
 use Illuminate\Support\Str;
 use Throwable;
@@ -53,7 +54,6 @@ final readonly class ScaffoldModuleUseCase
     public function execute(ScaffoldModuleConfig $config): ScaffoldModuleResult
     {
         $this->validateName($config->name);
-        $this->validateGroup($config->name, $config->group);
 
         $targetRoot = $config->directory !== null
             ? $this->paths->resolveTargetRoot($config->directory)
@@ -90,7 +90,7 @@ final readonly class ScaffoldModuleUseCase
                     name: $config->name,
                     displayName: $studlyName,
                     kind: $resolvedKind,
-                    version: self::DEFAULT_VERSION,
+                    version: new Version(self::DEFAULT_VERSION),
                     author: null,
                     description: null,
                     license: null,
@@ -138,19 +138,6 @@ final readonly class ScaffoldModuleUseCase
             ManifestFieldReader::assertModuleName($name, 'meta.name', 'scaffold');
         } catch (Throwable $e) {
             throw ModuleScaffoldException::forModule($name, 'invalid module name — must be lowercase snake_case.', $e);
-        }
-    }
-
-    private function validateGroup(string $name, ?string $group): void
-    {
-        try {
-            ManifestFieldReader::assertModuleGroup($group, 'meta.group', 'scaffold');
-        } catch (Throwable $e) {
-            throw ModuleScaffoldException::forModule(
-                $name,
-                "invalid module group [{$group}] — must be kebab-case.",
-                $e,
-            );
         }
     }
 

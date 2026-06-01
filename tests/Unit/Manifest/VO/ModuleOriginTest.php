@@ -8,6 +8,7 @@ use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleStateException;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleOriginKind;
 use DimitrienkoV\LaravelModules\Manifest\VO\Checksum;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
+use DimitrienkoV\LaravelModules\Manifest\VO\Version;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -23,20 +24,20 @@ final class ModuleOriginTest extends TestCase
     #[Test]
     public function forLocalCreatesLocalOrigin(): void
     {
-        $origin = ModuleOrigin::forLocal('1.0.0');
+        $origin = ModuleOrigin::forLocal(new Version('1.0.0'));
 
         self::assertSame(ModuleOriginKind::Local, $origin->kind);
-        self::assertSame('1.0.0', $origin->installedVersion);
+        self::assertSame('1.0.0', $origin->installedVersion->value);
         self::assertNull($origin->checksum);
     }
 
     #[Test]
     public function forZipCreatesZipOriginWithChecksum(): void
     {
-        $origin = ModuleOrigin::forZip('2.0.0', new Checksum(self::VALID_HEX));
+        $origin = ModuleOrigin::forZip(new Version('2.0.0'), new Checksum(self::VALID_HEX));
 
         self::assertSame(ModuleOriginKind::Zip, $origin->kind);
-        self::assertSame('2.0.0', $origin->installedVersion);
+        self::assertSame('2.0.0', $origin->installedVersion->value);
         self::assertInstanceOf(Checksum::class, $origin->checksum);
         self::assertSame(self::VALID_HEX, $origin->checksum->value);
     }
@@ -46,7 +47,7 @@ final class ModuleOriginTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new ModuleOrigin(ModuleOriginKind::Zip, '1.0.0', null);
+        new ModuleOrigin(ModuleOriginKind::Zip, new Version('1.0.0'), null);
     }
 
     #[Test]
@@ -54,13 +55,13 @@ final class ModuleOriginTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new ModuleOrigin(ModuleOriginKind::Local, '1.0.0', new Checksum(self::VALID_HEX));
+        new ModuleOrigin(ModuleOriginKind::Local, new Version('1.0.0'), new Checksum(self::VALID_HEX));
     }
 
     #[Test]
     public function toArrayProducesDeterministicOrder(): void
     {
-        $origin = ModuleOrigin::forZip('1.0.0', new Checksum(self::VALID_HEX));
+        $origin = ModuleOrigin::forZip(new Version('1.0.0'), new Checksum(self::VALID_HEX));
 
         $array = $origin->toArray();
 
@@ -73,7 +74,7 @@ final class ModuleOriginTest extends TestCase
     #[Test]
     public function toArrayOmitsNullChecksum(): void
     {
-        $origin = ModuleOrigin::forLocal('1.0.0');
+        $origin = ModuleOrigin::forLocal(new Version('1.0.0'));
 
         $array = $origin->toArray();
 
@@ -84,12 +85,12 @@ final class ModuleOriginTest extends TestCase
     #[Test]
     public function fromArrayRoundTripZip(): void
     {
-        $original = ModuleOrigin::forZip('3.0.0', new Checksum(self::VALID_HEX));
+        $original = ModuleOrigin::forZip(new Version('3.0.0'), new Checksum(self::VALID_HEX));
 
         $restored = ModuleOrigin::fromArray($original->toArray(), '/tmp/state.json');
 
         self::assertSame($original->kind, $restored->kind);
-        self::assertSame($original->installedVersion, $restored->installedVersion);
+        self::assertSame($original->installedVersion->value, $restored->installedVersion->value);
         self::assertInstanceOf(Checksum::class, $restored->checksum);
         self::assertSame(self::VALID_HEX, $restored->checksum->value);
     }
@@ -97,12 +98,12 @@ final class ModuleOriginTest extends TestCase
     #[Test]
     public function fromArrayLocalRoundTrip(): void
     {
-        $original = ModuleOrigin::forLocal('1.0.0');
+        $original = ModuleOrigin::forLocal(new Version('1.0.0'));
 
         $restored = ModuleOrigin::fromArray($original->toArray(), '/tmp/state.json');
 
         self::assertSame(ModuleOriginKind::Local, $restored->kind);
-        self::assertSame('1.0.0', $restored->installedVersion);
+        self::assertSame('1.0.0', $restored->installedVersion->value);
         self::assertNull($restored->checksum);
     }
 

@@ -58,8 +58,8 @@ final class UpdateModuleUseCaseTest extends TestCase
 
         $result = $useCase->execute('blog', $sourceDir);
 
-        $this->assertSame('1.0.0', $result->oldVersion);
-        $this->assertSame('2.0.0', $result->newVersion);
+        $this->assertSame('1.0.0', $result->oldVersion->value);
+        $this->assertSame('2.0.0', $result->newVersion->value);
         $this->assertSame('blog', $result->name);
     }
 
@@ -267,6 +267,28 @@ final class UpdateModuleUseCaseTest extends TestCase
         $this->assertSame('zip', $state['source']['kind']);
         $this->assertSame('2.0.0', $state['source']['installed_version']);
         $this->assertSame(hash_file('sha256', $zipPath), $state['source']['checksum']);
+    }
+
+    #[Test]
+    public function updateReplacesOriginDroppingOldChecksum(): void
+    {
+        // Start from a zip-origin whose checksum is VALID_CHECKSUM, then update from
+        // a different archive. The origin is fully REPLACED (ModuleOrigin::forZip),
+        // not merged: the new checksum must be present AND the old one must be gone
+        // from state.json entirely.
+        $this->createInstalledModule('blog', '1.0.0', source: ['kind' => 'zip', 'installed_version' => '1.0.0', 'checksum' => self::VALID_CHECKSUM]);
+        $zipPath = $this->createSourceZip('blog', '2.0.0');
+        $useCase = $this->makeUseCase();
+
+        $useCase->execute('blog', $zipPath);
+
+        $stateJson = file_get_contents($this->stateRoot . '/blog/state.json');
+        $state = json_decode($stateJson, true);
+
+        $newChecksum = hash_file('sha256', $zipPath);
+        $this->assertSame($newChecksum, $state['source']['checksum']);
+        $this->assertNotSame(self::VALID_CHECKSUM, $state['source']['checksum']);
+        $this->assertStringNotContainsString(self::VALID_CHECKSUM, $stateJson);
     }
 
     #[Test]

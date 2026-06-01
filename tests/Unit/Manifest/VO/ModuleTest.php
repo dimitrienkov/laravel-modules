@@ -32,7 +32,7 @@ final class ModuleTest extends TestCase
         self::assertSame('App\\Modules\\Blog', $module->namespace);
         self::assertSame('/app/Modules/Blog', $module->path);
         self::assertSame(1, $module->schemaVersion);
-        self::assertSame('1.0.0', $module->meta->version);
+        self::assertSame('1.0.0', $module->meta->version->value);
         self::assertSame(ModuleKind::Module, $module->meta->kind);
     }
 

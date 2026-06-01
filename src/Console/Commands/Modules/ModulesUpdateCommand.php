@@ -35,7 +35,7 @@ final class ModulesUpdateCommand extends Command
             $result = $useCase->execute($name, $source);
 
             $this->components->info("Module [{$result->name}] updated.");
-            $this->components->twoColumnDetail('Version', "{$result->oldVersion} → {$result->newVersion}");
+            $this->components->twoColumnDetail('Version', "{$result->oldVersion->value} → {$result->newVersion->value}");
             $this->components->twoColumnDetail('Path', $result->path);
 
             if ($result->skippedValues !== []) {

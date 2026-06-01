@@ -11,6 +11,7 @@ use DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback;
 use DimitrienkoV\LaravelModules\Application\UseCases\ScaffoldModuleUseCase;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
@@ -18,7 +19,6 @@ use Illuminate\Filesystem\Filesystem;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -107,55 +107,11 @@ final class ScaffoldModuleUseCaseTest extends TestCase
     }
 
     #[Test]
-    #[DataProvider('invalidGroupProvider')]
-    public function scaffoldThrowsOnInvalidGroupBeforeBuildingSkeleton(string $group): void
-    {
-        $useCase = $this->makeUseCase();
-
-        try {
-            $useCase->execute(new ScaffoldModuleConfig(name: 'blog', group: $group));
-            $this->fail('Expected ModuleScaffoldException');
-        } catch (ModuleScaffoldException $e) {
-            $this->assertStringContainsString('kebab-case', $e->getMessage());
-        }
-
-        $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
-        $this->assertFileDoesNotExist($this->stateRoot . '/blog/state.json');
-    }
-
-    /**
-     * @return array<string, array{string}>
-     */
-    public static function invalidGroupProvider(): array
-    {
-        return [
-            'whitespace' => ['Bad Group'],
-            'snake_case' => ['my_group'],
-            'empty string' => [''],
-        ];
-    }
-
-    #[Test]
-    public function scaffoldInvalidGroupErrorNamesModuleAndGroup(): void
-    {
-        $useCase = $this->makeUseCase();
-
-        try {
-            $useCase->execute(new ScaffoldModuleConfig(name: 'blog', group: 'Bad Group'));
-            $this->fail('Expected ModuleScaffoldException');
-        } catch (ModuleScaffoldException $e) {
-            $this->assertStringContainsString('[blog]', $e->getMessage());
-            $this->assertStringContainsString('Bad Group', $e->getMessage());
-            $this->assertNotNull($e->getPrevious());
-        }
-    }
-
-    #[Test]
     public function scaffoldWritesValidGroupToManifest(): void
     {
         $useCase = $this->makeUseCase();
 
-        $result = $useCase->execute(new ScaffoldModuleConfig(name: 'blog', group: 'blog-tools'));
+        $result = $useCase->execute(new ScaffoldModuleConfig(name: 'blog', group: new ModuleGroup('blog-tools')));
 
         $manifest = json_decode(file_get_contents($result->path . '/module.json'), true);
         $this->assertSame('blog-tools', $manifest['meta']['group']);

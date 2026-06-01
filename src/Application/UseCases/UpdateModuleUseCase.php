@@ -100,7 +100,8 @@ final readonly class UpdateModuleUseCase
                 } catch (Throwable $restoreError) {
                     throw ModuleUpdateException::forModule(
                         $moduleName,
-                        "persistence failed and restore also failed. Backup remains at [{$backupPath}]. Restore error: {$restoreError->getMessage()}",
+                        "persistence failed and restore also failed. Backup remains at [{$backupPath}]. "
+                        . "Original error: {$e->getMessage()}. Restore error: {$restoreError->getMessage()}",
                         $e,
                     );
                 }

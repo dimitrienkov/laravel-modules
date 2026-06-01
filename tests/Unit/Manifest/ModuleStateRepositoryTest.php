@@ -17,6 +17,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
+use DimitrienkoV\LaravelModules\Manifest\VO\Version;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
@@ -296,7 +297,7 @@ final class ModuleStateRepositoryTest extends TestCase
 
         $this->assertNotNull($doc->source);
         $this->assertSame('zip', $doc->source->kind->value);
-        $this->assertSame('1.0.0', $doc->source->installedVersion);
+        $this->assertSame('1.0.0', $doc->source->installedVersion->value);
         $this->assertNotNull($doc->source->checksum);
         $this->assertSame(self::VALID_CHECKSUM, $doc->source->checksum->value);
     }
@@ -350,7 +351,7 @@ final class ModuleStateRepositoryTest extends TestCase
         $module = $this->makeModule('blog');
         $state = ModuleState::initialState();
         $values = new FeatureValues($module->features, []);
-        $origin = ModuleOrigin::forZip('1.0.0', new Checksum(self::VALID_CHECKSUM));
+        $origin = ModuleOrigin::forZip(new Version('1.0.0'), new Checksum(self::VALID_CHECKSUM));
         $document = new ModuleStateDocument($state, $values, $origin);
 
         $this->repository->writeDocument('blog', $document);
@@ -368,7 +369,7 @@ final class ModuleStateRepositoryTest extends TestCase
         $module = $this->makeModule('blog');
         $state = ModuleState::initialState();
         $values = new FeatureValues($module->features, []);
-        $origin = ModuleOrigin::forLocal('1.0.0');
+        $origin = ModuleOrigin::forLocal(new Version('1.0.0'));
         $this->repository->writeDocument('blog', new ModuleStateDocument($state, $values, $origin));
 
         $newState = $state->withEnabled(false);
@@ -386,7 +387,7 @@ final class ModuleStateRepositoryTest extends TestCase
         $module = $this->makeModule('blog');
         $state = ModuleState::initialState();
         $values = new FeatureValues($module->features, []);
-        $origin = ModuleOrigin::forZip('1.0.0', new Checksum(self::VALID_CHECKSUM));
+        $origin = ModuleOrigin::forZip(new Version('1.0.0'), new Checksum(self::VALID_CHECKSUM));
         $this->repository->writeDocument('blog', new ModuleStateDocument($state, $values, $origin));
 
         $this->repository->writeValues($module, $values);
@@ -438,7 +439,7 @@ final class ModuleStateRepositoryTest extends TestCase
                 name: $name,
                 displayName: ucfirst($name),
                 kind: ModuleKind::Module,
-                version: '1.0.0',
+                version: new Version('1.0.0'),
                 author: null,
                 description: null,
                 license: null,

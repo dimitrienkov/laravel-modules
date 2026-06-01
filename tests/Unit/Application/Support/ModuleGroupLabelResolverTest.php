@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\Support;
 
 use DimitrienkoV\LaravelModules\Application\Support\ModuleGroupLabelResolver;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
 use Illuminate\Config\Repository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -21,7 +22,7 @@ final class ModuleGroupLabelResolverTest extends TestCase
     {
         $resolver = $this->makeResolver(['content' => 'Content Management']);
 
-        self::assertSame('Content Management (content)', $resolver->displayLabel('content'));
+        self::assertSame('Content Management (content)', $resolver->displayLabel(new ModuleGroup('content')));
     }
 
     #[Test]
@@ -29,7 +30,7 @@ final class ModuleGroupLabelResolverTest extends TestCase
     {
         $resolver = $this->makeResolver(['content' => 'Content Management']);
 
-        self::assertSame('billing', $resolver->displayLabel('billing'));
+        self::assertSame('billing', $resolver->displayLabel(new ModuleGroup('billing')));
     }
 
     #[Test]
@@ -41,14 +42,14 @@ final class ModuleGroupLabelResolverTest extends TestCase
     }
 
     #[Test]
-    public function throwsWhenGroupsConfigIsNotArray(): void
+    public function throwsEagerlyWhenGroupsConfigIsNotArray(): void
     {
-        $resolver = $this->makeResolver('not-an-array');
-
+        // The map is read once at construction, so a gross non-array misconfig
+        // fails loudly there — before any group is ever rendered.
         $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessageMatches('/modules\.groups/');
 
-        $resolver->displayLabel('content');
+        $this->makeResolver('not-an-array');
     }
 
     #[Test]
@@ -59,7 +60,7 @@ final class ModuleGroupLabelResolverTest extends TestCase
         $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessageMatches('/group \[content\]/');
 
-        $resolver->displayLabel('content');
+        $resolver->displayLabel(new ModuleGroup('content'));
     }
 
     #[Test]
@@ -70,7 +71,7 @@ final class ModuleGroupLabelResolverTest extends TestCase
         $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessageMatches('/group \[content\]/');
 
-        $resolver->displayLabel('content');
+        $resolver->displayLabel(new ModuleGroup('content'));
     }
 
     #[Test]
@@ -80,7 +81,7 @@ final class ModuleGroupLabelResolverTest extends TestCase
         // lookup of a different, unmapped group — that stays a bare-code fallback.
         $resolver = $this->makeResolver(['content' => ['nested' => 'value']]);
 
-        self::assertSame('billing', $resolver->displayLabel('billing'));
+        self::assertSame('billing', $resolver->displayLabel(new ModuleGroup('billing')));
     }
 
     private function makeResolver(mixed $groups): ModuleGroupLabelResolver
