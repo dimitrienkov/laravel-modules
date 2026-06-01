@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Contracts\Auth\Access\Gate;
@@ -20,16 +22,18 @@ final readonly class PolicyLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
         $policiesDir = $this->layout->policiesDir($module);
 
         if (! $this->filesystem->isDirectory($policiesDir)) {
-            return;
+            return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
         $files = $this->filesystem->glob($policiesDir . '/*Policy.php') ?: [];
         sort($files);
+
+        $policies = [];
 
         foreach ($files as $file) {
             if (! \is_string($file)) {
@@ -37,7 +41,14 @@ final readonly class PolicyLoader implements LoaderInterface
             }
 
             $this->registerPolicy($module, $file);
+            $policies[] = basename($file);
         }
+
+        if ($policies === []) {
+            return LoadReport::skipped(SkipReason::EmptyDirectory);
+        }
+
+        return LoadReport::applied(['policies' => $policies]);
     }
 
     public function priority(): int

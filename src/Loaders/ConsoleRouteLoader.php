@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -23,16 +25,16 @@ final readonly class ConsoleRouteLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
         if (! $this->app->runningInConsole()) {
-            return;
+            return LoadReport::skipped(SkipReason::NotRunningInConsole);
         }
 
         $consoleRoutesFile = $this->layout->consoleRoutesFile($module);
 
         if (! $this->filesystem->exists($consoleRoutesFile)) {
-            return;
+            return LoadReport::skipped(SkipReason::FileNotFound);
         }
 
         $app = $this->app;
@@ -47,6 +49,8 @@ final readonly class ConsoleRouteLoader implements LoaderInterface
                 $app->booted(static fn () => $kernel->addCommandRoutePaths([$consoleRoutesFile]));
             },
         );
+
+        return LoadReport::applied(['console' => [basename($consoleRoutesFile)]]);
     }
 
     public function priority(): int

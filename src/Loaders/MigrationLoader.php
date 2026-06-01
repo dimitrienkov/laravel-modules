@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -20,12 +22,12 @@ final readonly class MigrationLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
         $migrationsDir = $this->layout->migrationsDir($module);
 
         if (! $this->filesystem->isDirectory($migrationsDir)) {
-            return;
+            return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
         $this->hooks->callAfterResolving(
@@ -34,6 +36,8 @@ final readonly class MigrationLoader implements LoaderInterface
                 $migrator->path($migrationsDir);
             },
         );
+
+        return LoadReport::applied(['migrations' => [substr($migrationsDir, \strlen($module->path) + 1)]]);
     }
 
     public function priority(): int

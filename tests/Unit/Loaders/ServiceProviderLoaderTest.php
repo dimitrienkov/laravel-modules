@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\ServiceProviderLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
@@ -49,24 +50,30 @@ final class ServiceProviderLoaderTest extends TestCase
         $app = new Application($this->tempDir);
 
         try {
-            (new ServiceProviderLoader($app, new Filesystem(), new ModuleLayout()))
+            $report = (new ServiceProviderLoader($app, new Filesystem(), new ModuleLayout()))
                 ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
         } finally {
             spl_autoload_unregister($autoload);
         }
 
         self::assertNotNull($app->getProvider('App\\Modules\\Blog\\Providers\\BlogServiceProvider'));
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['providers' => ['BlogServiceProvider']], $report->artifacts);
     }
 
     #[Test]
-    public function returnsEarlyWhenProvidersDirectoryIsMissing(): void
+    public function appliesWithoutArtifactsWhenProvidersDirectoryIsMissing(): void
     {
+        // §2.1: a missing Providers directory is not an absent precondition for
+        // this loader — registering zero providers is a valid applied([]) outcome.
         $app = new Application($this->tempDir);
 
-        (new ServiceProviderLoader($app, new Filesystem(), new ModuleLayout()))
+        $report = (new ServiceProviderLoader($app, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Blog', namespace: 'App\\Modules\\Blog'));
 
         self::assertNull($app->getProvider('App\\Modules\\Blog\\Providers\\BlogServiceProvider'));
+        self::assertSame(LoadStatus::Applied, $report->status);
+        self::assertSame([], $report->artifacts);
     }
 
     /**

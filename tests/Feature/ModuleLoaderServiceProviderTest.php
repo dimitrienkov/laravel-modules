@@ -11,6 +11,7 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
 use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
@@ -186,9 +187,11 @@ final class RecordingLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
         $this->calls->append([$this->name, $module->name]);
+
+        return LoadReport::applied();
     }
 
     public function priority(): int

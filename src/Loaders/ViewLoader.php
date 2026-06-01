@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -20,12 +22,12 @@ final readonly class ViewLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
         $viewsDir = $this->layout->viewsDir($module);
 
         if (! $this->filesystem->isDirectory($viewsDir)) {
-            return;
+            return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
         $this->hooks->callAfterResolving(
@@ -34,6 +36,8 @@ final readonly class ViewLoader implements LoaderInterface
                 $view->addNamespace($module->name, $viewsDir);
             },
         );
+
+        return LoadReport::applied(['views' => [substr($viewsDir, \strlen($module->path) + 1)]]);
     }
 
     public function priority(): int

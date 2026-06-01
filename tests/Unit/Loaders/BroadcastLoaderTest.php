@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\BroadcastLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
@@ -50,7 +52,7 @@ final class BroadcastLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $app->singleton(BroadcastManager::class, static fn (Application $a): BroadcastManager => new BroadcastManager($a));
 
-        (new BroadcastLoader(new ContainerLifecycleHooks($app), new Filesystem(), new ModuleLayout()))
+        $report = (new BroadcastLoader(new ContainerLifecycleHooks($app), new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath));
 
         self::assertFalse(\defined($marker));
@@ -58,6 +60,8 @@ final class BroadcastLoaderTest extends TestCase
         $app->make(BroadcastManager::class);
 
         self::assertTrue(\defined($marker));
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['channels' => ['channels.php']], $report->artifacts);
     }
 
     #[Test]
@@ -68,11 +72,13 @@ final class BroadcastLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $app->singleton(BroadcastManager::class, static fn (Application $a): BroadcastManager => new BroadcastManager($a));
 
-        (new BroadcastLoader(new ContainerLifecycleHooks($app), new Filesystem(), new ModuleLayout()))
+        $report = (new BroadcastLoader(new ContainerLifecycleHooks($app), new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
 
         $app->make(BroadcastManager::class);
 
         self::assertFalse(\defined($marker));
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::FileNotFound, $report->reason);
     }
 }

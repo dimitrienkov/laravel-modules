@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -20,12 +22,12 @@ final readonly class BroadcastLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
         $channelsFile = $this->layout->channelsFile($module);
 
         if (! $this->filesystem->exists($channelsFile)) {
-            return;
+            return LoadReport::skipped(SkipReason::FileNotFound);
         }
 
         $this->hooks->callAfterResolving(
@@ -34,6 +36,8 @@ final readonly class BroadcastLoader implements LoaderInterface
                 require $channelsFile;
             },
         );
+
+        return LoadReport::applied(['channels' => [basename($channelsFile)]]);
     }
 
     public function priority(): int

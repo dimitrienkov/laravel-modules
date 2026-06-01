@@ -405,6 +405,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             registry: $this->app->make(ModuleRegistryInterface::class),
             loaders: $this->resolveTaggedLoaders(),
             exceptionHandler: $this->app->make(ExceptionHandler::class),
+            diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
         );
     }
 

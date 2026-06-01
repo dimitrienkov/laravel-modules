@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\ObserverLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
@@ -65,12 +67,14 @@ final class ObserverLoaderTest extends TestCase
         $this->registerAutoloader($modelsDir . '/Post.php', 'App\\Modules\\Blog\\Domain\\Models\\Post');
         $this->registerAutoloader($observersDir . '/PostObserver.php', 'App\\Modules\\Blog\\Domain\\Observers\\PostObserver');
 
-        (new ObserverLoader(new Filesystem(), new ModuleLayout()))
+        $report = (new ObserverLoader(new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
         /** @var Dispatcher $dispatcher */
         $dispatcher = Model::getEventDispatcher();
         self::assertTrue($dispatcher->hasListeners('eloquent.creating: App\\Modules\\Blog\\Domain\\Models\\Post'));
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['observers' => ['PostObserver.php']], $report->artifacts);
     }
 
     #[Test]
@@ -123,12 +127,27 @@ final class ObserverLoaderTest extends TestCase
     #[Test]
     public function returnsEarlyWhenObserversDirectoryIsMissing(): void
     {
-        (new ObserverLoader(new Filesystem(), new ModuleLayout()))
+        $report = (new ObserverLoader(new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
 
         /** @var Dispatcher $dispatcher */
         $dispatcher = Model::getEventDispatcher();
         self::assertFalse($dispatcher->hasListeners('eloquent.creating: *'));
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NoDirectory, $report->reason);
+    }
+
+    #[Test]
+    public function skipsWithEmptyDirectoryReasonWhenNoObserverFilesPresent(): void
+    {
+        $modulePath = $this->tempDir . '/Blog';
+        mkdir($modulePath . '/Domain/Observers', 0755, true);
+
+        $report = (new ObserverLoader(new Filesystem(), new ModuleLayout()))
+            ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
+
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::EmptyDirectory, $report->reason);
     }
 
     #[Test]
