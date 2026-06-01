@@ -17,8 +17,10 @@ use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\RegistersLifecycleCommands;
 use Illuminate\Filesystem\Filesystem;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
+#[Group('feature')]
 final class MakeModuleCommandTest extends TestCase
 {
     use CreatesLifecycleEnvironment;

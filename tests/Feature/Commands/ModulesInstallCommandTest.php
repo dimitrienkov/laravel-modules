@@ -10,14 +10,20 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesInstallCommand;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesSourceArchive;
 use DimitrienkoV\LaravelModules\Tests\Support\RegistersLifecycleCommands;
 use Illuminate\Filesystem\Filesystem;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
+#[Group('feature')]
 final class ModulesInstallCommandTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
+    use CreatesModuleFiles;
+    use CreatesSourceArchive;
     use RegistersLifecycleCommands;
 
     private string $tempDir;
@@ -67,6 +73,19 @@ final class ModulesInstallCommandTest extends TestCase
     }
 
     #[Test]
+    public function installFailsWhenSourceContainsStateFile(): void
+    {
+        $zipPath = $this->zipModuleSource(
+            $this->tempDir . '/sources/blog.zip',
+            $this->moduleManifestArray('blog'),
+            ['state.json' => json_encode(['enabled' => true], JSON_THROW_ON_ERROR)],
+        );
+
+        $this->artisanCommand("modules:install {$zipPath}")
+            ->assertFailed();
+    }
+
+    #[Test]
     public function installOutputShowsModuleDetails(): void
     {
         $zipPath = $this->createSourceZip('blog');
@@ -100,18 +119,9 @@ final class ModulesInstallCommandTest extends TestCase
 
     private function createSourceZip(string $name): string
     {
-        $manifest = json_encode([
-            'schema_version' => 1,
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => '1.0.0'],
-            'settings' => ['schema' => new \stdClass()],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-
-        $zipPath = $this->tempDir . '/sources/' . $name . '.zip';
-        $zip = new \ZipArchive();
-        $zip->open($zipPath, \ZipArchive::CREATE);
-        $zip->addFromString('module.json', $manifest);
-        $zip->close();
-
-        return $zipPath;
+        return $this->zipModuleSource(
+            $this->tempDir . '/sources/' . $name . '.zip',
+            $this->moduleManifestArray($name),
+        );
     }
 }

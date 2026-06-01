@@ -9,15 +9,19 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesUpdateCommand;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesSourceArchive;
 use DimitrienkoV\LaravelModules\Tests\Support\RegistersLifecycleCommands;
 use Illuminate\Filesystem\Filesystem;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
+#[Group('feature')]
 final class ModulesUpdateCommandTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
+    use CreatesSourceArchive;
     use RegistersLifecycleCommands;
 
     private string $tempDir;
@@ -88,18 +92,9 @@ final class ModulesUpdateCommandTest extends TestCase
 
     private function createSourceZip(string $name, string $version): string
     {
-        $manifest = json_encode([
-            'schema_version' => 1,
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => $version],
-            'settings' => ['schema' => new \stdClass()],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-
-        $zipPath = $this->tempDir . '/sources/' . $name . '-' . $version . '.zip';
-        $zip = new \ZipArchive();
-        $zip->open($zipPath, \ZipArchive::CREATE);
-        $zip->addFromString('module.json', $manifest);
-        $zip->close();
-
-        return $zipPath;
+        return $this->zipModuleSource(
+            $this->tempDir . '/sources/' . $name . '-' . $version . '.zip',
+            $this->moduleManifestArray($name, $version),
+        );
     }
 }

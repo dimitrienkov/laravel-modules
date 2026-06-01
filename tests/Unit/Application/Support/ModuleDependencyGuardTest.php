@@ -13,9 +13,13 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleDependencyMissingException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleDependencyGuard::class)]
+#[Group('lifecycle')]
 final class ModuleDependencyGuardTest extends TestCase
 {
     #[Test]

@@ -7,13 +7,17 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\VO;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(Module::class)]
+#[Group('manifest')]
 final class ModuleTest extends TestCase
 {
     #[Test]
-    public function from_manifest_creates_module_from_valid_manifest(): void
+    public function fromManifestCreatesModuleFromValidManifest(): void
     {
         $module = Module::fromManifest(
             '/app/Modules/Blog',
@@ -33,7 +37,7 @@ final class ModuleTest extends TestCase
     }
 
     #[Test]
-    public function is_enabled_returns_true_when_state_enabled_is_true(): void
+    public function isEnabledReturnsTrueWhenStateEnabledIsTrue(): void
     {
         $module = Module::fromManifest(
             '/app/Modules/Blog',
@@ -47,7 +51,7 @@ final class ModuleTest extends TestCase
     }
 
     #[Test]
-    public function is_enabled_returns_false_when_state_enabled_is_false(): void
+    public function isEnabledReturnsFalseWhenStateEnabledIsFalse(): void
     {
         $module = Module::fromManifest(
             '/app/Modules/Blog',
@@ -61,7 +65,7 @@ final class ModuleTest extends TestCase
     }
 
     #[Test]
-    public function manifest_path_returns_path_with_module_json(): void
+    public function manifestPathReturnsPathWithModuleJson(): void
     {
         $module = Module::fromManifest(
             '/app/Modules/Blog',
@@ -75,7 +79,7 @@ final class ModuleTest extends TestCase
     }
 
     #[Test]
-    public function with_state_returns_new_module_with_updated_state(): void
+    public function withStateReturnsNewModuleWithUpdatedState(): void
     {
         $module = Module::fromManifest(
             '/app/Modules/Blog',
@@ -95,7 +99,7 @@ final class ModuleTest extends TestCase
     }
 
     #[Test]
-    public function to_descriptor_array_returns_immutable_manifest_only(): void
+    public function toDescriptorArrayReturnsImmutableManifestOnly(): void
     {
         $module = Module::fromManifest(
             '/app/Modules/Blog',
@@ -117,7 +121,7 @@ final class ModuleTest extends TestCase
     }
 
     #[Test]
-    public function to_manifest_array_returns_immutable_manifest(): void
+    public function toManifestArrayReturnsImmutableManifest(): void
     {
         $module = Module::fromManifest(
             '/app/Modules/Blog',

@@ -6,13 +6,17 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleState::class)]
+#[Group('manifest')]
 final class ModuleStateTest extends TestCase
 {
     #[Test]
-    public function it_rejects_camel_case_installed_at_key(): void
+    public function rejectsCamelCaseInstalledAtKey(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('state contains unknown key [installedAt]');
@@ -24,7 +28,7 @@ final class ModuleStateTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_camel_case_updated_at_key(): void
+    public function rejectsCamelCaseUpdatedAtKey(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('state contains unknown key [updatedAt]');
@@ -36,7 +40,7 @@ final class ModuleStateTest extends TestCase
     }
 
     #[Test]
-    public function it_accepts_snake_case_date_keys(): void
+    public function acceptsSnakeCaseDateKeys(): void
     {
         $state = ModuleState::fromArray(
             [
@@ -52,7 +56,7 @@ final class ModuleStateTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_missing_enabled_field(): void
+    public function rejectsMissingEnabledField(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('state.enabled must be a boolean');
@@ -64,7 +68,7 @@ final class ModuleStateTest extends TestCase
     }
 
     #[Test]
-    public function disabled_default_returns_disabled_state(): void
+    public function disabledDefaultReturnsDisabledState(): void
     {
         $state = ModuleState::defaultDisabled();
 

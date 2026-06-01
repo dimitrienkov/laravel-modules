@@ -11,9 +11,13 @@ use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Routing\Router;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(RouteLoader::class)]
+#[Group('loaders')]
 final class RouteLoaderTest extends TestCase
 {
     private string $tempDir;
@@ -34,7 +38,7 @@ final class RouteLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_flat_and_versioned_route_files(): void
+    public function registersFlatAndVersionedRouteFiles(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath . '/Routes/api', 0755, true);
@@ -58,7 +62,7 @@ final class RouteLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_routes_directory_is_missing(): void
+    public function returnsEarlyWhenRoutesDirectoryIsMissing(): void
     {
         $router = new RecordingRouter();
 
@@ -69,7 +73,7 @@ final class RouteLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_routes_are_cached(): void
+    public function returnsEarlyWhenRoutesAreCached(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath . '/Routes', 0755, true);

@@ -9,15 +9,20 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleInstallException;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesSourceArchive;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use ZipArchive;
 
+#[CoversClass(InstallModuleUseCase::class)]
+#[Group('lifecycle')]
 final class InstallModuleUseCaseTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
+    use CreatesSourceArchive;
 
     private string $tempDir;
 
@@ -192,19 +197,10 @@ final class InstallModuleUseCaseTest extends TestCase
 
     private function createSourceZip(string $name): string
     {
-        $manifest = json_encode([
-            'schema_version' => 1,
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => '1.0.0'],
-            'settings' => ['schema' => new \stdClass()],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-
-        $zipPath = $this->tempDir . '/sources/' . $name . '.zip';
-        $zip = new ZipArchive();
-        $zip->open($zipPath, ZipArchive::CREATE);
-        $zip->addFromString('module.json', $manifest);
-        $zip->close();
-
-        return $zipPath;
+        return $this->zipModuleSource(
+            $this->tempDir . '/sources/' . $name . '.zip',
+            $this->moduleManifestArray($name),
+        );
     }
 
     /**
@@ -212,25 +208,10 @@ final class InstallModuleUseCaseTest extends TestCase
      */
     private function createSourceZipWithDeps(string $name, array $dependencies): string
     {
-        $manifest = json_encode([
-            'schema_version' => 1,
-            'meta' => [
-                'name' => $name,
-                'display_name' => ucfirst($name),
-                'kind' => 'module',
-                'version' => '1.0.0',
-                'dependencies' => $dependencies,
-            ],
-            'settings' => ['schema' => new \stdClass()],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-
-        $zipPath = $this->tempDir . '/sources/' . $name . '.zip';
-        $zip = new ZipArchive();
-        $zip->open($zipPath, ZipArchive::CREATE);
-        $zip->addFromString('module.json', $manifest);
-        $zip->close();
-
-        return $zipPath;
+        return $this->zipModuleSource(
+            $this->tempDir . '/sources/' . $name . '.zip',
+            $this->moduleManifestArray($name, dependencies: $dependencies),
+        );
     }
 
     private function createInstalledModule(string $name): void

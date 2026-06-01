@@ -13,9 +13,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernelContract;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(CommandLoader::class)]
+#[Group('loaders')]
 final class CommandLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -35,7 +39,7 @@ final class CommandLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_command_paths_via_kernel(): void
+    public function registersCommandPathsViaKernel(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $commandsDir = $modulePath . '/Console/Commands';
@@ -58,7 +62,7 @@ final class CommandLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_command_paths_when_contract_kernel_was_already_resolved(): void
+    public function registersCommandPathsWhenContractKernelWasAlreadyResolved(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $commandsDir = $modulePath . '/Console/Commands';
@@ -79,7 +83,7 @@ final class CommandLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_command_paths_immediately_when_app_is_already_booted(): void
+    public function registersCommandPathsImmediatelyWhenAppIsAlreadyBooted(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $commandsDir = $modulePath . '/Console/Commands';
@@ -97,7 +101,7 @@ final class CommandLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_commands_directory_is_missing(): void
+    public function returnsEarlyWhenCommandsDirectoryIsMissing(): void
     {
         $app = new Application($this->tempDir);
         $kernel = new CommandRecordingKernel();
@@ -113,7 +117,7 @@ final class CommandLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_not_running_in_console(): void
+    public function returnsEarlyWhenNotRunningInConsole(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $commandsDir = $modulePath . '/Console/Commands';

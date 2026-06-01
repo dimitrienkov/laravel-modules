@@ -14,10 +14,12 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleRemoveException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleSourceException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleUpdateException;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
+#[Group('lifecycle')]
 final class LifecycleExceptionsTest extends TestCase
 {
     #[Test]

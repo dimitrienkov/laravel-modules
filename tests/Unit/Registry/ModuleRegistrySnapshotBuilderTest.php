@@ -20,9 +20,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleRegistrySnapshotBuilder::class)]
+#[Group('registry')]
 final class ModuleRegistrySnapshotBuilderTest extends TestCase
 {
     use CreatesModuleFiles;
@@ -48,7 +52,7 @@ final class ModuleRegistrySnapshotBuilderTest extends TestCase
     }
 
     #[Test]
-    public function it_scans_directories_and_returns_sorted_snapshot(): void
+    public function scansDirectoriesAndReturnsSortedSnapshot(): void
     {
         $this->writeModule('users', '1.2.0');
         $this->writeModule('blog', '1.0.0', ['users' => '^1.0']);
@@ -64,7 +68,7 @@ final class ModuleRegistrySnapshotBuilderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_empty_snapshot_for_no_modules(): void
+    public function returnsEmptySnapshotForNoModules(): void
     {
         $builder = $this->builder();
         $snapshot = $builder->build();
@@ -74,7 +78,7 @@ final class ModuleRegistrySnapshotBuilderTest extends TestCase
     }
 
     #[Test]
-    public function it_ignores_directories_without_manifest(): void
+    public function ignoresDirectoriesWithoutManifest(): void
     {
         mkdir($this->tempDir . '/app/Modules/Empty', 0755, true);
         $this->writeModule('blog', '1.0.0');

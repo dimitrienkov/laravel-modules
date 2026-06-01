@@ -7,13 +7,17 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\Parsing;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\Enums\FeatureType;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\FeatureDefinitionFactory;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(FeatureDefinitionFactory::class)]
+#[Group('manifest')]
 final class FeatureDefinitionFactoryTest extends TestCase
 {
     #[Test]
-    public function it_creates_bool_definition(): void
+    public function createsBoolDefinition(): void
     {
         $definition = FeatureDefinitionFactory::fromArray(
             'enabled',
@@ -28,7 +32,7 @@ final class FeatureDefinitionFactoryTest extends TestCase
     }
 
     #[Test]
-    public function it_creates_int_definition_with_min_max(): void
+    public function createsIntDefinitionWithMinMax(): void
     {
         $definition = FeatureDefinitionFactory::fromArray(
             'per_page',
@@ -43,7 +47,7 @@ final class FeatureDefinitionFactoryTest extends TestCase
     }
 
     #[Test]
-    public function it_creates_enum_definition_with_options(): void
+    public function createsEnumDefinitionWithOptions(): void
     {
         $definition = FeatureDefinitionFactory::fromArray(
             'mode',
@@ -57,7 +61,7 @@ final class FeatureDefinitionFactoryTest extends TestCase
     }
 
     #[Test]
-    public function it_creates_string_definition(): void
+    public function createsStringDefinition(): void
     {
         $definition = FeatureDefinitionFactory::fromArray(
             'title',
@@ -70,7 +74,7 @@ final class FeatureDefinitionFactoryTest extends TestCase
     }
 
     #[Test]
-    public function it_parses_ui_metadata(): void
+    public function parsesUiMetadata(): void
     {
         $definition = FeatureDefinitionFactory::fromArray(
             'enabled',
@@ -84,7 +88,7 @@ final class FeatureDefinitionFactoryTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_unknown_type(): void
+    public function throwsForUnknownType(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('type must be one of');
@@ -93,7 +97,7 @@ final class FeatureDefinitionFactoryTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_when_min_exceeds_max(): void
+    public function throwsWhenMinExceedsMax(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('min cannot exceed max');
@@ -106,7 +110,7 @@ final class FeatureDefinitionFactoryTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_bool_with_min(): void
+    public function throwsForBoolWithMin(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('bool features cannot define min');
@@ -119,7 +123,7 @@ final class FeatureDefinitionFactoryTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_enum_without_options(): void
+    public function throwsForEnumWithoutOptions(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('non-empty string list for enum');
@@ -128,7 +132,7 @@ final class FeatureDefinitionFactoryTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_unknown_definition_key(): void
+    public function throwsForUnknownDefinitionKey(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('unknown key [invalid]');
@@ -141,7 +145,7 @@ final class FeatureDefinitionFactoryTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_empty_feature_key(): void
+    public function throwsForEmptyFeatureKey(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('non-empty strings');

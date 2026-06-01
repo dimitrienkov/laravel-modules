@@ -11,9 +11,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ObserverLoader::class)]
+#[Group('loaders')]
 final class ObserverLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -43,7 +47,7 @@ final class ObserverLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_observer_for_matching_model(): void
+    public function registersObserverForMatchingModel(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $observersDir = $modulePath . '/Domain/Observers';
@@ -70,7 +74,7 @@ final class ObserverLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_skips_when_model_class_does_not_exist(): void
+    public function skipsWhenModelClassDoesNotExist(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $observersDir = $modulePath . '/Domain/Observers';
@@ -90,7 +94,7 @@ final class ObserverLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_skips_when_model_is_not_eloquent_model(): void
+    public function skipsWhenModelIsNotEloquentModel(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $observersDir = $modulePath . '/Domain/Observers';
@@ -117,7 +121,7 @@ final class ObserverLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_observers_directory_is_missing(): void
+    public function returnsEarlyWhenObserversDirectoryIsMissing(): void
     {
         (new ObserverLoader(new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
@@ -128,7 +132,7 @@ final class ObserverLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_observers_from_two_modules_without_duplication(): void
+    public function registersObserversFromTwoModulesWithoutDuplication(): void
     {
         $blogPath = $this->tempDir . '/Blog';
         $blogObserversDir = $blogPath . '/Domain/Observers';

@@ -11,9 +11,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(FactoryLoader::class)]
+#[Group('loaders')]
 final class FactoryLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -35,7 +39,7 @@ final class FactoryLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_resolves_module_factory_class_from_model_namespace(): void
+    public function resolvesModuleFactoryClassFromModelNamespace(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath . '/Database/Factories', 0755, true);
@@ -50,7 +54,7 @@ final class FactoryLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_factories_directory_is_missing(): void
+    public function returnsEarlyWhenFactoriesDirectoryIsMissing(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath, 0755, true);
@@ -65,7 +69,7 @@ final class FactoryLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_preserves_existing_host_factory_resolver_for_non_module_models(): void
+    public function preservesExistingHostFactoryResolverForNonModuleModels(): void
     {
         Factory::guessFactoryNamesUsing(
             static fn (string $modelClass): string => 'Host\\Database\\Factories\\'

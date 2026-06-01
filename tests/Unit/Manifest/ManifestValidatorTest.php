@@ -7,9 +7,13 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ManifestValidator::class)]
+#[Group('manifest')]
 final class ManifestValidatorTest extends TestCase
 {
     private ManifestValidator $validator;
@@ -22,7 +26,7 @@ final class ManifestValidatorTest extends TestCase
     }
 
     #[Test]
-    public function it_validates_valid_manifest_successfully(): void
+    public function validatesValidManifestSuccessfully(): void
     {
         $this->validator->validate([
             'schema_version' => 1,
@@ -46,7 +50,7 @@ final class ManifestValidatorTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_manifest_with_autoload_section(): void
+    public function rejectsManifestWithAutoloadSection(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('autoload section is not supported');
@@ -60,7 +64,7 @@ final class ManifestValidatorTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_manifest_with_unknown_top_level_key(): void
+    public function rejectsManifestWithUnknownTopLevelKey(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('unknown top-level key [plugins]');
@@ -74,7 +78,7 @@ final class ManifestValidatorTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_manifest_with_state_section(): void
+    public function rejectsManifestWithStateSection(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('unknown top-level key [state]');
@@ -88,7 +92,7 @@ final class ManifestValidatorTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_settings_schema_as_non_object(): void
+    public function rejectsSettingsSchemaAsNonObject(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('settings.schema must be an object');
@@ -101,7 +105,7 @@ final class ManifestValidatorTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_settings_values_key(): void
+    public function rejectsSettingsValuesKey(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('settings contains unknown key [values]');
@@ -114,7 +118,7 @@ final class ManifestValidatorTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_manifest_without_schema_version(): void
+    public function rejectsManifestWithoutSchemaVersion(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('manifest.schema_version must be an integer');
@@ -126,7 +130,7 @@ final class ManifestValidatorTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_string_schema_version(): void
+    public function rejectsStringSchemaVersion(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('manifest.schema_version must be an integer');
@@ -139,7 +143,7 @@ final class ManifestValidatorTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_unsupported_schema_version(): void
+    public function rejectsUnsupportedSchemaVersion(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('schema_version 2 is not supported; expected 1');
@@ -152,7 +156,7 @@ final class ManifestValidatorTest extends TestCase
     }
 
     #[Test]
-    public function it_propagates_meta_validation_errors(): void
+    public function propagatesMetaValidationErrors(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('meta.name must be a non-empty string');

@@ -6,13 +6,17 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\Parsing;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ManifestFieldReader::class)]
+#[Group('manifest')]
 final class ManifestFieldReaderTest extends TestCase
 {
     #[Test]
-    public function assert_allowed_keys_passes_for_valid_keys(): void
+    public function assertAllowedKeysPassesForValidKeys(): void
     {
         ManifestFieldReader::assertAllowedKeys(
             ['name' => 'blog', 'version' => '1.0'],
@@ -25,7 +29,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function assert_allowed_keys_throws_for_unknown_key(): void
+    public function assertAllowedKeysThrowsForUnknownKey(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('meta contains unknown key [invalid]');
@@ -39,7 +43,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function required_object_returns_associative_array(): void
+    public function requiredObjectReturnsAssociativeArray(): void
     {
         $result = ManifestFieldReader::requiredObject(
             ['meta' => ['name' => 'blog']],
@@ -51,7 +55,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function required_object_accepts_empty_object(): void
+    public function requiredObjectAcceptsEmptyObject(): void
     {
         $result = ManifestFieldReader::requiredObject(
             ['meta' => []],
@@ -63,7 +67,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function required_object_throws_for_list(): void
+    public function requiredObjectThrowsForList(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('meta must be an object');
@@ -76,7 +80,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function required_string_returns_value(): void
+    public function requiredStringReturnsValue(): void
     {
         $result = ManifestFieldReader::requiredString(
             ['name' => 'blog'],
@@ -89,7 +93,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function required_string_throws_for_empty(): void
+    public function requiredStringThrowsForEmpty(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('meta.name must be a non-empty string');
@@ -103,7 +107,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function optional_string_returns_null_when_absent(): void
+    public function optionalStringReturnsNullWhenAbsent(): void
     {
         $result = ManifestFieldReader::optionalString(
             [],
@@ -116,7 +120,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function optional_string_throws_for_non_string(): void
+    public function optionalStringThrowsForNonString(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('meta.author must be a string');
@@ -130,7 +134,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function required_bool_returns_value(): void
+    public function requiredBoolReturnsValue(): void
     {
         self::assertTrue(ManifestFieldReader::requiredBool(
             ['enabled' => true],
@@ -141,7 +145,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function required_bool_throws_for_non_bool(): void
+    public function requiredBoolThrowsForNonBool(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('state.enabled must be a boolean');
@@ -155,7 +159,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function required_int_returns_value(): void
+    public function requiredIntReturnsValue(): void
     {
         self::assertSame(1, ManifestFieldReader::requiredInt(
             ['schema_version' => 1],
@@ -166,7 +170,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function required_int_throws_for_missing_key(): void
+    public function requiredIntThrowsForMissingKey(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('manifest.schema_version must be an integer');
@@ -180,7 +184,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function required_int_throws_for_string_value(): void
+    public function requiredIntThrowsForStringValue(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('manifest.schema_version must be an integer');
@@ -194,7 +198,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function required_int_throws_for_float_value(): void
+    public function requiredIntThrowsForFloatValue(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('manifest.schema_version must be an integer');
@@ -208,7 +212,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function required_int_throws_for_null_value(): void
+    public function requiredIntThrowsForNullValue(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('manifest.schema_version must be an integer');
@@ -222,7 +226,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function optional_int_returns_null_when_absent(): void
+    public function optionalIntReturnsNullWhenAbsent(): void
     {
         self::assertNull(ManifestFieldReader::optionalInt(
             [],
@@ -233,7 +237,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function optional_int_throws_for_non_int(): void
+    public function optionalIntThrowsForNonInt(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('settings.schema.key.min must be an integer');
@@ -247,7 +251,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function assert_module_name_passes_for_valid_names(): void
+    public function assertModuleNamePassesForValidNames(): void
     {
         ManifestFieldReader::assertModuleName('blog', 'meta.name', '/tmp/module.json');
         ManifestFieldReader::assertModuleName('user_auth', 'meta.name', '/tmp/module.json');
@@ -257,7 +261,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function assert_module_name_throws_for_invalid_names(): void
+    public function assertModuleNameThrowsForInvalidNames(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('meta.name must be lowercase snake_case');
@@ -266,7 +270,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function assert_module_name_rejects_leading_digit(): void
+    public function assertModuleNameRejectsLeadingDigit(): void
     {
         $this->expectException(InvalidManifestException::class);
 
@@ -274,7 +278,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function assert_module_group_passes_for_valid_groups_and_null(): void
+    public function assertModuleGroupPassesForValidGroupsAndNull(): void
     {
         ManifestFieldReader::assertModuleGroup('blog-tools', 'meta.group', '/tmp/module.json');
         ManifestFieldReader::assertModuleGroup('a1', 'meta.group', '/tmp/module.json');
@@ -284,7 +288,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function assert_module_group_throws_for_whitespace(): void
+    public function assertModuleGroupThrowsForWhitespace(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('meta.group [Bad Group] must be kebab-case');
@@ -293,7 +297,7 @@ final class ManifestFieldReaderTest extends TestCase
     }
 
     #[Test]
-    public function assert_module_group_rejects_snake_case(): void
+    public function assertModuleGroupRejectsSnakeCase(): void
     {
         $this->expectException(InvalidManifestException::class);
 

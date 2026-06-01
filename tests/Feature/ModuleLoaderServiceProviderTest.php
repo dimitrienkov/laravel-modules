@@ -22,12 +22,14 @@ use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
+#[Group('feature')]
 final class ModuleLoaderServiceProviderTest extends TestCase
 {
     #[Test]
-    public function it_registers_core_bindings(): void
+    public function registersCoreBindings(): void
     {
         $this->provider()->register();
         $app = $this->application();
@@ -44,7 +46,7 @@ final class ModuleLoaderServiceProviderTest extends TestCase
     }
 
     #[Test]
-    public function feature_repository_binding_is_scoped(): void
+    public function featureRepositoryBindingIsScoped(): void
     {
         $this->provider()->register();
         $app = $this->application();
@@ -59,7 +61,7 @@ final class ModuleLoaderServiceProviderTest extends TestCase
     }
 
     #[Test]
-    public function it_runs_tagged_loaders_for_enabled_modules_once_in_priority_order(): void
+    public function runsTaggedLoadersForEnabledModulesOnceInPriorityOrder(): void
     {
         $provider = $this->provider();
         $provider->register();
@@ -91,7 +93,7 @@ final class ModuleLoaderServiceProviderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_all_default_loaders_as_tagged_services(): void
+    public function registersAllDefaultLoadersAsTaggedServices(): void
     {
         $this->provider()->register();
         $app = $this->application();
@@ -125,7 +127,7 @@ final class ModuleLoaderServiceProviderTest extends TestCase
     }
 
     #[Test]
-    public function it_boots_without_moonshine_loader_class(): void
+    public function bootsWithoutMoonshineLoaderClass(): void
     {
         $provider = $this->provider();
         $provider->register();
@@ -142,7 +144,7 @@ final class ModuleLoaderServiceProviderTest extends TestCase
     }
 
     #[Test]
-    public function it_fails_loudly_when_tagged_loader_does_not_implement_contract(): void
+    public function failsLoudlyWhenTaggedLoaderDoesNotImplementContract(): void
     {
         $provider = $this->provider();
         $provider->register();

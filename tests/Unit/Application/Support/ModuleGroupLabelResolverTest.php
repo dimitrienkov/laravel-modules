@@ -6,9 +6,13 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\Support;
 
 use DimitrienkoV\LaravelModules\Application\Support\ModuleGroupLabelResolver;
 use Illuminate\Config\Repository;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleGroupLabelResolver::class)]
+#[Group('lifecycle')]
 final class ModuleGroupLabelResolverTest extends TestCase
 {
     #[Test]

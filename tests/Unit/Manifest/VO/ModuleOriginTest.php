@@ -9,9 +9,13 @@ use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleOriginKind;
 use DimitrienkoV\LaravelModules\Manifest\VO\Checksum;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleOrigin::class)]
+#[Group('manifest')]
 final class ModuleOriginTest extends TestCase
 {
     private const string VALID_HEX = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';

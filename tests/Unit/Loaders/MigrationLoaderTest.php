@@ -15,9 +15,13 @@ use Illuminate\Database\Migrations\MigrationRepositoryInterface;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(MigrationLoader::class)]
+#[Group('loaders')]
 final class MigrationLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -37,7 +41,7 @@ final class MigrationLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_module_migration_path(): void
+    public function registersModuleMigrationPath(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $migrationPath = $modulePath . '/Database/Migrations';
@@ -57,7 +61,7 @@ final class MigrationLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_module_migration_path_when_migrator_was_already_resolved(): void
+    public function registersModuleMigrationPathWhenMigratorWasAlreadyResolved(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $migrationPath = $modulePath . '/Database/Migrations';
@@ -74,7 +78,7 @@ final class MigrationLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_migrations_directory_is_missing(): void
+    public function returnsEarlyWhenMigrationsDirectoryIsMissing(): void
     {
         $migrator = new Migrator(new NullMigrationRepository(), new NullConnectionResolver(), new Filesystem());
         $app = new Application($this->tempDir);

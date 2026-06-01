@@ -17,9 +17,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use Illuminate\Filesystem\Filesystem;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(RemoveModuleUseCase::class)]
+#[Group('lifecycle')]
 final class RemoveModuleUseCaseTest extends TestCase
 {
     use CreatesLifecycleEnvironment;

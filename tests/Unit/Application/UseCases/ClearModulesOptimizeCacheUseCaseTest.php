@@ -10,15 +10,19 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryCacheInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ClearModulesOptimizeCacheUseCase::class)]
+#[Group('lifecycle')]
 final class ClearModulesOptimizeCacheUseCaseTest extends TestCase
 {
     use MockeryPHPUnitIntegration;
 
     #[Test]
-    public function it_clears_cache_and_resets_registry(): void
+    public function clearsCacheAndResetsRegistry(): void
     {
         $cache = Mockery::mock(ModuleRegistryCacheInterface::class);
         $cache->expects('exists')->once()->andReturnTrue();
@@ -36,7 +40,7 @@ final class ClearModulesOptimizeCacheUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function it_reports_no_op_when_cache_does_not_exist(): void
+    public function reportsNoOpWhenCacheDoesNotExist(): void
     {
         $cache = Mockery::mock(ModuleRegistryCacheInterface::class);
         $cache->expects('exists')->once()->andReturnFalse();

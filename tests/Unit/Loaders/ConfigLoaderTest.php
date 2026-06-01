@@ -9,9 +9,13 @@ use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ConfigLoader::class)]
+#[Group('loaders')]
 final class ConfigLoaderTest extends TestCase
 {
     private string $tempDir;
@@ -32,7 +36,7 @@ final class ConfigLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_merges_module_config_files_under_scoped_key(): void
+    public function mergesModuleConfigFilesUnderScopedKey(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath . '/Config', 0755, true);
@@ -60,7 +64,7 @@ final class ConfigLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_does_not_pollute_global_config_key(): void
+    public function doesNotPolluteGlobalConfigKey(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath . '/Config', 0755, true);
@@ -75,7 +79,7 @@ final class ConfigLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_config_directory_is_missing(): void
+    public function returnsEarlyWhenConfigDirectoryIsMissing(): void
     {
         $config = new Repository();
 

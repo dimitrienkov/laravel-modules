@@ -7,13 +7,17 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\VO;
 use DimitrienkoV\LaravelModules\Exceptions\FeatureNotFoundException;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(FeatureSchema::class)]
+#[Group('manifest')]
 final class FeatureSchemaTest extends TestCase
 {
     #[Test]
-    public function it_creates_definitions_from_valid_schema(): void
+    public function createsDefinitionsFromValidSchema(): void
     {
         $schema = FeatureSchema::fromArray([
             'comments_enabled' => ['type' => 'bool', 'default' => true],
@@ -26,7 +30,7 @@ final class FeatureSchemaTest extends TestCase
     }
 
     #[Test]
-    public function has_returns_true_for_existing_key_and_false_for_missing(): void
+    public function hasReturnsTrueForExistingKeyAndFalseForMissing(): void
     {
         $schema = FeatureSchema::fromArray([
             'comments_enabled' => ['type' => 'bool', 'default' => true],
@@ -37,7 +41,7 @@ final class FeatureSchemaTest extends TestCase
     }
 
     #[Test]
-    public function definition_returns_feature_definition_for_existing_key(): void
+    public function definitionReturnsFeatureDefinitionForExistingKey(): void
     {
         $schema = FeatureSchema::fromArray([
             'comments_enabled' => ['type' => 'bool', 'default' => true],
@@ -51,7 +55,7 @@ final class FeatureSchemaTest extends TestCase
     }
 
     #[Test]
-    public function definition_throws_feature_not_found_for_missing_key(): void
+    public function definitionThrowsFeatureNotFoundForMissingKey(): void
     {
         $schema = FeatureSchema::fromArray([
             'comments_enabled' => ['type' => 'bool', 'default' => true],
@@ -64,7 +68,7 @@ final class FeatureSchemaTest extends TestCase
     }
 
     #[Test]
-    public function defaults_returns_only_definitions_with_default(): void
+    public function defaultsReturnsOnlyDefinitionsWithDefault(): void
     {
         $schema = FeatureSchema::fromArray([
             'comments_enabled' => ['type' => 'bool', 'default' => true],
@@ -81,7 +85,7 @@ final class FeatureSchemaTest extends TestCase
     }
 
     #[Test]
-    public function to_array_round_trip_preserves_structure(): void
+    public function toArrayRoundTripPreservesStructure(): void
     {
         $input = [
             'comments_enabled' => ['type' => 'bool', 'default' => true],
@@ -98,7 +102,7 @@ final class FeatureSchemaTest extends TestCase
     }
 
     #[Test]
-    public function from_array_rejects_non_string_key(): void
+    public function fromArrayRejectsNonStringKey(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('must be feature names');
@@ -107,7 +111,7 @@ final class FeatureSchemaTest extends TestCase
     }
 
     #[Test]
-    public function from_array_rejects_non_object_definition_value(): void
+    public function fromArrayRejectsNonObjectDefinitionValue(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('must be an object');
@@ -116,7 +120,7 @@ final class FeatureSchemaTest extends TestCase
     }
 
     #[Test]
-    public function empty_schema_creates_empty_feature_schema(): void
+    public function emptySchemaCreatesEmptyFeatureSchema(): void
     {
         $schema = FeatureSchema::fromArray([], '/tmp/module.json');
 

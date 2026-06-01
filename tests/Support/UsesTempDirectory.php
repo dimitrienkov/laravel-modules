@@ -14,6 +14,36 @@ trait UsesTempDirectory
         mkdir($this->tempDir, 0755, true);
     }
 
+    /**
+     * Join one or more path segments onto the temp root.
+     */
+    private function tempPath(string ...$segments): string
+    {
+        return $segments === []
+            ? $this->tempDir
+            : $this->tempDir . '/' . implode('/', $segments);
+    }
+
+    /**
+     * Idempotently create a (possibly nested) directory and return its path.
+     */
+    private function createDirectory(string $path): string
+    {
+        if (! is_dir($path)) {
+            mkdir($path, 0755, true);
+        }
+
+        return $path;
+    }
+
+    /**
+     * Idempotently create a (possibly nested) directory under the temp root.
+     */
+    private function createTempSubdirectory(string ...$segments): string
+    {
+        return $this->createDirectory($this->tempPath(...$segments));
+    }
+
     private function deleteTempDirectory(): void
     {
         $this->deleteDirectory($this->tempDir);

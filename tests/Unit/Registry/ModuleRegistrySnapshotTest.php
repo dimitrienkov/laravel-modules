@@ -8,13 +8,17 @@ use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Registry\VO\ModuleRegistrySnapshot;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleRegistrySnapshot::class)]
+#[Group('registry')]
 final class ModuleRegistrySnapshotTest extends TestCase
 {
     #[Test]
-    public function it_builds_map_from_modules(): void
+    public function buildsMapFromModules(): void
     {
         $users = ModuleFactory::make(name: 'users');
         $blog = ModuleFactory::make(name: 'blog');
@@ -26,7 +30,7 @@ final class ModuleRegistrySnapshotTest extends TestCase
     }
 
     #[Test]
-    public function all_returns_deterministic_order(): void
+    public function allReturnsDeterministicOrder(): void
     {
         $a = ModuleFactory::make(name: 'alpha');
         $b = ModuleFactory::make(name: 'beta');
@@ -41,7 +45,7 @@ final class ModuleRegistrySnapshotTest extends TestCase
     }
 
     #[Test]
-    public function find_returns_module_by_name(): void
+    public function findReturnsModuleByName(): void
     {
         $blog = ModuleFactory::make(name: 'blog');
         $snapshot = new ModuleRegistrySnapshot([$blog]);
@@ -50,7 +54,7 @@ final class ModuleRegistrySnapshotTest extends TestCase
     }
 
     #[Test]
-    public function find_throws_module_not_found_exception(): void
+    public function findThrowsModuleNotFoundException(): void
     {
         $snapshot = new ModuleRegistrySnapshot([]);
 
@@ -61,7 +65,7 @@ final class ModuleRegistrySnapshotTest extends TestCase
     }
 
     #[Test]
-    public function has_returns_true_for_existing_module(): void
+    public function hasReturnsTrueForExistingModule(): void
     {
         $blog = ModuleFactory::make(name: 'blog');
         $snapshot = new ModuleRegistrySnapshot([$blog]);
@@ -71,7 +75,7 @@ final class ModuleRegistrySnapshotTest extends TestCase
     }
 
     #[Test]
-    public function duplicate_module_names_throw_invalid_manifest_exception(): void
+    public function duplicateModuleNamesThrowInvalidManifestException(): void
     {
         $blog1 = ModuleFactory::make(name: 'blog');
         $blog2 = ModuleFactory::make(name: 'blog');
@@ -83,7 +87,7 @@ final class ModuleRegistrySnapshotTest extends TestCase
     }
 
     #[Test]
-    public function empty_snapshot_has_zero_count(): void
+    public function emptySnapshotHasZeroCount(): void
     {
         $snapshot = new ModuleRegistrySnapshot([]);
 

@@ -15,9 +15,13 @@ use Illuminate\Foundation\Application;
 use Illuminate\View\Engines\EngineResolver;
 use Illuminate\View\Factory as ViewFactory;
 use Illuminate\View\FileViewFinder;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ViewLoader::class)]
+#[Group('loaders')]
 final class ViewLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -37,7 +41,7 @@ final class ViewLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_view_namespace_for_module(): void
+    public function registersViewNamespaceForModule(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $viewsDir = $modulePath . '/Resources/views';
@@ -61,7 +65,7 @@ final class ViewLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_view_namespace_when_view_factory_was_already_resolved(): void
+    public function registersViewNamespaceWhenViewFactoryWasAlreadyResolved(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $viewsDir = $modulePath . '/Resources/views';
@@ -81,7 +85,7 @@ final class ViewLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_views_directory_is_missing(): void
+    public function returnsEarlyWhenViewsDirectoryIsMissing(): void
     {
         $finder = new FileViewFinder(new Filesystem(), []);
         $factory = new ViewFactory(new EngineResolver(), $finder, new Dispatcher());
@@ -97,7 +101,7 @@ final class ViewLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_view_namespaces_for_two_modules_without_collision(): void
+    public function registersViewNamespacesForTwoModulesWithoutCollision(): void
     {
         $blogPath = $this->tempDir . '/Blog';
         $blogViewsDir = $blogPath . '/Resources/views';

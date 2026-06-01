@@ -10,9 +10,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ServiceProviderLoader::class)]
+#[Group('loaders')]
 final class ServiceProviderLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -32,7 +36,7 @@ final class ServiceProviderLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_module_service_providers_by_namespace_and_file_name(): void
+    public function registersModuleServiceProvidersByNamespaceAndFileName(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $providerPath = $modulePath . '/Providers';
@@ -55,7 +59,7 @@ final class ServiceProviderLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_providers_directory_is_missing(): void
+    public function returnsEarlyWhenProvidersDirectoryIsMissing(): void
     {
         $app = new Application($this->tempDir);
 

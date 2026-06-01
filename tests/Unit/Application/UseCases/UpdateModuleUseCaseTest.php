@@ -8,14 +8,20 @@ use DimitrienkoV\LaravelModules\Application\UseCases\UpdateModuleUseCase;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleUpdateException;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesSourceArchive;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(UpdateModuleUseCase::class)]
+#[Group('lifecycle')]
 final class UpdateModuleUseCaseTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
+    use CreatesSourceArchive;
 
     private const string VALID_CHECKSUM = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
@@ -346,20 +352,9 @@ final class UpdateModuleUseCaseTest extends TestCase
      */
     private function createSourceZip(string $name, string $version, array $schema = []): string
     {
-        $manifest = json_encode([
-            'schema_version' => 1,
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => $version],
-            'settings' => [
-                'schema' => $schema ?: new \stdClass(),
-            ],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-
-        $zipPath = $this->tempDir . '/sources/' . $name . '-' . $version . '.zip';
-        $zip = new \ZipArchive();
-        $zip->open($zipPath, \ZipArchive::CREATE);
-        $zip->addFromString('module.json', $manifest);
-        $zip->close();
-
-        return $zipPath;
+        return $this->zipModuleSource(
+            $this->tempDir . '/sources/' . $name . '-' . $version . '.zip',
+            $this->moduleManifestArray($name, $version, schema: $schema ?: new \stdClass()),
+        );
     }
 }

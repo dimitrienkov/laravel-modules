@@ -7,9 +7,13 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Support;
 use DimitrienkoV\LaravelModules\Exceptions\AtomicWriteException;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(AtomicFileWriter::class)]
+#[Group('support')]
 final class AtomicFileWriterTest extends TestCase
 {
     use UsesTempDirectory;
@@ -29,7 +33,7 @@ final class AtomicFileWriterTest extends TestCase
     }
 
     #[Test]
-    public function it_writes_content_atomically(): void
+    public function writesContentAtomically(): void
     {
         $path = $this->tempDir . '/test.txt';
 
@@ -40,7 +44,7 @@ final class AtomicFileWriterTest extends TestCase
     }
 
     #[Test]
-    public function it_overwrites_existing_file(): void
+    public function overwritesExistingFile(): void
     {
         $path = $this->tempDir . '/test.txt';
         $writer = new AtomicFileWriter();
@@ -52,7 +56,7 @@ final class AtomicFileWriterTest extends TestCase
     }
 
     #[Test]
-    public function it_preserves_existing_file_permissions(): void
+    public function preservesExistingFilePermissions(): void
     {
         $path = $this->tempDir . '/test.txt';
         file_put_contents($path, 'original');
@@ -64,7 +68,7 @@ final class AtomicFileWriterTest extends TestCase
     }
 
     #[Test]
-    public function it_creates_parent_directory_if_missing(): void
+    public function createsParentDirectoryIfMissing(): void
     {
         $path = $this->tempDir . '/nested/dir/test.txt';
 
@@ -74,7 +78,7 @@ final class AtomicFileWriterTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_when_target_path_is_a_directory(): void
+    public function throwsWhenTargetPathIsADirectory(): void
     {
         $this->expectException(AtomicWriteException::class);
         $this->expectExceptionMessage('temporary file could not be renamed atomically');
@@ -83,7 +87,7 @@ final class AtomicFileWriterTest extends TestCase
     }
 
     #[Test]
-    public function it_preserves_binary_content(): void
+    public function preservesBinaryContent(): void
     {
         $path = $this->tempDir . '/binary.bin';
         $content = \chr(0) . \chr(255) . \chr(128);

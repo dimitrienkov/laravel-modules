@@ -23,9 +23,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleRegistry::class)]
+#[Group('manifest')]
 final class ModuleRegistryTest extends TestCase
 {
     use CreatesModuleFiles;
@@ -50,7 +54,7 @@ final class ModuleRegistryTest extends TestCase
     }
 
     #[Test]
-    public function it_scans_configured_directories_and_sorts_by_dependencies(): void
+    public function scansConfiguredDirectoriesAndSortsByDependencies(): void
     {
         mkdir($this->tempDir . '/app/Modules/Empty');
         $this->writeModule('Users', 'users', '1.2.0');
@@ -67,7 +71,7 @@ final class ModuleRegistryTest extends TestCase
     }
 
     #[Test]
-    public function it_reads_v4_cache_when_present(): void
+    public function readsV4CacheWhenPresent(): void
     {
         $cachePath = $this->tempDir . '/bootstrap/cache/modules.php';
         mkdir(\dirname($cachePath), 0755, true);
@@ -93,7 +97,7 @@ final class ModuleRegistryTest extends TestCase
     }
 
     #[Test]
-    public function it_ignores_legacy_provider_cache_file(): void
+    public function ignoresLegacyProviderCacheFile(): void
     {
         mkdir($this->tempDir . '/bootstrap/cache', 0755, true);
         file_put_contents($this->tempDir . '/bootstrap/cache/modules-providers.php', '<?php return ["Legacy\\\\Provider"];');
@@ -106,7 +110,7 @@ final class ModuleRegistryTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_when_module_is_missing(): void
+    public function throwsWhenModuleIsMissing(): void
     {
         $this->expectException(ModuleNotFoundException::class);
         $this->expectExceptionMessage('Module [missing] was not found');

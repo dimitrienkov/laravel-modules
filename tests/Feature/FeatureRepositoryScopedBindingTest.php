@@ -30,8 +30,10 @@ use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
+#[Group('feature')]
 final class FeatureRepositoryScopedBindingTest extends TestCase
 {
     use CreatesModuleFiles;
@@ -59,7 +61,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
     }
 
     #[Test]
-    public function scoped_feature_repository_sees_manifest_changes_on_next_scope(): void
+    public function scopedFeatureRepositorySeesManifestChangesOnNextScope(): void
     {
         $firstRequest = $this->application()->make(FeatureRepositoryInterface::class);
 

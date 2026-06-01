@@ -13,16 +13,24 @@ use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\VO\Checksum;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesSourceArchive;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Throwable;
 use ZipArchive;
 
+#[CoversClass(ModuleSourcePreparer::class)]
+#[Group('lifecycle')]
 final class ModuleSourcePreparerTest extends TestCase
 {
+    use CreatesModuleFiles;
+    use CreatesSourceArchive;
     use UsesTempDirectory;
 
     private ModuleSourcePreparer $preparer;
@@ -108,6 +116,23 @@ final class ModuleSourcePreparerTest extends TestCase
     }
 
     #[Test]
+    public function prepareThrowsWhenSourceContainsStateFile(): void
+    {
+        // state.json belongs to the host's private storage, never to a shippable
+        // module artifact, so a source archive carrying it must be rejected.
+        $zipPath = $this->zipModuleSource(
+            $this->tempDir . '/with_state.zip',
+            $this->moduleManifestArray('blog'),
+            ['state.json' => json_encode(['enabled' => true], JSON_THROW_ON_ERROR)],
+        );
+
+        $this->expectException(ModuleSourceException::class);
+        $this->expectExceptionMessageMatches('/state\.json/');
+
+        $this->preparer->prepare($zipPath);
+    }
+
+    #[Test]
     public function prepareThrowsOnUnsupportedSourceType(): void
     {
         $tarPath = $this->tempDir . '/module.tar.gz';
@@ -184,26 +209,9 @@ final class ModuleSourcePreparerTest extends TestCase
 
     private function createModuleZip(string $name): string
     {
-        $manifest = json_encode([
-            'schema_version' => 1,
-            'meta' => [
-                'name' => $name,
-                'display_name' => ucfirst($name),
-                'kind' => 'module',
-                'version' => '1.0.0',
-            ],
-            'settings' => [
-                'schema' => new \stdClass(),
-            ],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-
-        $zipPath = $this->tempDir . '/' . $name . '.zip';
-        $zip = new ZipArchive();
-        $zip->open($zipPath, ZipArchive::CREATE);
-        $zip->addFromString('module.json', $manifest);
-        $zip->close();
-
-        return $zipPath;
+        return $this->zipModuleSource(
+            $this->tempDir . '/' . $name . '.zip',
+            $this->moduleManifestArray($name),
+        );
     }
-
 }

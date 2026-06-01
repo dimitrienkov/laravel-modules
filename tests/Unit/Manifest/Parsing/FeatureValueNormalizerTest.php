@@ -7,13 +7,17 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\Parsing;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\Enums\FeatureType;
 use DimitrienkoV\LaravelModules\Manifest\Parsing\FeatureValueNormalizer;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(FeatureValueNormalizer::class)]
+#[Group('manifest')]
 final class FeatureValueNormalizerTest extends TestCase
 {
     #[Test]
-    public function it_normalizes_bool(): void
+    public function normalizesBool(): void
     {
         self::assertTrue(FeatureValueNormalizer::normalize(
             'key',
@@ -28,7 +32,7 @@ final class FeatureValueNormalizerTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_non_bool_for_bool_type(): void
+    public function rejectsNonBoolForBoolType(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('must be a boolean');
@@ -46,7 +50,7 @@ final class FeatureValueNormalizerTest extends TestCase
     }
 
     #[Test]
-    public function it_normalizes_int_within_range(): void
+    public function normalizesIntWithinRange(): void
     {
         self::assertSame(5, FeatureValueNormalizer::normalize(
             'key',
@@ -61,7 +65,7 @@ final class FeatureValueNormalizerTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_int_below_min(): void
+    public function rejectsIntBelowMin(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('greater than or equal to 5');
@@ -79,7 +83,7 @@ final class FeatureValueNormalizerTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_int_above_max(): void
+    public function rejectsIntAboveMax(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('less than or equal to 10');
@@ -97,7 +101,7 @@ final class FeatureValueNormalizerTest extends TestCase
     }
 
     #[Test]
-    public function it_normalizes_string(): void
+    public function normalizesString(): void
     {
         self::assertSame('hello', FeatureValueNormalizer::normalize(
             'key',
@@ -112,7 +116,7 @@ final class FeatureValueNormalizerTest extends TestCase
     }
 
     #[Test]
-    public function it_normalizes_enum_value(): void
+    public function normalizesEnumValue(): void
     {
         self::assertSame('auto', FeatureValueNormalizer::normalize(
             'key',
@@ -127,7 +131,7 @@ final class FeatureValueNormalizerTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_invalid_enum_value(): void
+    public function rejectsInvalidEnumValue(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('must be one of: auto, manual');
@@ -145,7 +149,7 @@ final class FeatureValueNormalizerTest extends TestCase
     }
 
     #[Test]
-    public function it_measures_string_length_in_characters(): void
+    public function measuresStringLengthInCharacters(): void
     {
         self::assertSame("\u{1F525}\u{1F525}", FeatureValueNormalizer::normalize(
             'key',
