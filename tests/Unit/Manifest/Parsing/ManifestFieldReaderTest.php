@@ -294,8 +294,11 @@ final class ManifestFieldReaderTest extends TestCase
     #[Test]
     public function assertModuleGroupPassesForValidGroupsAndNull(): void
     {
+        ManifestFieldReader::assertModuleGroup('content', 'meta.group', '/tmp/module.json');
+        ManifestFieldReader::assertModuleGroup('content-tools', 'meta.group', '/tmp/module.json');
         ManifestFieldReader::assertModuleGroup('blog-tools', 'meta.group', '/tmp/module.json');
         ManifestFieldReader::assertModuleGroup('a1', 'meta.group', '/tmp/module.json');
+        ManifestFieldReader::assertModuleGroup('1a', 'meta.group', '/tmp/module.json');
         ManifestFieldReader::assertModuleGroup(null, 'meta.group', '/tmp/module.json');
 
         $this->expectNotToPerformAssertions();
@@ -316,5 +319,29 @@ final class ManifestFieldReaderTest extends TestCase
         $this->expectException(InvalidManifestException::class);
 
         ManifestFieldReader::assertModuleGroup('my_group', 'meta.group', '/tmp/module.json');
+    }
+
+    #[Test]
+    public function assertModuleGroupRejectsTrailingHyphen(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+
+        ManifestFieldReader::assertModuleGroup('foo-', 'meta.group', '/tmp/module.json');
+    }
+
+    #[Test]
+    public function assertModuleGroupRejectsLeadingHyphen(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+
+        ManifestFieldReader::assertModuleGroup('-foo', 'meta.group', '/tmp/module.json');
+    }
+
+    #[Test]
+    public function assertModuleGroupRejectsDoubleHyphen(): void
+    {
+        $this->expectException(InvalidManifestException::class);
+
+        ManifestFieldReader::assertModuleGroup('foo--bar', 'meta.group', '/tmp/module.json');
     }
 }

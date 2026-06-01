@@ -15,6 +15,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 #[CoversClass(FactoryLoader::class)]
 #[Group('loaders')]
@@ -90,6 +91,25 @@ final class FactoryLoaderTest extends TestCase
         self::assertSame(
             'Host\\Database\\Factories\\UserFactory',
             Factory::resolveFactoryName('App\\Models\\User'),
+        );
+    }
+
+    #[Test]
+    public function laravelFactoryStillExposesStaticFactoryNameResolver(): void
+    {
+        // Tripwire: FactoryLoader reads Factory::$factoryNameResolver via reflection
+        // to preserve the host's existing resolver when chaining module resolvers.
+        // This is an intentional dependency on a Laravel internal — if the property
+        // is renamed or removed (or made non-static), the loader would silently drop
+        // the host resolver in production, so fail here on CI first.
+        self::assertTrue(
+            property_exists(Factory::class, 'factoryNameResolver'),
+            'FactoryLoader depends on the internal Factory::$factoryNameResolver property.',
+        );
+
+        self::assertTrue(
+            (new ReflectionProperty(Factory::class, 'factoryNameResolver'))->isStatic(),
+            'FactoryLoader reads the resolver without an instance, so the property must stay static.',
         );
     }
 

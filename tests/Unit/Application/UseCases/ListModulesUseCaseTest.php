@@ -71,6 +71,35 @@ final class ListModulesUseCaseTest extends TestCase
         $this->assertSame([], $result->modules);
     }
 
+    #[Test]
+    public function filtersByGroup(): void
+    {
+        $modules = [
+            $this->makeModule('blog', true, group: 'content'),
+            $this->makeModule('users', true),
+        ];
+        $useCase = $this->makeUseCase($modules);
+
+        $result = $useCase->execute(groupFilter: 'content');
+
+        $this->assertCount(1, $result->modules);
+        $this->assertSame('blog', $result->modules[0]->name);
+    }
+
+    #[Test]
+    public function returnsEmptyListForGroupWithoutMatches(): void
+    {
+        $modules = [
+            $this->makeModule('blog', true, group: 'content'),
+            $this->makeModule('users', true),
+        ];
+        $useCase = $this->makeUseCase($modules);
+
+        $result = $useCase->execute(groupFilter: 'missing');
+
+        $this->assertSame([], $result->modules);
+    }
+
     /**
      * @param list<Module> $modules
      */
@@ -83,7 +112,7 @@ final class ListModulesUseCaseTest extends TestCase
         return new ListModulesUseCase($registry);
     }
 
-    private function makeModule(string $name, bool $enabled, ModuleKind $kind = ModuleKind::Module): Module
+    private function makeModule(string $name, bool $enabled, ModuleKind $kind = ModuleKind::Module, ?string $group = null): Module
     {
         return new Module(
             name: $name,
@@ -100,6 +129,7 @@ final class ListModulesUseCaseTest extends TestCase
                 description: null,
                 license: null,
                 dependencies: new ModuleDependencies([]),
+                group: $group,
             ),
             state: new ModuleState(enabled: $enabled, installedAt: '2026-01-01T00:00:00+00:00'),
             features: new FeatureSchema([]),

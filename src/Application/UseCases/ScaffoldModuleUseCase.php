@@ -35,6 +35,8 @@ use Throwable;
 
 final readonly class ScaffoldModuleUseCase
 {
+    private const string DEFAULT_VERSION = '1.0.0';
+
     public function __construct(
         private ModuleRegistryInterface $registry,
         private ModuleManifestRepositoryInterface $manifestRepository,
@@ -88,7 +90,7 @@ final readonly class ScaffoldModuleUseCase
                     name: $config->name,
                     displayName: $studlyName,
                     kind: $resolvedKind,
-                    version: '1.0.0',
+                    version: self::DEFAULT_VERSION,
                     author: null,
                     description: null,
                     license: null,

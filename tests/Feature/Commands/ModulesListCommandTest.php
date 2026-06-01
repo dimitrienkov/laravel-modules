@@ -202,6 +202,27 @@ final class ModulesListCommandTest extends TestCase
     }
 
     #[Test]
+    public function listRejectsInvalidGroupFormat(): void
+    {
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list --group=bad_group')
+            ->assertFailed()
+            ->expectsOutputToContain('Invalid group [bad_group]');
+    }
+
+    #[Test]
+    public function listShowsGroupSpecificEmptyMessageForValidMissingGroup(): void
+    {
+        $this->writeManifestWithGroup('blog', 'content');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list --group=payments')
+            ->assertSuccessful()
+            ->expectsOutputToContain('No modules found in group [payments]');
+    }
+
+    #[Test]
     public function listModuleWithoutGroupShowsEmptyCell(): void
     {
         $this->writeManifest('blog', enabled: true);

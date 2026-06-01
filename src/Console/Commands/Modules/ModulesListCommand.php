@@ -8,6 +8,7 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleGroupLabelResolver;
 use DimitrienkoV\LaravelModules\Application\UseCases\ListModulesUseCase;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
+use DimitrienkoV\LaravelModules\Manifest\Parsing\ManifestFieldReader;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use Illuminate\Console\Command;
 
@@ -47,6 +48,14 @@ final class ModulesListCommand extends Command
         /** @var string|null $groupFilter */
         $groupFilter = $this->option('group');
 
+        if ($groupFilter !== null && ! $this->isValidGroup($groupFilter)) {
+            $this->components->error(
+                "Invalid group [{$groupFilter}]; expected kebab-case: lowercase letters and digits in hyphen-separated segments.",
+            );
+
+            return self::FAILURE;
+        }
+
         try {
             $enabledFilter = match (true) {
                 (bool) $this->option('enabled') => true,
@@ -55,27 +64,27 @@ final class ModulesListCommand extends Command
             };
 
             $result = $useCase->execute($enabledFilter, $kindFilter, $groupFilter);
+
+            if ($result->modules === []) {
+                $this->components->info($this->emptyMessage($groupFilter));
+
+                return self::SUCCESS;
+            }
+
+            $rows = array_map(static fn (Module $m): array => [
+                $m->name,
+                $m->meta->kind->value,
+                $groupLabels->displayLabel($m->meta->group),
+                $m->displayName,
+                $m->meta->version,
+                $m->isEnabled() ? '<info>Yes</info>' : '<comment>No</comment>',
+                $m->path,
+            ], $result->modules);
         } catch (ModuleExceptionInterface $e) {
             $this->components->error($e->getMessage());
 
             return self::FAILURE;
         }
-
-        if ($result->modules === []) {
-            $this->components->info('No modules found.');
-
-            return self::SUCCESS;
-        }
-
-        $rows = array_map(static fn (Module $m): array => [
-            $m->name,
-            $m->meta->kind->value,
-            $groupLabels->label($m->meta->group),
-            $m->displayName,
-            $m->meta->version,
-            $m->isEnabled() ? '<info>Yes</info>' : '<comment>No</comment>',
-            $m->path,
-        ], $result->modules);
 
         $this->table(
             ['Name', 'Kind', 'Group', 'Display Name', 'Version', 'Enabled', 'Path'],
@@ -83,5 +92,23 @@ final class ModulesListCommand extends Command
         );
 
         return self::SUCCESS;
+    }
+
+    private function isValidGroup(string $group): bool
+    {
+        try {
+            ManifestFieldReader::assertModuleGroup($group, '--group', 'modules:list');
+
+            return true;
+        } catch (ModuleExceptionInterface) {
+            return false;
+        }
+    }
+
+    private function emptyMessage(?string $groupFilter): string
+    {
+        return $groupFilter !== null
+            ? "No modules found in group [{$groupFilter}]."
+            : 'No modules found.';
     }
 }

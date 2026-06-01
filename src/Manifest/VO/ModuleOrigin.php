@@ -76,11 +76,18 @@ final readonly class ModuleOrigin
             throw InvalidModuleStateException::forPath($statePath, 'source.installed_version must be a non-empty string.');
         }
 
-        return new self(
-            kind: $kind,
-            installedVersion: $version,
-            checksum: self::parseChecksum($data, $kind, $statePath),
-        );
+        try {
+            // The kind <-> checksum invariant lives in the constructor (single
+            // owner); fromArray only parses the raw value and re-throws the
+            // constructor's domain error with state-path context attached.
+            return new self(
+                kind: $kind,
+                installedVersion: $version,
+                checksum: self::parseChecksum($data, $statePath),
+            );
+        } catch (InvalidArgumentException $e) {
+            throw InvalidModuleStateException::forPath($statePath, $e->getMessage(), $e);
+        }
     }
 
     /**
@@ -101,21 +108,16 @@ final readonly class ModuleOrigin
     }
 
     /**
+     * Parse only: read the raw `checksum` key without enforcing the per-kind
+     * presence/absence invariant — that belongs to the constructor. An absent
+     * key is null (array_key_exists, not isset, so an explicit null stays a
+     * present-but-invalid non-string value rather than passing as absent).
+     *
      * @param array<string, mixed> $data
      */
-    private static function parseChecksum(array $data, ModuleOriginKind $kind, string $statePath): ?Checksum
+    private static function parseChecksum(array $data, string $statePath): ?Checksum
     {
-        $hasChecksum = \array_key_exists('checksum', $data);
-
-        if ($kind->requiresChecksum() && ! $hasChecksum) {
-            throw InvalidModuleStateException::forPath($statePath, "source.checksum is required for kind [{$kind->value}].");
-        }
-
-        if (! $kind->requiresChecksum() && $hasChecksum) {
-            throw InvalidModuleStateException::forPath($statePath, "source.checksum must be absent for kind [{$kind->value}].");
-        }
-
-        if (! $hasChecksum) {
+        if (! \array_key_exists('checksum', $data)) {
             return null;
         }
 

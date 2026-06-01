@@ -7,7 +7,7 @@ namespace DimitrienkoV\LaravelModules\Manifest\VO;
 use InvalidArgumentException;
 
 /**
- * Validated content digest of an installed module artifact.
+ * Validated content digest of a source archive.
  *
  * Single-value VO holding a bare 64-character lowercase sha256 hex string.
  * The algorithm is a concept constant ({@see self::ALGORITHM}), not stored

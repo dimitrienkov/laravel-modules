@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Manifest\Parsing;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
+use DimitrienkoV\LaravelModules\Support\StringKeyedObject;
 
 final readonly class ManifestFieldReader
 {
     private const string MODULE_NAME_PATTERN = '/^[a-z][a-z0-9_]*$/';
 
-    private const string MODULE_GROUP_PATTERN = '/^[a-z][a-z0-9-]*$/';
+    private const string MODULE_GROUP_PATTERN = '/^[a-z0-9]+(-[a-z0-9]+)*$/';
 
     /**
      * @param array<string, mixed> $data
@@ -48,17 +49,10 @@ final readonly class ManifestFieldReader
             throw InvalidManifestException::forPath($manifestPath, "{$key} must be an object.");
         }
 
-        $object = [];
-
-        foreach ($value as $objectKey => $objectValue) {
-            if (! \is_string($objectKey)) {
-                throw InvalidManifestException::forPath($manifestPath, "{$key} must be an object.");
-            }
-
-            $object[$objectKey] = $objectValue;
-        }
-
-        return $object;
+        return StringKeyedObject::toStringKeyedObject(
+            $value,
+            static fn (): InvalidManifestException => InvalidManifestException::forPath($manifestPath, "{$key} must be an object."),
+        );
     }
 
     /**
@@ -191,7 +185,7 @@ final readonly class ManifestFieldReader
         if (! preg_match(self::MODULE_GROUP_PATTERN, $group)) {
             throw InvalidManifestException::forPath(
                 $manifestPath,
-                "{$field} [{$group}] must be kebab-case: lowercase letters, digits and hyphens, starting with a letter.",
+                "{$field} [{$group}] must be kebab-case: lowercase letters and digits in hyphen-separated segments.",
             );
         }
     }

@@ -48,13 +48,7 @@ final readonly class ModuleSourcePreparer
 
     private function prepareFromZip(string $sourcePath): PreparedSource
     {
-        $hash = $this->filesystem->hashFile($sourcePath, Checksum::ALGORITHM);
-
-        if ($hash === false) {
-            throw ModuleSourceException::forPath($sourcePath, 'failed to compute checksum for archive.');
-        }
-
-        $checksum = new Checksum($hash);
+        $checksum = $this->checksumForArchive($sourcePath);
 
         $tempDir = $this->zipExtractor->extractToTemp($sourcePath);
 
@@ -88,6 +82,17 @@ final readonly class ModuleSourcePreparer
 
             throw $e;
         }
+    }
+
+    private function checksumForArchive(string $sourcePath): Checksum
+    {
+        $hash = $this->filesystem->hashFile($sourcePath, Checksum::ALGORITHM);
+
+        if ($hash === false) {
+            throw ModuleSourceException::forPath($sourcePath, 'failed to compute checksum for archive.');
+        }
+
+        return new Checksum($hash);
     }
 
     private function assertNoStateFile(string $sourceRoot): void

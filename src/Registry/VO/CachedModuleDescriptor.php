@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Registry\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleCacheException;
+use DimitrienkoV\LaravelModules\Support\StringKeyedObject;
 
 final readonly class CachedModuleDescriptor
 {
@@ -35,18 +36,13 @@ final readonly class CachedModuleDescriptor
             );
         }
 
-        $manifestObject = [];
-
-        foreach ($manifest as $key => $value) {
-            if (! \is_string($key)) {
-                throw InvalidModuleCacheException::forPath(
-                    $cachePath,
-                    "module cache entry [{$name}] manifest must be an object.",
-                );
-            }
-
-            $manifestObject[$key] = $value;
-        }
+        $manifestObject = StringKeyedObject::toStringKeyedObject(
+            $manifest,
+            static fn (): InvalidModuleCacheException => InvalidModuleCacheException::forPath(
+                $cachePath,
+                "module cache entry [{$name}] manifest must be an object.",
+            ),
+        );
 
         return new self(
             name: $name,

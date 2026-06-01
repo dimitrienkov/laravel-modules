@@ -154,8 +154,10 @@ final class ModuleOriginTest extends TestCase
     #[Test]
     public function fromArrayThrowsWhenZipMissingChecksum(): void
     {
+        // Absent checksum parses to null; the constructor invariant rejects it
+        // and fromArray re-throws it as a state error with path context.
         $this->expectException(InvalidModuleStateException::class);
-        $this->expectExceptionMessageMatches('/checksum is required/');
+        $this->expectExceptionMessageMatches('/requires a checksum/');
 
         ModuleOrigin::fromArray(['kind' => 'zip', 'installed_version' => '1.0.0'], '/tmp/state.json');
     }
@@ -163,8 +165,10 @@ final class ModuleOriginTest extends TestCase
     #[Test]
     public function fromArrayThrowsWhenLocalHasChecksum(): void
     {
+        // Present checksum parses fine; the constructor invariant rejects a
+        // checksum on a local origin and fromArray wraps it with path context.
         $this->expectException(InvalidModuleStateException::class);
-        $this->expectExceptionMessageMatches('/checksum must be absent/');
+        $this->expectExceptionMessageMatches('/must not carry a checksum/');
 
         ModuleOrigin::fromArray(
             ['kind' => 'local', 'installed_version' => '1.0.0', 'checksum' => self::VALID_HEX],
@@ -211,9 +215,11 @@ final class ModuleOriginTest extends TestCase
     #[Test]
     public function fromArrayTreatsExplicitNullChecksumAsPresentForLocal(): void
     {
-        // array_key_exists, not isset: explicit null is a present (forbidden) checksum, not an absent one.
+        // array_key_exists, not isset: an explicit null is a present key, so the
+        // parser rejects it as a non-string checksum before the kind invariant —
+        // it never silently passes as an absent (allowed) checksum for local.
         $this->expectException(InvalidModuleStateException::class);
-        $this->expectExceptionMessageMatches('/checksum must be absent/');
+        $this->expectExceptionMessageMatches('/checksum must be a string/');
 
         ModuleOrigin::fromArray(
             ['kind' => 'local', 'installed_version' => '1.0.0', 'checksum' => null],

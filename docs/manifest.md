@@ -61,7 +61,7 @@
 | `name` | Да | Canonical module name для registry и feature API |
 | `display_name` | Нет | Human-readable name; fallback на `name` |
 | `kind` | Да | Backed enum `ModuleKind`: `module`, `subsystem`, `integration`. Презентационный — не влияет на loader pipeline, dependency resolution или enable/disable. При scaffold infer'ится из target-директории (`Modules→module`, `Integrations→integration`, `Subsystems→subsystem`) |
-| `group` | Нет | Логическая группа, kebab-case (`/^[a-z][a-z0-9-]*$/`). Используется для отображения в `modules:list` и маппинга `modules.groups`; не влияет на pipeline или dependency resolution |
+| `group` | Нет | Логическая группа, segment kebab-case (`/^[a-z0-9]+(-[a-z0-9]+)*$/`): lowercase буквы и цифры в сегментах через одиночный дефис, без ведущего/двойного/хвостового дефиса. Используется для отображения в `modules:list` и маппинга `modules.groups`; не влияет на pipeline или dependency resolution |
 | `description` | Нет | Описание модуля |
 | `version` | Да | Version для dependency checks |
 | `author` | Нет | Author string |
@@ -132,6 +132,8 @@ storage/app/private/modules/{name}/state.json
 | `checksum` | Зависит от `kind` | sha256-хеш архива (64 hex, lowercase). Обязателен для `zip`, отсутствует для `local` |
 
 `local`-origin не несёт `checksum`, `zip`-origin обязан его иметь — инвариант проверяется при чтении `state.json`; нарушение → `InvalidModuleStateException`. Секция опциональна: `state.json` без `source` валиден (origin = `null`).
+
+> **Provenance, не integrity verification.** `checksum` фиксирует sha256 zip-архива в момент его чтения при install/update — это запись происхождения, а не проверка целостности. Текущий runtime не сверяет архив или установленные файлы с ожидаемым digest или подписью. Verification/signature flow относится к packaging/marketplace roadmap, а не к реализованному поведению.
 
 State writes должны идти через `ModuleStateRepository`. Команды `enable`, `disable` и settings writes модифицируют только `state.json`. Команды `install`, `scaffold` и `update` создают или переписывают `module.json` через `writeManifest()` и создают `state.json`.
 

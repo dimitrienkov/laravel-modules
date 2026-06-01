@@ -19,6 +19,7 @@ use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleFileNames;
 use DimitrienkoV\LaravelModules\Support\ModulePermissions;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
+use DimitrienkoV\LaravelModules\Support\StringKeyedObject;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use JsonException;
 
@@ -58,7 +59,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
         $stateArray = $this->extractStateFields($raw);
         $valuesArray = $this->extractValues($raw, $statePath);
 
-        $origin = $this->extractOrigin($raw, $statePath);
+        $source = $this->extractSource($raw, $statePath);
 
         try {
             $state = ModuleState::fromArray($stateArray, $statePath);
@@ -67,7 +68,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             throw InvalidModuleStateException::forPath($statePath, $e->getMessage(), $e);
         }
 
-        return new ModuleStateDocument($state, $values, $origin);
+        return new ModuleStateDocument($state, $values, source: $source);
     }
 
     public function readState(string $moduleName, Module $module): ModuleState
@@ -95,15 +96,24 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
     {
         $current = $this->read($module->name, $module);
         $updated = $module->withState($state);
-        $this->writeDocument($module->name, new ModuleStateDocument($state, $current->values, $current->origin));
+        $this->writeDocument($module->name, new ModuleStateDocument($state, $current->values, source: $current->source));
 
         return $updated;
     }
 
     public function writeValues(Module $module, FeatureValues $values): void
     {
-        $current = $this->read($module->name, $module);
-        $this->writeDocument($module->name, new ModuleStateDocument($current->state, $values, $current->origin));
+        if ($this->exists($module->name)) {
+            $current = $this->read($module->name, $module);
+            $this->writeDocument($module->name, new ModuleStateDocument($current->state, $values, source: $current->source));
+
+            return;
+        }
+
+        // No state file yet: persist the passed module's own state instead of
+        // defaultDisabled(), so writing values never silently flips enabled or
+        // resets timestamps for an in-memory module that was never written.
+        $this->writeDocument($module->name, new ModuleStateDocument($module->state, $values));
     }
 
     public function delete(string $moduleName): void
@@ -187,7 +197,10 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             throw InvalidModuleStateException::forPath($statePath, 'state file must contain a JSON object.');
         }
 
-        return $this->requireStringKeys($raw, 'state file', $statePath);
+        return StringKeyedObject::toStringKeyedObject(
+            $raw,
+            static fn (): InvalidModuleStateException => InvalidModuleStateException::forPath($statePath, 'state file must be a JSON object.'),
+        );
     }
 
     /**
@@ -250,7 +263,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
     /**
      * @param array<string, mixed> $raw
      */
-    private function extractOrigin(array $raw, string $statePath): ?ModuleOrigin
+    private function extractSource(array $raw, string $statePath): ?ModuleOrigin
     {
         if (! \array_key_exists('source', $raw)) {
             return null;
@@ -262,7 +275,12 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             throw InvalidModuleStateException::forPath($statePath, 'source must be a JSON object.');
         }
 
-        return ModuleOrigin::fromArray($this->requireStringKeys($source, 'source', $statePath), $statePath);
+        $sourceObject = StringKeyedObject::toStringKeyedObject(
+            $source,
+            static fn (): InvalidModuleStateException => InvalidModuleStateException::forPath($statePath, 'source must be a JSON object.'),
+        );
+
+        return ModuleOrigin::fromArray($sourceObject, $statePath);
     }
 
     /**
@@ -270,46 +288,19 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
      */
     private function assertJsonObject(mixed $value, string $fieldName, string $statePath): ?array
     {
-        if ($value === null) {
+        if ($value === null || $value === []) {
             return null;
         }
 
-        if (! \is_array($value)) {
+        $isJsonObject = \is_array($value) && ! array_is_list($value);
+
+        if (! $isJsonObject) {
             throw InvalidModuleStateException::forPath($statePath, "{$fieldName} must be a JSON object.");
         }
 
-        if ($value === []) {
-            return null;
-        }
-
-        if (array_is_list($value)) {
-            throw InvalidModuleStateException::forPath($statePath, "{$fieldName} must be a JSON object.");
-        }
-
-        return $this->requireStringKeys($value, $fieldName, $statePath);
-    }
-
-    /**
-     * Guarantee a decoded JSON value is a string-keyed object. PHP coerces
-     * numeric-string JSON keys to integers, so a non-list array can still
-     * carry integer keys — reject those instead of trusting the type.
-     *
-     * @param array<array-key, mixed> $value
-     *
-     * @return array<string, mixed>
-     */
-    private function requireStringKeys(array $value, string $fieldName, string $statePath): array
-    {
-        $object = [];
-
-        foreach ($value as $key => $item) {
-            if (! \is_string($key)) {
-                throw InvalidModuleStateException::forPath($statePath, "{$fieldName} must be a JSON object.");
-            }
-
-            $object[$key] = $item;
-        }
-
-        return $object;
+        return StringKeyedObject::toStringKeyedObject(
+            $value,
+            static fn (): InvalidModuleStateException => InvalidModuleStateException::forPath($statePath, "{$fieldName} must be a JSON object."),
+        );
     }
 }

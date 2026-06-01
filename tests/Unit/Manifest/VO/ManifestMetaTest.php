@@ -199,7 +199,9 @@ final class ManifestMetaTest extends TestCase
             'PascalCase' => ['Content'],
             'contains space' => ['my group'],
             'contains underscore' => ['my_group'],
-            'starts with digit' => ['1content'],
+            'trailing hyphen' => ['content-'],
+            'leading hyphen' => ['-content'],
+            'double hyphen' => ['foo--bar'],
             'empty string' => [''],
         ];
     }
@@ -246,7 +248,7 @@ final class ManifestMetaTest extends TestCase
     #[Test]
     public function groupAcceptsValidKebabCaseValues(): void
     {
-        foreach (['content', 'e-commerce', 'core-services', 'a', 'billing2'] as $group) {
+        foreach (['content', 'e-commerce', 'core-services', 'a', 'billing2', '1content'] as $group) {
             $meta = ManifestMeta::fromArray(
                 ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'group' => $group],
                 '/tmp/module.json',

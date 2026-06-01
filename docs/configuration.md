@@ -102,7 +102,7 @@ storage/app/private/modules/
 ],
 ```
 
-Label используется командой `modules:list` в колонке Group и рендерится как `"Human Label (code)"`. Если для кода нет записи — выводится голый код; маппинг лениентен к ошибкам (не-строковые или пустые labels тихо игнорируются с fallback на код, чтобы листинг не падал). Фильтр `modules:list --group=<code>` всегда работает по коду, а не по label. Коды также зарезервированы под будущий module UI.
+Label используется командой `modules:list` в колонке Group и рендерится как `"Human Label (code)"`. Если для кода нет записи — выводится голый код (допустимый fallback). Malformed config — fail-loud: если `modules.groups` не array, либо label для запрашиваемого кода присутствует, но не строка или пустой, `modules:list` падает с `InvalidConfigurationException`. `modules.groups` — единственная точка валидации этого маппинга, поэтому silent fallback на ошибочном label больше не применяется. Фильтр `modules:list --group=<code>` всегда работает по коду, а не по label. Коды также зарезервированы под будущий module UI.
 
 ## Stubs
 

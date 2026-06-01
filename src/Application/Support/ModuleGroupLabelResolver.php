@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Application\Support;
 
+use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use Illuminate\Contracts\Config\Repository;
 
 /**
  * Resolves a module group code into a display label for `modules:list`.
  *
- * Reads the `modules.groups` code → label map lazily and is lenient at display
- * time: malformed config (non-array map, non-string or empty label) is silently
- * ignored and falls back to the bare code, so listing never fails on a bad label.
- * This is a display convention, not contract validation of manifest/state.
+ * Reads the `modules.groups` code → label map lazily. An absent map (null) and
+ * a missing mapping for a valid code both fall back to the bare code, but
+ * malformed config is fail-loud: a present-but-non-array map, or a
+ * present-but-non-string/blank label for the requested group, throws
+ * InvalidConfigurationException — `modules.groups` is the only validation point
+ * for that map, so silent fallback would hide it.
  */
 final readonly class ModuleGroupLabelResolver
 {
@@ -21,29 +24,49 @@ final readonly class ModuleGroupLabelResolver
     ) {
     }
 
-    public function label(?string $group): string
+    public function displayLabel(?string $group): string
     {
         if ($group === null) {
             return '';
         }
 
-        $mappedLabel = $this->mappedLabel($group);
+        $label = $this->configuredLabel($group);
 
-        return $mappedLabel !== null ? "{$mappedLabel} ({$group})" : $group;
+        if ($label === null) {
+            return $group;
+        }
+
+        return "{$label} ({$group})";
     }
 
-    private function mappedLabel(string $group): ?string
+    private function configuredLabel(string $group): ?string
     {
         $groups = $this->config->get('modules.groups');
 
-        if (! \is_array($groups)) {
+        // Absent config is the default "no labels" case, not malformed — fall
+        // back to the bare code. A present-but-non-array value is malformed.
+        if ($groups === null) {
             return null;
         }
 
-        $label = $groups[$group] ?? null;
+        if (! \is_array($groups)) {
+            throw InvalidConfigurationException::forKey(
+                'modules.groups',
+                'must be an array mapping group codes to display labels.',
+            );
+        }
+
+        if (! \array_key_exists($group, $groups)) {
+            return null;
+        }
+
+        $label = $groups[$group];
 
         if (! \is_string($label) || trim($label) === '') {
-            return null;
+            throw InvalidConfigurationException::forKey(
+                'modules.groups',
+                "label for group [{$group}] must be a non-empty string.",
+            );
         }
 
         return $label;

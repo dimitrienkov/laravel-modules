@@ -294,11 +294,11 @@ final class ModuleStateRepositoryTest extends TestCase
 
         $doc = $this->repository->read('blog', $this->makeModule('blog'));
 
-        $this->assertNotNull($doc->origin);
-        $this->assertSame('zip', $doc->origin->kind->value);
-        $this->assertSame('1.0.0', $doc->origin->installedVersion);
-        $this->assertNotNull($doc->origin->checksum);
-        $this->assertSame(self::VALID_CHECKSUM, $doc->origin->checksum->value);
+        $this->assertNotNull($doc->source);
+        $this->assertSame('zip', $doc->source->kind->value);
+        $this->assertSame('1.0.0', $doc->source->installedVersion);
+        $this->assertNotNull($doc->source->checksum);
+        $this->assertSame(self::VALID_CHECKSUM, $doc->source->checksum->value);
     }
 
     #[Test]
@@ -341,7 +341,7 @@ final class ModuleStateRepositoryTest extends TestCase
 
         $doc = $this->repository->read('blog', $this->makeModule('blog'));
 
-        $this->assertNull($doc->origin);
+        $this->assertNull($doc->source);
     }
 
     #[Test]
@@ -395,6 +395,21 @@ final class ModuleStateRepositoryTest extends TestCase
         $this->assertArrayHasKey('source', $raw);
         $this->assertSame('zip', $raw['source']['kind']);
         $this->assertSame(self::VALID_CHECKSUM, $raw['source']['checksum']);
+    }
+
+    #[Test]
+    public function writeValuesPreservesEnabledStateWhenNoStateFileExists(): void
+    {
+        $module = $this->makeModule('blog')->withState(ModuleState::initialState(enabled: true));
+        $values = new FeatureValues($module->features, []);
+
+        // No state file written yet: writeValues must persist the passed module's
+        // own enabled state, not silently fall back to defaultDisabled().
+        $this->repository->writeValues($module, $values);
+
+        $raw = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertTrue($raw['enabled']);
+        $this->assertArrayNotHasKey('source', $raw);
     }
 
     #[Test]

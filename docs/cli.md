@@ -97,7 +97,7 @@ php artisan modules:list --group=billing
 
 `modules:enable` проверяет зависимости через `TopologicalSorter` перед включением. `modules:disable` запрещает отключение, если enabled-модули зависят от целевого. Обе команды модифицируют только `state.json`, не трогая `module.json`.
 
-`modules:list` печатает колонки Name, Kind, Group, Display Name, Version, Enabled, Path. Колонка Group рендерится как `"Label (code)"` при наличии маппинга в `modules.groups`, иначе — голый код (пусто для модуля без группы). Фильтры `--kind` и `--group` сужают список по коду; `--enabled` и `--disabled` нельзя комбинировать.
+`modules:list` печатает колонки Name, Kind, Group, Display Name, Version, Enabled, Path. Колонка Group рендерится как `"Label (code)"` при наличии маппинга в `modules.groups`, иначе — голый код (пусто для модуля без группы). Фильтры `--kind` и `--group` сужают список по коду; `--enabled` и `--disabled` нельзя комбинировать. Невалидный формат `--group` (не segment kebab-case) падает с явной ошибкой ещё до запроса registry, а валидная группа без совпадений даёт сообщение `No modules found in group [<group>].` вместо общего пустого результата.
 
 ## Install
 
@@ -108,6 +108,8 @@ php artisan modules:install /path/to/module.zip --directory=app/OtherModules
 ```
 
 Модуль валидируется до копирования файлов. Команда создаёт `module.json` в target директории и `state.json` в state-хранилище, фиксируя provenance: `source.kind = zip`, `installed_version` и `checksum` архива. `--directory` позволяет указать целевой configured root. Если запись manifest или state падает после копирования, target директория и state автоматически откатываются. После установки нужно запустить `php artisan migrate`.
+
+> `checksum` — это provenance-запись sha256 архива в момент чтения, а не проверка целостности. Команда не сверяет архив с ожидаемым digest или подписью; integrity verification и signature flow относятся к roadmap, а не к текущему runtime.
 
 ## Update
 
