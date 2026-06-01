@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
+use DimitrienkoV\LaravelModules\Application\Support\ModuleGroupLabelResolver;
 use DimitrienkoV\LaravelModules\Application\UseCases\ListModulesUseCase;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
@@ -20,7 +21,7 @@ final class ModulesListCommand extends Command
 
     protected $description = 'List all registered modules';
 
-    public function handle(ListModulesUseCase $useCase): int
+    public function handle(ListModulesUseCase $useCase, ModuleGroupLabelResolver $groupLabels): int
     {
         if ($this->option('enabled') && $this->option('disabled')) {
             $this->components->error('Options --enabled and --disabled cannot be used together.');
@@ -69,7 +70,7 @@ final class ModulesListCommand extends Command
         $rows = array_map(static fn (Module $m): array => [
             $m->name,
             $m->meta->kind->value,
-            $m->meta->group ?? '',
+            $groupLabels->label($m->meta->group),
             $m->displayName,
             $m->meta->version,
             $m->isEnabled() ? '<info>Yes</info>' : '<comment>No</comment>',

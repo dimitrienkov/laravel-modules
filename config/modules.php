@@ -13,6 +13,10 @@ return [
         'backup' => storage_path('app/module-backups'),
         'state' => storage_path('app/private/modules'),
     ],
+    // Map module group codes (meta.group) to human-readable labels.
+    // Format: 'code' => 'Human Label'. Labels are rendered in `modules:list`
+    // as "Human Label (code)" and are reserved for future module UI.
+    // Modules whose group has no entry here fall back to the bare code.
     'groups' => [
         // 'content' => 'Content Management',
         // 'e-commerce' => 'E-Commerce',

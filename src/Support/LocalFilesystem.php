@@ -41,6 +41,11 @@ final readonly class LocalFilesystem
         return $this->filesystem->get($path);
     }
 
+    public function hashFile(string $path, string $algorithm): string|false
+    {
+        return $this->filesystem->hash($path, $algorithm);
+    }
+
     public function ensureDirectoryExists(string $path, int $mode = 0755): void
     {
         $this->filesystem->ensureDirectoryExists($path, $mode);

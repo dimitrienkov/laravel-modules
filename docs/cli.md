@@ -67,10 +67,21 @@ Service provider подключает команды к Laravel optimizer flow:
 ```bash
 php artisan make:module blog
 php artisan make:module user_auth --disabled
+php artisan make:module payments --kind=integration --group=billing
 php artisan make:module analytics --directory=app/Integrations --overwrite
 ```
 
-`make:module` создаёт директорию модуля с `module.json`, `state.json`, ServiceProvider stub и базовые поддиректории. `--disabled` создаёт модуль в отключённом состоянии. `--overwrite` перезаписывает существующий модуль в той же target-директории.
+`make:module` создаёт директорию модуля с `module.json`, `state.json`, ServiceProvider stub и базовые поддиректории. Опции:
+
+| Опция | Назначение |
+|-------|------------|
+| `--kind` | `ModuleKind`: `module`, `subsystem`, `integration`. По умолчанию infer'ится из target root (`Modules→module`, `Integrations→integration`, `Subsystems→subsystem`) |
+| `--group` | Логическая группа в kebab-case (`meta.group`); невалидное значение → ошибка с указанием имени модуля и группы |
+| `--directory` | Target root из configured `modules.paths.directories` |
+| `--disabled` | Создать модуль в отключённом состоянии |
+| `--overwrite` | Перезаписать существующий модуль в той же target-директории |
+
+Scaffold записывает в `state.json` provenance `source.kind = local` (без checksum).
 
 ## Enable / Disable / List
 
@@ -80,9 +91,13 @@ php artisan modules:disable blog
 php artisan modules:list
 php artisan modules:list --enabled
 php artisan modules:list --disabled
+php artisan modules:list --kind=integration
+php artisan modules:list --group=billing
 ```
 
 `modules:enable` проверяет зависимости через `TopologicalSorter` перед включением. `modules:disable` запрещает отключение, если enabled-модули зависят от целевого. Обе команды модифицируют только `state.json`, не трогая `module.json`.
+
+`modules:list` печатает колонки Name, Kind, Group, Display Name, Version, Enabled, Path. Колонка Group рендерится как `"Label (code)"` при наличии маппинга в `modules.groups`, иначе — голый код (пусто для модуля без группы). Фильтры `--kind` и `--group` сужают список по коду; `--enabled` и `--disabled` нельзя комбинировать.
 
 ## Install
 
@@ -93,7 +108,7 @@ php artisan modules:install /path/to/module.zip --disabled
 php artisan modules:install /path/to/module-directory --directory=app/OtherModules
 ```
 
-Модуль валидируется до копирования файлов. Команда создаёт `module.json` в target директории и `state.json` в state-хранилище. `--directory` позволяет указать целевой configured root. Если запись manifest или state падает после копирования, target директория и state автоматически откатываются. После установки нужно запустить `php artisan migrate`.
+Модуль валидируется до копирования файлов. Команда создаёт `module.json` в target директории и `state.json` в state-хранилище, фиксируя provenance: `source.kind = zip`, `installed_version` и `checksum` архива. `--directory` позволяет указать целевой configured root. Если запись manifest или state падает после копирования, target директория и state автоматически откатываются. После установки нужно запустить `php artisan migrate`.
 
 ## Update
 
@@ -103,7 +118,7 @@ php artisan modules:update blog /path/to/blog-v2.zip
 php artisan modules:update blog /path/to/blog-v2.zip --force
 ```
 
-Update использует Laravel `ConfirmableTrait`; в production окружении добавляйте `--force`. Команда бэкапит текущую директорию, заменяет файлы и мержит `settings.values` в `state.json`: сохраняются explicit values для ключей, которые остались в новой schema. Пропущенные values выводятся с указанием причины (removed from schema / invalid value). Если запись manifest или state падает после замены, модуль автоматически восстанавливается из backup.
+Update использует Laravel `ConfirmableTrait`; в production окружении добавляйте `--force`. Команда бэкапит текущую директорию, заменяет файлы и мержит `settings.values` в `state.json`: сохраняются explicit values для ключей, которые остались в новой schema. Пропущенные values выводятся с указанием причины (removed from schema / invalid value). Provenance перезаписывается: `source.kind = zip`, новый `installed_version` и `checksum`. Если запись manifest или state падает после замены, модуль автоматически восстанавливается из backup.
 
 ## Remove
 

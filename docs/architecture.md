@@ -17,7 +17,7 @@
 | Service | Responsibility |
 |---------|----------------|
 | `ModuleManifestRepository` | Читает и валидирует иммутабельный `module.json`; `load()` и `writeManifest()` |
-| `ModuleStateRepository` | Читает/пишет mutable `state.json` (`enabled`, timestamps, `settings.values`) |
+| `ModuleStateRepository` | Читает/пишет mutable `state.json` (`enabled`, timestamps, `source` origin, `settings.values`) |
 | `ModuleStatePaths` | Resolution путей к `state.json`: state root, state directory, state file |
 | `ModuleDirectoryScanner` | Находит module directories в configured roots |
 | `ModuleRegistry` | Загружает modules из cache или filesystem и даёт lookup/load order |
@@ -147,6 +147,10 @@ UseCase-классы в `Application/UseCases/` реализуют бизнес-
 Install и update валидируют source ДО копирования файлов. `ModuleSourcePreparer` читает `module.json` из source через `ManifestDocumentReader`, прогоняет через `ManifestValidatorInterface` и возвращает `PreparedSource`. `ModuleManifestRepository::load()` не используется для source paths вне `app_path()`.
 
 Source directory или zip не должен содержать `state.json`. Такой source отклоняется, потому что state принадлежит приватному storage host-приложения и переносится отдельными lifecycle boundaries.
+
+### Provenance
+
+Scaffold, install и update фиксируют происхождение модуля в `state.json` через `ModuleOrigin` VO (секция `source`): scaffold пишет `kind = local` без checksum, install/update — `kind = zip` с `installed_version` и sha256 `checksum` архива. Инвариант `kind ↔ checksum` выражен kind-driven через `ModuleOriginKind::requiresChecksum()` и проверяется при чтении state. Provenance не влияет на loader pipeline или registry cache.
 
 ### Миграции и rollback
 

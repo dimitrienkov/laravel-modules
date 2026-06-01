@@ -132,6 +132,21 @@ final class ScaffoldModuleUseCaseTest extends TestCase
     }
 
     #[Test]
+    public function scaffoldInvalidGroupErrorNamesModuleAndGroup(): void
+    {
+        $useCase = $this->makeUseCase();
+
+        try {
+            $useCase->execute(new ScaffoldModuleConfig(name: 'blog', group: 'Bad Group'));
+            $this->fail('Expected ModuleScaffoldException');
+        } catch (ModuleScaffoldException $e) {
+            $this->assertStringContainsString('[blog]', $e->getMessage());
+            $this->assertStringContainsString('Bad Group', $e->getMessage());
+            $this->assertNotNull($e->getPrevious());
+        }
+    }
+
+    #[Test]
     public function scaffoldWritesValidGroupToManifest(): void
     {
         $useCase = $this->makeUseCase();

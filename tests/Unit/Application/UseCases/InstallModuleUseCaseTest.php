@@ -127,11 +127,14 @@ final class InstallModuleUseCaseTest extends TestCase
         $zipPath = $this->createSourceZip('blog');
         $useCase = $this->makeUseCase();
 
+        $before = glob(sys_get_temp_dir() . '/module_zip_*') ?: [];
+
         $useCase->execute($zipPath);
 
-        $tempDirs = glob(sys_get_temp_dir() . '/module_zip_*');
-        $recentTempDirs = array_filter($tempDirs, fn ($d) => is_dir($d) && filemtime($d) > time() - 5);
-        $this->assertEmpty($recentTempDirs);
+        $after = glob(sys_get_temp_dir() . '/module_zip_*') ?: [];
+        $leaked = array_values(array_diff($after, $before));
+
+        $this->assertSame([], $leaked, 'Prepared source temp directory should be removed after a successful install.');
     }
 
     #[Test]

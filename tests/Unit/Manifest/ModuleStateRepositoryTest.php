@@ -8,6 +8,7 @@ use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleStateException;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
+use DimitrienkoV\LaravelModules\Manifest\VO\Checksum;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
@@ -26,6 +27,8 @@ use PHPUnit\Framework\TestCase;
 
 final class ModuleStateRepositoryTest extends TestCase
 {
+    private const string VALID_CHECKSUM = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
     private string $tempDir;
 
     private string $stateRoot;
@@ -257,14 +260,37 @@ final class ModuleStateRepositoryTest extends TestCase
     #[Test]
     public function readHydratesOriginFromSource(): void
     {
-        $this->writeState('blog', '{"enabled": true, "source": {"kind": "zip", "installed_version": "1.0.0", "checksum": "abc123"}}');
+        $this->writeState('blog', '{"enabled": true, "source": {"kind": "zip", "installed_version": "1.0.0", "checksum": "' . self::VALID_CHECKSUM . '"}}');
 
         $doc = $this->repository->read('blog', $this->makeModule('blog'));
 
         $this->assertNotNull($doc->origin);
         $this->assertSame('zip', $doc->origin->kind->value);
         $this->assertSame('1.0.0', $doc->origin->installedVersion);
-        $this->assertSame('abc123', $doc->origin->checksum);
+        $this->assertNotNull($doc->origin->checksum);
+        $this->assertSame(self::VALID_CHECKSUM, $doc->origin->checksum->value);
+    }
+
+    #[Test]
+    public function readThrowsWhenSourceIsList(): void
+    {
+        $this->writeState('blog', '{"enabled": true, "source": ["zip"]}');
+
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/source must be a JSON object/');
+
+        $this->repository->read('blog', $this->makeModule('blog'));
+    }
+
+    #[Test]
+    public function readThrowsWhenSourceIsScalar(): void
+    {
+        $this->writeState('blog', '{"enabled": true, "source": "zip"}');
+
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/source must be a JSON object/');
+
+        $this->repository->read('blog', $this->makeModule('blog'));
     }
 
     #[Test]
@@ -283,7 +309,7 @@ final class ModuleStateRepositoryTest extends TestCase
         $module = $this->makeModule('blog');
         $state = ModuleState::initialState();
         $values = new FeatureValues($module->features, []);
-        $origin = ModuleOrigin::forZip('1.0.0', 'sha256hash');
+        $origin = ModuleOrigin::forZip('1.0.0', new Checksum(self::VALID_CHECKSUM));
         $document = new ModuleStateDocument($state, $values, $origin);
 
         $this->repository->writeDocument('blog', $document);
@@ -292,7 +318,7 @@ final class ModuleStateRepositoryTest extends TestCase
         $this->assertArrayHasKey('source', $raw);
         $this->assertSame('zip', $raw['source']['kind']);
         $this->assertSame('1.0.0', $raw['source']['installed_version']);
-        $this->assertSame('sha256hash', $raw['source']['checksum']);
+        $this->assertSame(self::VALID_CHECKSUM, $raw['source']['checksum']);
     }
 
     #[Test]
@@ -319,7 +345,7 @@ final class ModuleStateRepositoryTest extends TestCase
         $module = $this->makeModule('blog');
         $state = ModuleState::initialState();
         $values = new FeatureValues($module->features, []);
-        $origin = ModuleOrigin::forZip('1.0.0', 'deadbeef');
+        $origin = ModuleOrigin::forZip('1.0.0', new Checksum(self::VALID_CHECKSUM));
         $this->repository->writeDocument('blog', new ModuleStateDocument($state, $values, $origin));
 
         $this->repository->writeValues($module, $values);
@@ -327,7 +353,7 @@ final class ModuleStateRepositoryTest extends TestCase
         $raw = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
         $this->assertArrayHasKey('source', $raw);
         $this->assertSame('zip', $raw['source']['kind']);
-        $this->assertSame('deadbeef', $raw['source']['checksum']);
+        $this->assertSame(self::VALID_CHECKSUM, $raw['source']['checksum']);
     }
 
     #[Test]

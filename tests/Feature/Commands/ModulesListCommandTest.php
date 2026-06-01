@@ -162,6 +162,31 @@ final class ModulesListCommandTest extends TestCase
     }
 
     #[Test]
+    public function listRendersGroupLabelWithCodeFromConfig(): void
+    {
+        $this->app['config']->set('modules.groups', ['content' => 'CMS']);
+        $this->writeManifestWithGroup('blog', 'content');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list')
+            ->assertSuccessful()
+            ->expectsOutputToContain('CMS (content)');
+    }
+
+    #[Test]
+    public function listFallsBackToGroupCodeWhenLabelMissing(): void
+    {
+        $this->app['config']->set('modules.groups', ['content' => 'CMS']);
+        $this->writeManifestWithGroup('stripe', 'payments');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list')
+            ->assertSuccessful()
+            ->expectsOutputToContain('payments')
+            ->doesntExpectOutputToContain('CMS');
+    }
+
+    #[Test]
     public function listFiltersByGroup(): void
     {
         $this->writeManifestWithGroup('blog', 'content');

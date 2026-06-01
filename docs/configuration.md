@@ -28,6 +28,10 @@ return [
         'backup' => storage_path('app/module-backups'),
         'state' => storage_path('app/private/modules'),
     ],
+    'groups' => [
+        // 'content' => 'Content Management',
+        // 'e-commerce' => 'E-Commerce',
+    ],
     'routing' => [
         'types' => [
             'api' => [
@@ -80,7 +84,20 @@ storage/app/private/modules/
     └── state.json
 ```
 
-`state.json` хранит `enabled`, `installed_at`, `updated_at` и `settings.values`. `ModuleStatePaths` валидирует, что state root не пересекается с module directories.
+`state.json` хранит `enabled`, `installed_at`, `updated_at`, опциональную секцию `source` (provenance) и `settings.values`. `ModuleStatePaths` валидирует, что state root не пересекается с module directories.
+
+## Module groups
+
+`modules.groups` задаёт маппинг кода группы (`meta.group`) на human-readable label в формате `'code' => 'Human Label'`:
+
+```php
+'groups' => [
+    'content' => 'Content Management',
+    'e-commerce' => 'E-Commerce',
+],
+```
+
+Label используется командой `modules:list` в колонке Group и рендерится как `"Human Label (code)"`. Если для кода нет записи — выводится голый код; маппинг лениентен к ошибкам (не-строковые или пустые labels тихо игнорируются с fallback на код, чтобы листинг не падал). Фильтр `modules:list --group=<code>` всегда работает по коду, а не по label. Коды также зарезервированы под будущий module UI.
 
 ## Stubs
 

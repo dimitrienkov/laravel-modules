@@ -8,6 +8,7 @@ use DimitrienkoV\LaravelModules\Application\Enums\ModuleSourceKind;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleSourceException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\VO\Checksum;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleFileNames;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
@@ -41,16 +42,19 @@ final readonly class ModuleSourcePreparer
         try {
             $this->filesystem->deleteDirectory($source->temporaryRoot);
         } catch (Throwable) {
+            // best-effort: temp dir removal failure must not mask the primary outcome
         }
     }
 
     private function prepareFromZip(string $sourcePath): PreparedSource
     {
-        $checksum = hash_file('sha256', $sourcePath);
+        $hash = $this->filesystem->hashFile($sourcePath, Checksum::ALGORITHM);
 
-        if ($checksum === false) {
+        if ($hash === false) {
             throw ModuleSourceException::forPath($sourcePath, 'failed to compute checksum for archive.');
         }
+
+        $checksum = new Checksum($hash);
 
         $tempDir = $this->zipExtractor->extractToTemp($sourcePath);
 

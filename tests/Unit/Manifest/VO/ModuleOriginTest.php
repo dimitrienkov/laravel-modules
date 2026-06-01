@@ -6,12 +6,16 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleStateException;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleOriginKind;
+use DimitrienkoV\LaravelModules\Manifest\VO\Checksum;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 final class ModuleOriginTest extends TestCase
 {
+    private const string VALID_HEX = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
     #[Test]
     public function forLocalCreatesLocalOrigin(): void
     {
@@ -25,25 +29,41 @@ final class ModuleOriginTest extends TestCase
     #[Test]
     public function forZipCreatesZipOriginWithChecksum(): void
     {
-        $origin = ModuleOrigin::forZip('2.0.0', 'abc123');
+        $origin = ModuleOrigin::forZip('2.0.0', new Checksum(self::VALID_HEX));
 
         self::assertSame(ModuleOriginKind::Zip, $origin->kind);
         self::assertSame('2.0.0', $origin->installedVersion);
-        self::assertSame('abc123', $origin->checksum);
+        self::assertInstanceOf(Checksum::class, $origin->checksum);
+        self::assertSame(self::VALID_HEX, $origin->checksum->value);
+    }
+
+    #[Test]
+    public function constructorRejectsZipWithoutChecksum(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new ModuleOrigin(ModuleOriginKind::Zip, '1.0.0', null);
+    }
+
+    #[Test]
+    public function constructorRejectsLocalWithChecksum(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new ModuleOrigin(ModuleOriginKind::Local, '1.0.0', new Checksum(self::VALID_HEX));
     }
 
     #[Test]
     public function toArrayProducesDeterministicOrder(): void
     {
-        $origin = ModuleOrigin::forZip('1.0.0', 'sha256hash');
+        $origin = ModuleOrigin::forZip('1.0.0', new Checksum(self::VALID_HEX));
 
         $array = $origin->toArray();
 
-        $keys = array_keys($array);
-        self::assertSame(['kind', 'installed_version', 'checksum'], $keys);
+        self::assertSame(['kind', 'installed_version', 'checksum'], array_keys($array));
         self::assertSame('zip', $array['kind']);
         self::assertSame('1.0.0', $array['installed_version']);
-        self::assertSame('sha256hash', $array['checksum']);
+        self::assertSame(self::VALID_HEX, $array['checksum']);
     }
 
     #[Test]
@@ -58,15 +78,16 @@ final class ModuleOriginTest extends TestCase
     }
 
     #[Test]
-    public function fromArrayRoundTrip(): void
+    public function fromArrayRoundTripZip(): void
     {
-        $original = ModuleOrigin::forZip('3.0.0', 'deadbeef');
+        $original = ModuleOrigin::forZip('3.0.0', new Checksum(self::VALID_HEX));
 
         $restored = ModuleOrigin::fromArray($original->toArray(), '/tmp/state.json');
 
         self::assertSame($original->kind, $restored->kind);
         self::assertSame($original->installedVersion, $restored->installedVersion);
-        self::assertSame($original->checksum, $restored->checksum);
+        self::assertInstanceOf(Checksum::class, $restored->checksum);
+        self::assertSame(self::VALID_HEX, $restored->checksum->value);
     }
 
     #[Test]
@@ -100,6 +121,15 @@ final class ModuleOriginTest extends TestCase
     }
 
     #[Test]
+    public function fromArrayThrowsOnEmptyKindAsInvalidNotMissing(): void
+    {
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/not valid/');
+
+        ModuleOrigin::fromArray(['kind' => '', 'installed_version' => '1.0.0'], '/tmp/state.json');
+    }
+
+    #[Test]
     public function fromArrayThrowsOnMissingInstalledVersion(): void
     {
         $this->expectException(InvalidModuleStateException::class);
@@ -109,11 +139,56 @@ final class ModuleOriginTest extends TestCase
     }
 
     #[Test]
+    public function fromArrayThrowsOnWhitespaceInstalledVersion(): void
+    {
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/installed_version/');
+
+        ModuleOrigin::fromArray(['kind' => 'local', 'installed_version' => '   '], '/tmp/state.json');
+    }
+
+    #[Test]
+    public function fromArrayThrowsWhenZipMissingChecksum(): void
+    {
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/checksum is required/');
+
+        ModuleOrigin::fromArray(['kind' => 'zip', 'installed_version' => '1.0.0'], '/tmp/state.json');
+    }
+
+    #[Test]
+    public function fromArrayThrowsWhenLocalHasChecksum(): void
+    {
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/checksum must be absent/');
+
+        ModuleOrigin::fromArray(
+            ['kind' => 'local', 'installed_version' => '1.0.0', 'checksum' => self::VALID_HEX],
+            '/tmp/state.json',
+        );
+    }
+
+    #[Test]
+    public function fromArrayThrowsOnInvalidChecksumHex(): void
+    {
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/Checksum must be/');
+
+        ModuleOrigin::fromArray(
+            ['kind' => 'zip', 'installed_version' => '1.0.0', 'checksum' => 'abc123'],
+            '/tmp/state.json',
+        );
+    }
+
+    #[Test]
     public function fromArrayThrowsOnNonStringChecksum(): void
     {
         $this->expectException(InvalidModuleStateException::class);
         $this->expectExceptionMessageMatches('/checksum/');
 
-        ModuleOrigin::fromArray(['kind' => 'zip', 'installed_version' => '1.0.0', 'checksum' => 123], '/tmp/state.json');
+        ModuleOrigin::fromArray(
+            ['kind' => 'zip', 'installed_version' => '1.0.0', 'checksum' => 123],
+            '/tmp/state.json',
+        );
     }
 }

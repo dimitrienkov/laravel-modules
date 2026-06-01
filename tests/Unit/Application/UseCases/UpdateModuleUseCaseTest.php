@@ -17,6 +17,8 @@ final class UpdateModuleUseCaseTest extends TestCase
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
 
+    private const string VALID_CHECKSUM = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
     private string $tempDir;
 
     private string $stateRoot;
@@ -232,7 +234,7 @@ final class UpdateModuleUseCaseTest extends TestCase
     #[Test]
     public function updateUpdatesOriginInstalledVersion(): void
     {
-        $this->createInstalledModule('blog', '1.0.0', source: ['kind' => 'zip', 'installed_version' => '1.0.0', 'checksum' => 'abc123']);
+        $this->createInstalledModule('blog', '1.0.0', source: ['kind' => 'zip', 'installed_version' => '1.0.0', 'checksum' => self::VALID_CHECKSUM]);
         $zipPath = $this->createSourceZip('blog', '2.0.0');
         $useCase = $this->makeUseCase();
 
@@ -317,8 +319,8 @@ final class UpdateModuleUseCaseTest extends TestCase
     }
 
     /**
-     * @param array<string, mixed> $schema
-     * @param array<string, mixed> $values
+     * @param array<string, mixed>      $schema
+     * @param array<string, mixed>      $values
      * @param array<string, mixed>|null $source
      */
     private function createInstalledModule(

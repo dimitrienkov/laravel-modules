@@ -6,14 +6,22 @@ namespace DimitrienkoV\LaravelModules\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleStateException;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleOriginKind;
+use InvalidArgumentException;
 
 final readonly class ModuleOrigin
 {
     public function __construct(
         public ModuleOriginKind $kind,
         public string $installedVersion,
-        public ?string $checksum = null,
+        public ?Checksum $checksum = null,
     ) {
+        if ($kind->requiresChecksum() && $checksum === null) {
+            throw new InvalidArgumentException("Module origin [{$kind->value}] requires a checksum.");
+        }
+
+        if (! $kind->requiresChecksum() && $checksum !== null) {
+            throw new InvalidArgumentException("Module origin [{$kind->value}] must not carry a checksum.");
+        }
     }
 
     public static function forLocal(string $version): self
@@ -24,7 +32,7 @@ final readonly class ModuleOrigin
         );
     }
 
-    public static function forZip(string $version, string $checksum): self
+    public static function forZip(string $version, Checksum $checksum): self
     {
         return new self(
             kind: ModuleOriginKind::Zip,
@@ -36,10 +44,10 @@ final readonly class ModuleOrigin
     /**
      * @param array<string, mixed> $data
      */
-    public static function fromArray(array $data, string $contextPath): self
+    public static function fromArray(array $data, string $statePath): self
     {
         if (! isset($data['kind']) || ! \is_string($data['kind'])) {
-            throw InvalidModuleStateException::forPath($contextPath, 'source.kind must be a non-empty string.');
+            throw InvalidModuleStateException::forPath($statePath, 'source.kind must be a non-empty string.');
         }
 
         $kind = ModuleOriginKind::tryFrom($data['kind']);
@@ -48,28 +56,21 @@ final readonly class ModuleOrigin
             $allowed = implode(', ', array_column(ModuleOriginKind::cases(), 'value'));
 
             throw InvalidModuleStateException::forPath(
-                $contextPath,
+                $statePath,
                 "source.kind [{$data['kind']}] is not valid; allowed values: {$allowed}.",
             );
         }
 
-        if (! isset($data['installed_version']) || ! \is_string($data['installed_version']) || trim($data['installed_version']) === '') {
-            throw InvalidModuleStateException::forPath($contextPath, 'source.installed_version must be a non-empty string.');
-        }
+        $version = $data['installed_version'] ?? null;
 
-        $checksum = null;
-
-        if (isset($data['checksum'])) {
-            if (! \is_string($data['checksum'])) {
-                throw InvalidModuleStateException::forPath($contextPath, 'source.checksum must be a string when present.');
-            }
-            $checksum = $data['checksum'];
+        if (! \is_string($version) || trim($version) === '') {
+            throw InvalidModuleStateException::forPath($statePath, 'source.installed_version must be a non-empty string.');
         }
 
         return new self(
             kind: $kind,
-            installedVersion: $data['installed_version'],
-            checksum: $checksum,
+            installedVersion: $version,
+            checksum: self::parseChecksum($data, $kind, $statePath),
         );
     }
 
@@ -84,9 +85,39 @@ final readonly class ModuleOrigin
         ];
 
         if ($this->checksum !== null) {
-            $data['checksum'] = $this->checksum;
+            $data['checksum'] = $this->checksum->value;
         }
 
         return $data;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private static function parseChecksum(array $data, ModuleOriginKind $kind, string $statePath): ?Checksum
+    {
+        $hasChecksum = isset($data['checksum']);
+
+        if ($kind->requiresChecksum() && ! $hasChecksum) {
+            throw InvalidModuleStateException::forPath($statePath, "source.checksum is required for kind [{$kind->value}].");
+        }
+
+        if (! $kind->requiresChecksum() && $hasChecksum) {
+            throw InvalidModuleStateException::forPath($statePath, "source.checksum must be absent for kind [{$kind->value}].");
+        }
+
+        if (! $hasChecksum) {
+            return null;
+        }
+
+        if (! \is_string($data['checksum'])) {
+            throw InvalidModuleStateException::forPath($statePath, 'source.checksum must be a string when present.');
+        }
+
+        try {
+            return new Checksum($data['checksum']);
+        } catch (InvalidArgumentException $e) {
+            throw InvalidModuleStateException::forPath($statePath, $e->getMessage(), $e);
+        }
     }
 }

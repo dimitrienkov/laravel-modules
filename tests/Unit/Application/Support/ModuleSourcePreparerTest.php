@@ -9,6 +9,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleSourceException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
+use DimitrienkoV\LaravelModules\Manifest\VO\Checksum;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
@@ -68,9 +69,9 @@ final class ModuleSourcePreparerTest extends TestCase
         $prepared = $this->preparer->prepare($zipPath);
 
         try {
-            $this->assertNotNull($prepared->checksum);
-            $this->assertSame($expectedChecksum, $prepared->checksum);
-            $this->assertSame(64, \strlen($prepared->checksum));
+            $this->assertInstanceOf(Checksum::class, $prepared->checksum);
+            $this->assertSame($expectedChecksum, $prepared->checksum->value);
+            $this->assertSame(64, \strlen($prepared->checksum->value));
         } finally {
             $this->preparer->cleanup($prepared);
         }
