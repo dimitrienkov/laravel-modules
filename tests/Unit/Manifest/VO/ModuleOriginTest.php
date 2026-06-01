@@ -191,4 +191,42 @@ final class ModuleOriginTest extends TestCase
             '/tmp/state.json',
         );
     }
+
+    #[Test]
+    public function fromArrayThrowsOnUnknownSourceKey(): void
+    {
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/unknown keys.*extra/');
+
+        ModuleOrigin::fromArray(
+            ['kind' => 'local', 'installed_version' => '1.0.0', 'extra' => 'value'],
+            '/tmp/state.json',
+        );
+    }
+
+    #[Test]
+    public function fromArrayTreatsExplicitNullChecksumAsPresentForLocal(): void
+    {
+        // array_key_exists, not isset: explicit null is a present (forbidden) checksum, not an absent one.
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/checksum must be absent/');
+
+        ModuleOrigin::fromArray(
+            ['kind' => 'local', 'installed_version' => '1.0.0', 'checksum' => null],
+            '/tmp/state.json',
+        );
+    }
+
+    #[Test]
+    public function fromArrayTreatsExplicitNullChecksumAsNonStringForZip(): void
+    {
+        // For zip the key is present, so it must fail as a non-string checksum — not as "required".
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/checksum must be a string/');
+
+        ModuleOrigin::fromArray(
+            ['kind' => 'zip', 'installed_version' => '1.0.0', 'checksum' => null],
+            '/tmp/state.json',
+        );
+    }
 }

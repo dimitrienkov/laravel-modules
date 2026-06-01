@@ -74,7 +74,7 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 | `src/Registry/ModuleRegistryCache.php` | Формат и чтение `bootstrap/cache/modules.php` |
 | `src/Registry/ModuleRegistrySnapshotBuilder.php` | Fresh filesystem scan и сборка snapshot |
 | `src/Application/UseCases/ScaffoldModuleUseCase.php` | Создание нового модуля через `make:module` |
-| `src/Application/UseCases/InstallModuleUseCase.php` | Установка модуля из directory/zip source |
+| `src/Application/UseCases/InstallModuleUseCase.php` | Установка модуля из `.zip` source |
 | `src/Application/UseCases/UpdateModuleUseCase.php` | Обновление модуля с backup и merge values |
 | `src/Application/UseCases/RemoveModuleUseCase.php` | Удаление модуля с backup или permanently |
 | `config/modules.php` | Корневой конфиг директорий модулей и типов маршрутов |

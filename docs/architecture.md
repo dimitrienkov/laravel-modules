@@ -121,7 +121,7 @@ UseCase-классы в `Application/UseCases/` реализуют бизнес-
 | `EnableModuleUseCase` | Включает модуль с проверкой dependency graph |
 | `DisableModuleUseCase` | Отключает модуль с проверкой reverse dependencies |
 | `ScaffoldModuleUseCase` | Создаёт структуру нового модуля из stubs |
-| `InstallModuleUseCase` | Устанавливает модуль из directory/zip source |
+| `InstallModuleUseCase` | Устанавливает модуль из `.zip` source |
 | `UpdateModuleUseCase` | Обновляет модуль с backup и merge settings values |
 | `RemoveModuleUseCase` | Удаляет модуль с backup или без |
 
@@ -129,7 +129,7 @@ UseCase-классы в `Application/UseCases/` реализуют бизнес-
 
 | Service | Responsibility |
 |---------|----------------|
-| `ModuleSourcePreparer` | Staging boundary: валидирует source (directory/zip) до копирования |
+| `ModuleSourcePreparer` | Staging boundary: валидирует `.zip` source до копирования |
 | `ModuleDependencyGuard` | Проверяет dependency graph перед мутациями |
 | `ModuleDirectoryOperations` | Filesystem-операции: copy, replace with backup, restore, delete |
 | `ModuleDirectoryPaths` | Resolution путей: target root, configured roots, backup directory |
@@ -146,7 +146,7 @@ UseCase-классы в `Application/UseCases/` реализуют бизнес-
 
 Install и update валидируют source ДО копирования файлов. `ModuleSourcePreparer` читает `module.json` из source через `ManifestDocumentReader`, прогоняет через `ManifestValidatorInterface` и возвращает `PreparedSource`. `ModuleManifestRepository::load()` не используется для source paths вне `app_path()`.
 
-Source directory или zip не должен содержать `state.json`. Такой source отклоняется, потому что state принадлежит приватному storage host-приложения и переносится отдельными lifecycle boundaries.
+`.zip` source не должен содержать `state.json`. Такой source отклоняется, потому что state принадлежит приватному storage host-приложения и переносится отдельными lifecycle boundaries.
 
 ### Provenance
 

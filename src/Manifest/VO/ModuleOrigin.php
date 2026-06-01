@@ -15,11 +15,11 @@ final readonly class ModuleOrigin
         public string $installedVersion,
         public ?Checksum $checksum = null,
     ) {
-        if ($kind->requiresChecksum() && $checksum === null) {
+        if ($kind->requiresChecksum() && ! $checksum instanceof Checksum) {
             throw new InvalidArgumentException("Module origin [{$kind->value}] requires a checksum.");
         }
 
-        if (! $kind->requiresChecksum() && $checksum !== null) {
+        if (! $kind->requiresChecksum() && $checksum instanceof Checksum) {
             throw new InvalidArgumentException("Module origin [{$kind->value}] must not carry a checksum.");
         }
     }
@@ -46,6 +46,15 @@ final readonly class ModuleOrigin
      */
     public static function fromArray(array $data, string $statePath): self
     {
+        $unknownKeys = array_diff(array_keys($data), ['kind', 'installed_version', 'checksum']);
+
+        if ($unknownKeys !== []) {
+            throw InvalidModuleStateException::forPath(
+                $statePath,
+                'source contains unknown keys: ' . implode(', ', $unknownKeys) . '.',
+            );
+        }
+
         if (! isset($data['kind']) || ! \is_string($data['kind'])) {
             throw InvalidModuleStateException::forPath($statePath, 'source.kind must be a non-empty string.');
         }
@@ -84,7 +93,7 @@ final readonly class ModuleOrigin
             'installed_version' => $this->installedVersion,
         ];
 
-        if ($this->checksum !== null) {
+        if ($this->checksum instanceof Checksum) {
             $data['checksum'] = $this->checksum->value;
         }
 
@@ -96,7 +105,7 @@ final readonly class ModuleOrigin
      */
     private static function parseChecksum(array $data, ModuleOriginKind $kind, string $statePath): ?Checksum
     {
-        $hasChecksum = isset($data['checksum']);
+        $hasChecksum = \array_key_exists('checksum', $data);
 
         if ($kind->requiresChecksum() && ! $hasChecksum) {
             throw InvalidModuleStateException::forPath($statePath, "source.checksum is required for kind [{$kind->value}].");

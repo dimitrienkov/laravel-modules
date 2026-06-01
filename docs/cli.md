@@ -102,10 +102,9 @@ php artisan modules:list --group=billing
 ## Install
 
 ```bash
-php artisan modules:install /path/to/module-directory
 php artisan modules:install /path/to/module.zip
 php artisan modules:install /path/to/module.zip --disabled
-php artisan modules:install /path/to/module-directory --directory=app/OtherModules
+php artisan modules:install /path/to/module.zip --directory=app/OtherModules
 ```
 
 Модуль валидируется до копирования файлов. Команда создаёт `module.json` в target директории и `state.json` в state-хранилище, фиксируя provenance: `source.kind = zip`, `installed_version` и `checksum` архива. `--directory` позволяет указать целевой configured root. Если запись manifest или state падает после копирования, target директория и state автоматически откатываются. После установки нужно запустить `php artisan migrate`.
@@ -113,7 +112,6 @@ php artisan modules:install /path/to/module-directory --directory=app/OtherModul
 ## Update
 
 ```bash
-php artisan modules:update blog /path/to/blog-v2
 php artisan modules:update blog /path/to/blog-v2.zip
 php artisan modules:update blog /path/to/blog-v2.zip --force
 ```

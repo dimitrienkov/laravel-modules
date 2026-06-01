@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\Support;
 
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
+use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleSourceException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
@@ -16,6 +17,8 @@ use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Throwable;
 use ZipArchive;
 
 final class ModuleSourcePreparerTest extends TestCase
@@ -141,6 +144,42 @@ final class ModuleSourcePreparerTest extends TestCase
         $this->preparer->cleanup($prepared);
 
         $this->addToAssertionCount(1);
+    }
+
+    #[Test]
+    public function prepareFromZipPreservesPrimaryExceptionWhenCleanupFails(): void
+    {
+        $zipPath = $this->createModuleZip('blog');
+
+        $primaryException = ModuleSourceException::forPath($zipPath, 'primary validation failure.');
+
+        $validator = $this->createMock(ManifestValidatorInterface::class);
+        $validator->method('validate')->willThrowException($primaryException);
+
+        // deleteDirectory still removes the temp dir (no leak) but then throws,
+        // simulating a cleanup double-fault that must not mask the primary error.
+        $cleanupFails = new LocalFilesystem(new class () extends Filesystem {
+            public function deleteDirectory($directory, $preserve = false): void
+            {
+                parent::deleteDirectory($directory, $preserve);
+
+                throw new RuntimeException('cleanup failure must not surface.');
+            }
+        });
+
+        $preparer = new ModuleSourcePreparer(
+            documentReader: new ManifestDocumentReader(),
+            validator: $validator,
+            zipExtractor: new ZipExtractor(new LocalFilesystem(new Filesystem())),
+            filesystem: $cleanupFails,
+        );
+
+        try {
+            $preparer->prepare($zipPath);
+            $this->fail('Expected the primary validation exception to propagate.');
+        } catch (Throwable $thrown) {
+            $this->assertSame($primaryException, $thrown);
+        }
     }
 
     private function createModuleZip(string $name): string

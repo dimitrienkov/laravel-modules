@@ -79,7 +79,12 @@ final readonly class ModuleSourcePreparer
                 checksum: $checksum,
             );
         } catch (Throwable $e) {
-            $this->filesystem->deleteDirectory($tempDir);
+            // Cleanup must not mask the primary failure: a throwing deleteDirectory
+            // would otherwise replace the original manifest/source validation error.
+            try {
+                $this->filesystem->deleteDirectory($tempDir);
+            } catch (Throwable) {
+            }
 
             throw $e;
         }
