@@ -6,13 +6,17 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Support;
 
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleLayout::class)]
+#[Group('support')]
 final class ModuleLayoutTest extends TestCase
 {
     #[Test]
-    public function it_resolves_module_subpaths_from_module_path(): void
+    public function resolvesModuleSubpathsFromModulePath(): void
     {
         $module = ModuleFactory::make(path: '/app/Modules/Blog');
         $layout = new ModuleLayout();
@@ -37,7 +41,7 @@ final class ModuleLayoutTest extends TestCase
     }
 
     #[Test]
-    public function it_resolves_namespace_segments_from_module(): void
+    public function resolvesNamespaceSegmentsFromModule(): void
     {
         $module = ModuleFactory::make(path: '/app/Modules/Blog', namespace: 'App\\Modules\\Blog');
         $layout = new ModuleLayout();

@@ -17,8 +17,10 @@ use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\RegistersLifecycleCommands;
 use Illuminate\Filesystem\Filesystem;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
+#[Group('feature')]
 final class MakeModuleCommandTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
@@ -127,6 +129,40 @@ final class MakeModuleCommandTest extends TestCase
         $this->artisanCommand('make:module blog --kind=invalid')
             ->assertFailed()
             ->expectsOutputToContain('allowed values: module, subsystem, integration');
+    }
+
+    #[Test]
+    public function scaffoldsModuleWithValidGroup(): void
+    {
+        $this->artisanCommand('make:module blog --group=blog-tools')
+            ->assertSuccessful();
+
+        $manifest = json_decode(
+            file_get_contents($this->tempDir . '/app/Modules/Blog/module.json'),
+            true,
+        );
+
+        $this->assertSame('blog-tools', $manifest['meta']['group']);
+    }
+
+    #[Test]
+    public function failsOnEmptyGroup(): void
+    {
+        $this->artisanCommand('make:module blog --group=')
+            ->assertFailed()
+            ->expectsOutputToContain('kebab-case');
+
+        $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
+    }
+
+    #[Test]
+    public function failsOnInvalidGroup(): void
+    {
+        $this->artisanCommand('make:module blog --group="Bad Group"')
+            ->assertFailed()
+            ->expectsOutputToContain('kebab-case');
+
+        $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
     }
 
     #[Test]

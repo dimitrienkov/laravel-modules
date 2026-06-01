@@ -11,15 +11,20 @@ use DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback;
 use DimitrienkoV\LaravelModules\Application\UseCases\ScaffoldModuleUseCase;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use Illuminate\Filesystem\Filesystem;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ScaffoldModuleUseCase::class)]
+#[Group('lifecycle')]
 final class ScaffoldModuleUseCaseTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
@@ -102,6 +107,17 @@ final class ScaffoldModuleUseCaseTest extends TestCase
     }
 
     #[Test]
+    public function scaffoldWritesValidGroupToManifest(): void
+    {
+        $useCase = $this->makeUseCase();
+
+        $result = $useCase->execute(new ScaffoldModuleConfig(name: 'blog', group: new ModuleGroup('blog-tools')));
+
+        $manifest = json_decode(file_get_contents($result->path . '/module.json'), true);
+        $this->assertSame('blog-tools', $manifest['meta']['group']);
+    }
+
+    #[Test]
     public function scaffoldThrowsWhenModuleExists(): void
     {
         $useCase = $this->makeUseCase();
@@ -179,6 +195,20 @@ final class ScaffoldModuleUseCaseTest extends TestCase
         $this->expectExceptionMessageMatches('/failed to remove existing directory/');
 
         $useCase2->execute(new ScaffoldModuleConfig(name: 'blog', force: true));
+    }
+
+    #[Test]
+    public function scaffoldWritesLocalSourceOrigin(): void
+    {
+        $useCase = $this->makeUseCase();
+
+        $result = $useCase->execute(new ScaffoldModuleConfig(name: 'blog'));
+
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayHasKey('source', $state);
+        $this->assertSame('local', $state['source']['kind']);
+        $this->assertSame('1.0.0', $state['source']['installed_version']);
+        $this->assertArrayNotHasKey('checksum', $state['source']);
     }
 
     #[Test]

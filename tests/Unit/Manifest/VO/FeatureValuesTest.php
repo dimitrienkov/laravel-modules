@@ -8,9 +8,13 @@ use DimitrienkoV\LaravelModules\Exceptions\FeatureNotFoundException;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(FeatureValues::class)]
+#[Group('manifest')]
 final class FeatureValuesTest extends TestCase
 {
     private FeatureSchema $schema;
@@ -27,7 +31,7 @@ final class FeatureValuesTest extends TestCase
     }
 
     #[Test]
-    public function it_includes_module_name_in_unknown_value_error(): void
+    public function includesModuleNameInUnknownValueError(): void
     {
         $schema = FeatureSchema::fromArray([], '/tmp/module.json');
 
@@ -43,7 +47,7 @@ final class FeatureValuesTest extends TestCase
     }
 
     #[Test]
-    public function get_returns_explicit_value_when_set(): void
+    public function getReturnsExplicitValueWhenSet(): void
     {
         $values = FeatureValues::fromArray(
             ['comments_enabled' => false],
@@ -56,7 +60,7 @@ final class FeatureValuesTest extends TestCase
     }
 
     #[Test]
-    public function get_returns_schema_default_when_value_not_set(): void
+    public function getReturnsSchemaDefaultWhenValueNotSet(): void
     {
         $values = FeatureValues::fromArray([], $this->schema, 'blog', '/tmp/module.json');
 
@@ -65,7 +69,7 @@ final class FeatureValuesTest extends TestCase
     }
 
     #[Test]
-    public function get_throws_feature_not_found_for_key_without_default(): void
+    public function getThrowsFeatureNotFoundForKeyWithoutDefault(): void
     {
         $values = FeatureValues::fromArray([], $this->schema, 'blog', '/tmp/module.json');
 
@@ -76,7 +80,7 @@ final class FeatureValuesTest extends TestCase
     }
 
     #[Test]
-    public function with_returns_new_feature_values_with_updated_value(): void
+    public function withReturnsNewFeatureValuesWithUpdatedValue(): void
     {
         $values = FeatureValues::fromArray(
             ['comments_enabled' => true],
@@ -92,7 +96,7 @@ final class FeatureValuesTest extends TestCase
     }
 
     #[Test]
-    public function explicit_values_returns_only_set_values_not_defaults(): void
+    public function explicitValuesReturnsOnlySetValuesNotDefaults(): void
     {
         $values = FeatureValues::fromArray(
             ['comments_enabled' => false],
@@ -108,7 +112,7 @@ final class FeatureValuesTest extends TestCase
     }
 
     #[Test]
-    public function from_array_normalizes_values_through_feature_definition(): void
+    public function fromArrayNormalizesValuesThroughFeatureDefinition(): void
     {
         $schema = FeatureSchema::fromArray([
             'posts_per_page' => ['type' => 'int', 'default' => 10, 'min' => 1, 'max' => 100],
@@ -125,7 +129,7 @@ final class FeatureValuesTest extends TestCase
     }
 
     #[Test]
-    public function from_array_rejects_non_string_key(): void
+    public function fromArrayRejectsNonStringKey(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('must be feature names');

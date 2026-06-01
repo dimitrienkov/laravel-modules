@@ -12,8 +12,10 @@ use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\RegistersLifecycleCommands;
 use Illuminate\Filesystem\Filesystem;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
+#[Group('feature')]
 final class ModulesListCommandTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
@@ -149,6 +151,104 @@ final class ModulesListCommandTest extends TestCase
             ->expectsOutputToContain('cannot be used together');
     }
 
+    #[Test]
+    public function listShowsGroupColumn(): void
+    {
+        $this->writeManifestWithGroup('blog', 'content');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list')
+            ->assertSuccessful()
+            ->expectsOutputToContain('Group')
+            ->expectsOutputToContain('content');
+    }
+
+    #[Test]
+    public function listRendersGroupLabelWithCodeFromConfig(): void
+    {
+        $this->app['config']->set('modules.groups', ['content' => 'CMS']);
+        $this->writeManifestWithGroup('blog', 'content');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list')
+            ->assertSuccessful()
+            ->expectsOutputToContain('CMS (content)');
+    }
+
+    #[Test]
+    public function listFallsBackToGroupCodeWhenLabelMissing(): void
+    {
+        $this->app['config']->set('modules.groups', ['content' => 'CMS']);
+        $this->writeManifestWithGroup('stripe', 'payments');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list')
+            ->assertSuccessful()
+            ->expectsOutputToContain('payments')
+            ->doesntExpectOutputToContain('CMS');
+    }
+
+    #[Test]
+    public function listFiltersByGroup(): void
+    {
+        $this->writeManifestWithGroup('blog', 'content');
+        $this->writeManifestWithGroup('stripe', 'payments');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list --group=content')
+            ->assertSuccessful()
+            ->expectsOutputToContain('blog')
+            ->doesntExpectOutputToContain('stripe');
+    }
+
+    #[Test]
+    public function listRejectsInvalidGroupFormat(): void
+    {
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list --group=bad_group')
+            ->assertFailed()
+            ->expectsOutputToContain('Module group [bad_group]');
+    }
+
+    #[Test]
+    public function listFailsWhenConfiguredGroupLabelIsNotString(): void
+    {
+        // A present group whose configured label is non-string is malformed config.
+        // Rendering the row drives ModuleGroupLabelResolver's lazy validation, which
+        // throws InvalidConfigurationException — caught by the command as a clean
+        // FAILURE. This exercises the resolver throw-path end-to-end via modules:list.
+        $this->app['config']->set('modules.groups', ['content' => ['nested' => 'value']]);
+        $this->writeManifestWithGroup('blog', 'content');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list')
+            ->assertFailed()
+            ->expectsOutputToContain('label for group [content] must be a non-empty string');
+    }
+
+    #[Test]
+    public function listShowsGroupSpecificEmptyMessageForValidMissingGroup(): void
+    {
+        $this->writeManifestWithGroup('blog', 'content');
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list --group=payments')
+            ->assertSuccessful()
+            ->expectsOutputToContain('No modules found in group [payments]');
+    }
+
+    #[Test]
+    public function listModuleWithoutGroupShowsEmptyCell(): void
+    {
+        $this->writeManifest('blog', enabled: true);
+        $this->registerListCommand();
+
+        $this->artisanCommand('modules:list')
+            ->assertSuccessful()
+            ->expectsOutputToContain('blog');
+    }
+
     private function registerListCommand(): void
     {
         $config = $this->lifecycleConfig();
@@ -164,6 +264,12 @@ final class ModulesListCommandTest extends TestCase
     private function writeManifest(string $name, bool $enabled = true, string $kind = 'module'): void
     {
         $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, schema: [], kind: $kind);
+        $this->writeModuleState($this->stateRoot, $name, $enabled);
+    }
+
+    private function writeManifestWithGroup(string $name, string $group, bool $enabled = true): void
+    {
+        $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, schema: [], group: $group);
         $this->writeModuleState($this->stateRoot, $name, $enabled);
     }
 }

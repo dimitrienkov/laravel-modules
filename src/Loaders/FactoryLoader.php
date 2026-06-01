@@ -73,7 +73,16 @@ final class FactoryLoader implements LoaderInterface
         }
 
         if (\is_callable($this->previousFactoryNameResolver)) {
-            return ($this->previousFactoryNameResolver)($modelClass);
+            $resolved = ($this->previousFactoryNameResolver)($modelClass);
+
+            // guessFactoryNamesUsing's contract is to return a class-string. A
+            // non-string result from a previously registered resolver is
+            // intentionally discarded — we fall through to the package default
+            // rather than honour a value that cannot name a factory class. This
+            // swallow is deliberate, not a missing else branch.
+            if (\is_string($resolved)) {
+                return $resolved;
+            }
         }
 
         return $this->defaultFactoryClassFor($modelClass);

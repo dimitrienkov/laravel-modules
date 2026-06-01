@@ -6,9 +6,11 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Support;
 
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[Group('support')]
 final class CreatesModuleFilesTest extends TestCase
 {
     use CreatesModuleFiles;

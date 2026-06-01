@@ -8,7 +8,9 @@ use DimitrienkoV\LaravelModules\Application\DTOs\ScaffoldModuleConfig;
 use DimitrienkoV\LaravelModules\Application\UseCases\ScaffoldModuleUseCase;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
 use Illuminate\Console\Command;
+use InvalidArgumentException;
 
 final class MakeModuleCommand extends Command
 {
@@ -16,6 +18,7 @@ final class MakeModuleCommand extends Command
         {name : The module name (lowercase snake_case)}
         {--directory= : Target module root directory}
         {--kind= : Module kind (module, subsystem, integration)}
+        {--group= : Module group for UI/CLI grouping (kebab-case)}
         {--disabled : Create the module in disabled state}
         {--overwrite : Overwrite if module already exists}';
 
@@ -44,12 +47,27 @@ final class MakeModuleCommand extends Command
             }
         }
 
+        /** @var string|null $groupRaw */
+        $groupRaw = $this->option('group');
+        $group = null;
+
+        if ($groupRaw !== null) {
+            try {
+                $group = new ModuleGroup($groupRaw);
+            } catch (InvalidArgumentException $e) {
+                $this->components->error($e->getMessage());
+
+                return self::FAILURE;
+            }
+        }
+
         $config = new ScaffoldModuleConfig(
             name: $name,
             directory: $directory,
             enabled: ! $this->option('disabled'),
             force: (bool) $this->option('overwrite'),
             kind: $kind,
+            group: $group,
         );
 
         try {

@@ -15,9 +15,6 @@ php artisan vendor:publish --tag=modules-config
 ```php
 <?php
 
-use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
-use Illuminate\Routing\Middleware\SubstituteBindings;
-
 return [
     'paths' => [
         'directories' => [
@@ -28,11 +25,15 @@ return [
         'backup' => storage_path('app/module-backups'),
         'state' => storage_path('app/private/modules'),
     ],
+    'groups' => [
+        // 'content' => 'Content Management',
+        // 'e-commerce' => 'E-Commerce',
+    ],
     'routing' => [
         'types' => [
             'api' => [
                 'prefix' => 'api',
-                'middleware' => [SubstituteBindings::class, ConvertEmptyStringsToNull::class, 'api'],
+                'middleware' => ['api'],
             ],
             'web' => [
                 'prefix' => null,
@@ -42,6 +43,14 @@ return [
                 'prefix' => null,
                 'middleware' => ['web'],
             ],
+            // Versioned API is just another config-driven type. Uncomment to load
+            // `Routes/api_v1.php` under the `api/v1` prefix with a dedicated
+            // `api_v1` middleware group (declare that group in the host app's
+            // bootstrap/app.php).
+            // 'api_v1' => [
+            //     'prefix' => 'api/v1',
+            //     'middleware' => ['api_v1'],
+            // ],
         ],
     ],
 ];
@@ -80,7 +89,20 @@ storage/app/private/modules/
     └── state.json
 ```
 
-`state.json` хранит `enabled`, `installed_at`, `updated_at` и `settings.values`. `ModuleStatePaths` валидирует, что state root не пересекается с module directories.
+`state.json` хранит `enabled`, `installed_at`, `updated_at`, опциональную секцию `source` (provenance: `kind`, `installed_version` и `checksum` для `zip`-origin) и `settings.values`. Полная структура `source` и пример `state.json` — в [docs/manifest.md](manifest.md). `ModuleStatePaths` валидирует, что state root не пересекается с module directories.
+
+## Module groups
+
+`modules.groups` задаёт маппинг кода группы (`meta.group`) на human-readable label в формате `'code' => 'Human Label'`:
+
+```php
+'groups' => [
+    'content' => 'Content Management',
+    'e-commerce' => 'E-Commerce',
+],
+```
+
+Label используется командой `modules:list` в колонке Group и рендерится как `"Human Label (code)"`. Если для кода нет записи — выводится голый код (допустимый fallback). Malformed config — fail-loud: если `modules.groups` не array, либо label для запрашиваемого кода присутствует, но не строка или пустой, `modules:list` падает с `InvalidConfigurationException`. `modules.groups` — единственная точка валидации этого маппинга, поэтому silent fallback на ошибочном label больше не применяется. Фильтр `modules:list --group=<code>` всегда работает по коду, а не по label. Коды также зарезервированы под будущий module UI.
 
 ## Stubs
 
@@ -92,7 +114,9 @@ php artisan vendor:publish --tag=modules-stubs
 
 ## Route types
 
-`RouteLoader` читает `modules.routing.types`. Каждый type соответствует файлу `Routes/<type>.php`.
+`RouteLoader` полностью config-driven: он читает `modules.routing.types` и для каждого
+объявленного `<type>` загружает файл `Routes/<type>.php` с его attributes. Других
+conventions нет — добавить новый route-тип значит добавить ключ в config.
 
 | Config key | Route file | Notes |
 |------------|------------|-------|
@@ -100,18 +124,32 @@ php artisan vendor:publish --tag=modules-stubs
 | `web` | `Routes/web.php` | Использует web route attributes |
 | `inertia` | `Routes/inertia.php` | Skipped, если Inertia не установлена |
 
-Attributes передаются в Laravel router groups после удаления `null` values.
+Attributes передаются в Laravel router groups после удаления `null` values. Порядок
+групп детерминирован и совпадает с порядком ключей в `modules.routing.types`.
 
 ## Versioned API routes
 
-Файлы в `Routes/api/*.php` загружаются как versioned API routes. Имя файла становится suffix после API prefix.
+Версионирование — это обычный config-driven type, а не отдельная convention.
+Объявите профиль (например `api_v1`) с нужным prefix и middleware-группой, и
+`RouteLoader` загрузит соответствующий flat-файл `Routes/api_v1.php`.
 
-```text
-Routes/api/v1.php -> api/v1
-Routes/api/v2.php -> api/v2
+```php
+'routing' => [
+    'types' => [
+        'api_v1' => [
+            'prefix' => 'api/v1',
+            'middleware' => ['api_v1'],
+        ],
+    ],
+],
 ```
 
-Loader сортирует эти файлы по имени для deterministic route registration.
+```text
+Routes/api_v1.php -> api/v1   (middleware: api_v1)
+```
+
+Middleware-группу `api_v1` host-приложение объявляет в `bootstrap/app.php`. Для
+второй версии добавьте аналогичный тип `api_v2` → `Routes/api_v2.php`.
 
 ## Routes cache
 

@@ -13,9 +13,13 @@ use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleRegistryCache::class)]
+#[Group('registry')]
 final class ModuleRegistryCacheTest extends TestCase
 {
     private string $tempDir;
@@ -36,7 +40,7 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function it_builds_payload_without_state_or_values(): void
+    public function buildsPayloadWithoutStateOrValues(): void
     {
         $cache = $this->cache();
         $module = ModuleFactory::make(name: 'blog');
@@ -53,7 +57,7 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function it_writes_and_reads_cache_round_trip(): void
+    public function writesAndReadsCacheRoundTrip(): void
     {
         $cache = $this->cache();
         $module = ModuleFactory::make(name: 'blog', path: $this->tempDir . '/app/Modules/Blog');
@@ -68,7 +72,7 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function it_preserves_existing_cache_file_permissions_on_atomic_write(): void
+    public function preservesExistingCacheFilePermissionsOnAtomicWrite(): void
     {
         $cache = $this->cache();
         $cachePath = $cache->cachePath();
@@ -81,7 +85,7 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function it_reports_existence_correctly(): void
+    public function reportsExistenceCorrectly(): void
     {
         $cache = $this->cache();
 
@@ -93,7 +97,7 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function it_forgets_cache_file(): void
+    public function forgetsCacheFile(): void
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php return [];');
@@ -104,7 +108,7 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function forget_is_idempotent(): void
+    public function forgetIsIdempotent(): void
     {
         $cache = $this->cache();
 
@@ -114,7 +118,7 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_v3_cache_payload(): void
+    public function rejectsV3CachePayload(): void
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php return ' . var_export([
@@ -130,7 +134,7 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_wrong_cache_version(): void
+    public function throwsForWrongCacheVersion(): void
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php return ' . var_export([
@@ -146,7 +150,7 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function it_wraps_cache_require_failures(): void
+    public function wrapsCacheRequireFailures(): void
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php throw new RuntimeException("broken cache");');
@@ -158,7 +162,7 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_when_load_order_references_missing_module(): void
+    public function throwsWhenLoadOrderReferencesMissingModule(): void
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php return ' . var_export([
@@ -174,7 +178,7 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_when_load_order_contains_duplicates(): void
+    public function throwsWhenLoadOrderContainsDuplicates(): void
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php return ' . var_export([
@@ -192,7 +196,25 @@ final class ModuleRegistryCacheTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_when_module_absent_from_load_order(): void
+    public function throwsWhenCachedManifestHasIntegerKeys(): void
+    {
+        $cache = $this->cache();
+        file_put_contents($cache->cachePath(), '<?php return ' . var_export([
+            'version' => 4,
+            'modules' => [
+                'blog' => ['path' => '/tmp/blog', 'namespace' => 'App\\Blog', 'manifest' => [1 => 'x']],
+            ],
+            'load_order' => ['blog'],
+        ], true) . ';');
+
+        $this->expectException(InvalidModuleCacheException::class);
+        $this->expectExceptionMessage('manifest must be an object');
+
+        $cache->load();
+    }
+
+    #[Test]
+    public function throwsWhenModuleAbsentFromLoadOrder(): void
     {
         $cache = $this->cache();
         file_put_contents($cache->cachePath(), '<?php return ' . var_export([

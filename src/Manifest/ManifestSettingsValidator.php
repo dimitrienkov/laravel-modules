@@ -26,7 +26,6 @@ final readonly class ManifestSettingsValidator
             throw InvalidManifestException::forPath($manifestPath, 'settings.schema must be an object.');
         }
 
-        /** @var array<string, mixed> $schemaRaw */
         FeatureSchema::fromArray($schemaRaw, $manifestPath);
     }
 }

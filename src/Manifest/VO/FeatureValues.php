@@ -19,7 +19,7 @@ final readonly class FeatureValues
     }
 
     /**
-     * @param array<string, mixed> $values
+     * @param array<array-key, mixed> $values
      */
     public static function fromArray(
         array $values,

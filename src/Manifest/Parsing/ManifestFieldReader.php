@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Manifest\Parsing;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
+use DimitrienkoV\LaravelModules\Support\StringKeyedObject;
 
 final readonly class ManifestFieldReader
 {
@@ -46,7 +47,10 @@ final readonly class ManifestFieldReader
             throw InvalidManifestException::forPath($manifestPath, "{$key} must be an object.");
         }
 
-        return $value;
+        return StringKeyedObject::toStringKeyedObject(
+            $value,
+            static fn (): InvalidManifestException => InvalidManifestException::forPath($manifestPath, "{$key} must be an object."),
+        );
     }
 
     /**

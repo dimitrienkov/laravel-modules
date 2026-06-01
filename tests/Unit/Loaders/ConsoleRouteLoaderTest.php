@@ -13,9 +13,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernelContract;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ConsoleRouteLoader::class)]
+#[Group('loaders')]
 final class ConsoleRouteLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -35,7 +39,7 @@ final class ConsoleRouteLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_console_route_file_via_kernel_after_boot(): void
+    public function registersConsoleRouteFileViaKernelAfterBoot(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $consoleRoutesFile = $modulePath . '/Routes/console.php';
@@ -58,7 +62,7 @@ final class ConsoleRouteLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_console_route_file_when_contract_kernel_was_already_resolved(): void
+    public function registersConsoleRouteFileWhenContractKernelWasAlreadyResolved(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $consoleRoutesFile = $modulePath . '/Routes/console.php';
@@ -80,7 +84,7 @@ final class ConsoleRouteLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_console_route_file_immediately_when_app_is_already_booted(): void
+    public function registersConsoleRouteFileImmediatelyWhenAppIsAlreadyBooted(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $consoleRoutesFile = $modulePath . '/Routes/console.php';
@@ -99,7 +103,7 @@ final class ConsoleRouteLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_console_routes_file_is_missing(): void
+    public function returnsEarlyWhenConsoleRoutesFileIsMissing(): void
     {
         $app = new Application($this->tempDir);
         $kernel = new RecordingConsoleKernel();
@@ -115,7 +119,7 @@ final class ConsoleRouteLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_not_running_in_console(): void
+    public function returnsEarlyWhenNotRunningInConsole(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $consoleRoutesFile = $modulePath . '/Routes/console.php';

@@ -12,9 +12,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\View\Compilers\BladeCompiler;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(BladeComponentLoader::class)]
+#[Group('loaders')]
 final class BladeComponentLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -34,7 +38,7 @@ final class BladeComponentLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_blade_component_namespace_for_module(): void
+    public function registersBladeComponentNamespaceForModule(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath . '/View/Components', 0755, true);
@@ -55,7 +59,7 @@ final class BladeComponentLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_blade_component_namespace_when_compiler_was_already_resolved(): void
+    public function registersBladeComponentNamespaceWhenCompilerWasAlreadyResolved(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath . '/View/Components', 0755, true);
@@ -73,7 +77,7 @@ final class BladeComponentLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_blade_components_directory_is_missing(): void
+    public function returnsEarlyWhenBladeComponentsDirectoryIsMissing(): void
     {
         $blade = new BladeCompiler(new Filesystem(), $this->tempDir);
         $app = new Application($this->tempDir);

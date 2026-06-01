@@ -7,14 +7,18 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\VO;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ManifestMeta::class)]
+#[Group('manifest')]
 final class ManifestMetaTest extends TestCase
 {
     #[Test]
-    public function it_accepts_valid_snake_case_names(): void
+    public function acceptsValidSnakeCaseNames(): void
     {
         foreach (['blog', 'catalog_product', 'a', 'users123'] as $name) {
             $meta = ManifestMeta::fromArray(
@@ -28,7 +32,7 @@ final class ManifestMetaTest extends TestCase
 
     #[Test]
     #[DataProvider('invalidNameProvider')]
-    public function it_rejects_non_snake_case_names(string $name): void
+    public function rejectsNonSnakeCaseNames(string $name): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('meta.name must be lowercase snake_case');
@@ -54,7 +58,7 @@ final class ManifestMetaTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_camel_case_display_name_key(): void
+    public function rejectsCamelCaseDisplayNameKey(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('meta contains unknown key [displayName]');
@@ -66,7 +70,7 @@ final class ManifestMetaTest extends TestCase
     }
 
     #[Test]
-    public function it_uses_display_name_snake_case_key(): void
+    public function usesDisplayNameSnakeCaseKey(): void
     {
         $meta = ManifestMeta::fromArray(
             ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'display_name' => 'My Blog'],
@@ -77,7 +81,7 @@ final class ManifestMetaTest extends TestCase
     }
 
     #[Test]
-    public function it_falls_back_to_name_when_display_name_is_absent(): void
+    public function fallsBackToNameWhenDisplayNameIsAbsent(): void
     {
         $meta = ManifestMeta::fromArray(
             ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0'],
@@ -88,7 +92,7 @@ final class ManifestMetaTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_missing_version_field(): void
+    public function rejectsMissingVersionField(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('meta.version must be a non-empty string');
@@ -100,7 +104,7 @@ final class ManifestMetaTest extends TestCase
     }
 
     #[Test]
-    public function it_parses_kind_into_module_kind_enum(): void
+    public function parsesKindIntoModuleKindEnum(): void
     {
         $meta = ManifestMeta::fromArray(
             ['name' => 'blog', 'kind' => 'integration', 'version' => '1.0.0'],
@@ -111,7 +115,7 @@ final class ManifestMetaTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_unknown_kind_value(): void
+    public function rejectsUnknownKindValue(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('meta.kind [plugin] is not valid');
@@ -123,7 +127,7 @@ final class ManifestMetaTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_missing_kind(): void
+    public function rejectsMissingKind(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('meta.kind must be a non-empty string');
@@ -135,7 +139,7 @@ final class ManifestMetaTest extends TestCase
     }
 
     #[Test]
-    public function kind_survives_round_trip(): void
+    public function kindSurvivesRoundTrip(): void
     {
         $meta = ManifestMeta::fromArray(
             ['name' => 'blog', 'kind' => 'subsystem', 'version' => '1.0.0'],
@@ -149,5 +153,108 @@ final class ManifestMetaTest extends TestCase
         $restored = ManifestMeta::fromArray($array, '/tmp/module.json');
 
         self::assertSame(ModuleKind::Subsystem, $restored->kind);
+    }
+
+    #[Test]
+    public function parsesGroupWhenPresent(): void
+    {
+        $meta = ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'group' => 'content'],
+            '/tmp/module.json',
+        );
+
+        self::assertSame('content', $meta->group?->value);
+    }
+
+    #[Test]
+    public function allowsNullGroupWhenAbsent(): void
+    {
+        $meta = ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0'],
+            '/tmp/module.json',
+        );
+
+        self::assertNull($meta->group);
+    }
+
+    #[Test]
+    #[DataProvider('invalidGroupProvider')]
+    public function rejectsInvalidGroupFormat(string $group): void
+    {
+        $this->expectException(InvalidManifestException::class);
+        $this->expectExceptionMessage('must be kebab-case');
+
+        ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'group' => $group],
+            '/tmp/module.json',
+        );
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidGroupProvider(): array
+    {
+        return [
+            'PascalCase' => ['Content'],
+            'contains space' => ['my group'],
+            'contains underscore' => ['my_group'],
+            'trailing hyphen' => ['content-'],
+            'leading hyphen' => ['-content'],
+            'double hyphen' => ['foo--bar'],
+            'empty string' => [''],
+        ];
+    }
+
+    #[Test]
+    public function toArrayIncludesGroupWhenNonNull(): void
+    {
+        $meta = ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'group' => 'content'],
+            '/tmp/module.json',
+        );
+
+        $array = $meta->toArray();
+
+        self::assertSame('content', $array['group']);
+    }
+
+    #[Test]
+    public function toArrayOmitsGroupWhenNull(): void
+    {
+        $meta = ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0'],
+            '/tmp/module.json',
+        );
+
+        $array = $meta->toArray();
+
+        self::assertArrayNotHasKey('group', $array);
+    }
+
+    #[Test]
+    public function groupSurvivesRoundTrip(): void
+    {
+        $meta = ManifestMeta::fromArray(
+            ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'group' => 'content'],
+            '/tmp/module.json',
+        );
+
+        $restored = ManifestMeta::fromArray($meta->toArray(), '/tmp/module.json');
+
+        self::assertSame('content', $restored->group?->value);
+    }
+
+    #[Test]
+    public function groupAcceptsValidKebabCaseValues(): void
+    {
+        foreach (['content', 'e-commerce', 'core-services', 'a', 'billing2', '1content'] as $group) {
+            $meta = ManifestMeta::fromArray(
+                ['name' => 'blog', 'kind' => 'module', 'version' => '1.0.0', 'group' => $group],
+                '/tmp/module.json',
+            );
+
+            self::assertSame($group, $meta->group?->value);
+        }
     }
 }

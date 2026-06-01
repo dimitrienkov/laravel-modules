@@ -33,12 +33,20 @@ final readonly class LocalFilesystem
      */
     public function directories(string $directory): array
     {
-        return array_values($this->filesystem->directories($directory));
+        return array_values(array_filter(
+            $this->filesystem->directories($directory),
+            'is_string',
+        ));
     }
 
     public function get(string $path): string
     {
         return $this->filesystem->get($path);
+    }
+
+    public function hashFile(string $path, string $algorithm): string|false
+    {
+        return $this->filesystem->hash($path, $algorithm);
     }
 
     public function ensureDirectoryExists(string $path, int $mode = 0755): void

@@ -24,9 +24,13 @@ use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(OptimizeModulesUseCase::class)]
+#[Group('lifecycle')]
 final class OptimizeModulesUseCaseTest extends TestCase
 {
     use CreatesModuleFiles;
@@ -53,7 +57,7 @@ final class OptimizeModulesUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function it_writes_cache_from_fresh_scan(): void
+    public function writesCacheFromFreshScan(): void
     {
         $this->writeModule('users', '1.0.0');
         $this->writeModule('blog', '1.0.0', ['users' => '^1.0']);
@@ -76,7 +80,7 @@ final class OptimizeModulesUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_correct_count_for_single_module(): void
+    public function returnsCorrectCountForSingleModule(): void
     {
         $this->writeModule('blog', '1.0.0');
 

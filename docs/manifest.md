@@ -11,6 +11,8 @@
   "meta": {
     "name": "blog",
     "display_name": "Blog",
+    "kind": "module",
+    "group": "content",
     "description": "Corporate blog with comments",
     "version": "1.0.0",
     "author": "Acme Studio",
@@ -58,6 +60,8 @@
 |------|-------------|------------|
 | `name` | Да | Canonical module name для registry и feature API |
 | `display_name` | Нет | Human-readable name; fallback на `name` |
+| `kind` | Да | Backed enum `ModuleKind`: `module`, `subsystem`, `integration`. Презентационный — не влияет на loader pipeline, dependency resolution или enable/disable. При scaffold infer'ится из target-директории (`Modules→module`, `Integrations→integration`, `Subsystems→subsystem`) |
+| `group` | Нет | Логическая группа, segment kebab-case (`/^[a-z0-9]+(-[a-z0-9]+)*$/`): lowercase буквы и цифры в сегментах через одиночный дефис, без ведущего/двойного/хвостового дефиса. Используется для отображения в `modules:list` и маппинга `modules.groups`; не влияет на pipeline или dependency resolution |
 | `description` | Нет | Описание модуля |
 | `version` | Да | Version для dependency checks |
 | `author` | Нет | Author string |
@@ -93,6 +97,11 @@ storage/app/private/modules/{name}/state.json
   "enabled": true,
   "installed_at": "2026-05-23T14:12:00+00:00",
   "updated_at": "2026-05-23T14:12:00+00:00",
+  "source": {
+    "kind": "zip",
+    "installed_version": "1.0.0",
+    "checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
   "settings": {
     "values": {
       "enable_comments": false,
@@ -109,13 +118,28 @@ storage/app/private/modules/{name}/state.json
 | `enabled` | Да | Управляет применением default loaders к модулю |
 | `installed_at` | Нет | Installation timestamp |
 | `updated_at` | Нет | Update timestamp |
+| `source` | Нет | Provenance установленного модуля (см. [Source provenance](#source-provenance)) |
 | `settings` | Нет | Object с `values` — explicit feature overrides |
+
+### Source provenance
+
+Опциональная секция `source` фиксирует происхождение установленного модуля. Записывается lifecycle UseCase-классами (scaffold, install, update) через `ModuleOrigin` VO и не влияет на loader pipeline или registry cache.
+
+| Поле | Обязательно | Назначение |
+|------|-------------|------------|
+| `kind` | Да | Backed enum `ModuleOriginKind`: `local` (scaffold) или `zip` (install/update из архива) |
+| `installed_version` | Да | `meta.version` на момент установки/обновления |
+| `checksum` | Зависит от `kind` | sha256-хеш архива (64 hex, lowercase). Обязателен для `zip`, отсутствует для `local` |
+
+`local`-origin не несёт `checksum`, `zip`-origin обязан его иметь — инвариант проверяется при чтении `state.json`; нарушение → `InvalidModuleStateException`. Секция опциональна: `state.json` без `source` валиден (origin = `null`).
+
+> **Provenance, не integrity verification.** `checksum` фиксирует sha256 zip-архива в момент его чтения при install/update — это запись происхождения, а не проверка целостности. Текущий runtime не сверяет архив или установленные файлы с ожидаемым digest или подписью. Verification/signature flow относится к packaging/marketplace roadmap, а не к реализованному поведению.
 
 State writes должны идти через `ModuleStateRepository`. Команды `enable`, `disable` и settings writes модифицируют только `state.json`. Команды `install`, `scaffold` и `update` создают или переписывают `module.json` через `writeManifest()` и создают `state.json`.
 
 Если `state.json` отсутствует, `ModuleStateRepository` возвращает default disabled state и пустые explicit values. Это позволяет registry видеть модуль, но loader pipeline пропускает его до явного включения.
 
-Source-модуль не должен содержать `state.json`. `ModuleSourcePreparer` отклоняет directory/zip source с таким файлом, потому что runtime state создаётся и переносится только host-приложением.
+Source-модуль не должен содержать `state.json`. `ModuleSourcePreparer` отклоняет `.zip` source с таким файлом, потому что runtime state создаётся и переносится только host-приложением.
 
 ## `settings.schema`
 

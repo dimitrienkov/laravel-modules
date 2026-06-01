@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Application\DTOs;
 
+use DimitrienkoV\LaravelModules\Manifest\VO\Version;
+
 final readonly class UpdateModuleResult
 {
     /**
@@ -11,8 +13,8 @@ final readonly class UpdateModuleResult
      */
     public function __construct(
         public string $name,
-        public string $oldVersion,
-        public string $newVersion,
+        public Version $oldVersion,
+        public Version $newVersion,
         public array $skippedValues,
         public string $path,
     ) {

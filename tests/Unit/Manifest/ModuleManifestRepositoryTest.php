@@ -15,14 +15,21 @@ use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleManifestRepository::class)]
+#[Group('manifest')]
 final class ModuleManifestRepositoryTest extends TestCase
 {
+    use CreatesModuleFiles;
+
     private string $modulePath;
 
     private string $tempDir;
@@ -45,7 +52,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_loads_valid_manifest_into_module_value_object(): void
+    public function loadsValidManifestIntoModuleValueObject(): void
     {
         $this->writeManifest($this->validManifest());
 
@@ -58,7 +65,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_loads_module_with_state_from_state_repository(): void
+    public function loadsModuleWithStateFromStateRepository(): void
     {
         $this->writeManifest($this->validManifest());
 
@@ -70,7 +77,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_loads_module_with_disabled_default_when_no_state(): void
+    public function loadsModuleWithDisabledDefaultWhenNoState(): void
     {
         $this->writeManifest($this->validManifest());
 
@@ -80,7 +87,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_missing_manifest(): void
+    public function throwsForMissingManifest(): void
     {
         $this->expectException(ModuleNotFoundException::class);
         $this->expectExceptionMessage('module.json manifest');
@@ -89,7 +96,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_invalid_json(): void
+    public function throwsForInvalidJson(): void
     {
         file_put_contents($this->modulePath . '/module.json', '{');
 
@@ -100,7 +107,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_writes_immutable_manifest_without_state_or_values(): void
+    public function writesImmutableManifestWithoutStateOrValues(): void
     {
         $this->writeManifest($this->validManifest());
 
@@ -116,7 +123,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_accepts_empty_settings_object(): void
+    public function acceptsEmptySettingsObject(): void
     {
         $manifest = $this->validManifest();
         $manifest['settings'] = ['schema' => []];
@@ -128,7 +135,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_accepts_feature_definitions_with_ui_metadata(): void
+    public function acceptsFeatureDefinitionsWithUiMetadata(): void
     {
         $manifest = $this->validManifest();
         $manifest['settings']['schema']['comments_enabled']['label'] = 'Включить комментарии';
@@ -145,7 +152,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_accepts_license_in_meta(): void
+    public function acceptsLicenseInMeta(): void
     {
         $manifest = $this->validManifest();
         $manifest['meta']['license'] = 'proprietary';
@@ -157,7 +164,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_manifest_with_state_section(): void
+    public function rejectsManifestWithStateSection(): void
     {
         $manifest = $this->validManifest();
         $manifest['state'] = ['enabled' => true];
@@ -170,7 +177,7 @@ final class ModuleManifestRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_manifest_with_settings_values(): void
+    public function rejectsManifestWithSettingsValues(): void
     {
         $manifest = $this->validManifest();
         $manifest['settings']['values'] = [];
@@ -203,30 +210,23 @@ final class ModuleManifestRepositoryTest extends TestCase
      */
     private function validManifest(): array
     {
-        return [
-            'schema_version' => 1,
-            'meta' => [
-                'name' => 'blog',
-                'display_name' => 'Blog',
-                'kind' => 'module',
-                'version' => '1.0.0',
-                'dependencies' => ['users' => '^1.0'],
-            ],
-            'settings' => [
-                'schema' => [
-                    'comments_enabled' => [
-                        'type' => 'bool',
-                        'default' => true,
-                    ],
-                    'posts_per_page' => [
-                        'type' => 'int',
-                        'default' => 10,
-                        'min' => 1,
-                        'max' => 50,
-                    ],
+        return $this->moduleManifestArray(
+            'blog',
+            '1.0.0',
+            ['users' => '^1.0'],
+            [
+                'comments_enabled' => [
+                    'type' => 'bool',
+                    'default' => true,
+                ],
+                'posts_per_page' => [
+                    'type' => 'int',
+                    'default' => 10,
+                    'min' => 1,
+                    'max' => 50,
                 ],
             ],
-        ];
+        );
     }
 
     /**
@@ -245,12 +245,7 @@ final class ModuleManifestRepositoryTest extends TestCase
      */
     private function readStoredManifest(): array
     {
-        /** @var array<string, mixed> */
-        return json_decode(
-            (string) file_get_contents($this->modulePath . '/module.json'),
-            true,
-            flags: JSON_THROW_ON_ERROR,
-        );
+        return $this->readManifestFile($this->modulePath);
     }
 
 }

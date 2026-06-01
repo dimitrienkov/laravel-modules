@@ -26,9 +26,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(FeatureRepository::class)]
+#[Group('manifest')]
 final class FeatureRepositoryTest extends TestCase
 {
     use CreatesModuleFiles;
@@ -59,7 +63,7 @@ final class FeatureRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_reads_explicit_values_and_schema_defaults(): void
+    public function readsExplicitValuesAndSchemaDefaults(): void
     {
         $features = $this->featureRepository();
 
@@ -70,7 +74,7 @@ final class FeatureRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_missing_feature_keys(): void
+    public function throwsForMissingFeatureKeys(): void
     {
         $this->expectException(FeatureNotFoundException::class);
         $this->expectExceptionMessage('Feature [missing]');
@@ -79,7 +83,7 @@ final class FeatureRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function typed_accessors_throw_when_schema_type_does_not_match(): void
+    public function typedAccessorsThrowWhenSchemaTypeDoesNotMatch(): void
     {
         $this->expectException(FeatureTypeMismatchException::class);
         $this->expectExceptionMessage('must be [int]');
@@ -88,7 +92,7 @@ final class FeatureRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_keeps_feature_values_cache_inside_repository_instance(): void
+    public function keepsFeatureValuesCacheInsideRepositoryInstance(): void
     {
         $features = $this->featureRepository();
 
@@ -101,7 +105,7 @@ final class FeatureRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function string_returns_string_value_for_string_feature(): void
+    public function stringReturnsStringValueForStringFeature(): void
     {
         $features = $this->featureRepository();
 
@@ -109,7 +113,7 @@ final class FeatureRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function string_throws_feature_type_mismatch_for_non_string(): void
+    public function stringThrowsFeatureTypeMismatchForNonString(): void
     {
         $this->expectException(FeatureTypeMismatchException::class);
         $this->expectExceptionMessage('must be [string]');
@@ -118,7 +122,7 @@ final class FeatureRepositoryTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_module_not_found_for_unknown_module(): void
+    public function throwsModuleNotFoundForUnknownModule(): void
     {
         $this->expectException(ModuleNotFoundException::class);
         $this->expectExceptionMessage('[nonexistent]');

@@ -10,9 +10,13 @@ use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleDirectoryScanner::class)]
+#[Group('registry')]
 final class ModuleDirectoryScannerTest extends TestCase
 {
     private string $tempDir;
@@ -33,7 +37,7 @@ final class ModuleDirectoryScannerTest extends TestCase
     }
 
     #[Test]
-    public function it_scans_configured_directories(): void
+    public function scansConfiguredDirectories(): void
     {
         $this->createModule('Blog');
         $this->createModule('Users');
@@ -46,7 +50,7 @@ final class ModuleDirectoryScannerTest extends TestCase
     }
 
     #[Test]
-    public function it_ignores_directories_without_manifest(): void
+    public function ignoresDirectoriesWithoutManifest(): void
     {
         $this->createModule('Blog');
         mkdir($this->tempDir . '/app/Modules/Empty', 0755, true);
@@ -57,7 +61,7 @@ final class ModuleDirectoryScannerTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_non_string_config_entries(): void
+    public function throwsForNonStringConfigEntries(): void
     {
         $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('each entry must be a non-empty string');
@@ -66,7 +70,7 @@ final class ModuleDirectoryScannerTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_empty_string_config_entry(): void
+    public function throwsForEmptyStringConfigEntry(): void
     {
         $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('each entry must be a non-empty string');
@@ -75,7 +79,7 @@ final class ModuleDirectoryScannerTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_non_array_directories_config(): void
+    public function throwsForNonArrayDirectoriesConfig(): void
     {
         $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('must be a list of directory paths');
@@ -94,7 +98,7 @@ final class ModuleDirectoryScannerTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_sorted_paths(): void
+    public function returnsSortedPaths(): void
     {
         $this->createModule('Zzz');
         $this->createModule('Aaa');
@@ -106,7 +110,7 @@ final class ModuleDirectoryScannerTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_empty_for_missing_directory(): void
+    public function returnsEmptyForMissingDirectory(): void
     {
         $paths = $this->scanner(['app/NonexistentPath'])->scan();
 
@@ -114,7 +118,7 @@ final class ModuleDirectoryScannerTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_for_directory_outside_app_path(): void
+    public function throwsForDirectoryOutsideAppPath(): void
     {
         $outsideDir = $this->tempDir . '/outside';
         mkdir($outsideDir . '/Modules/Blog', 0755, true);

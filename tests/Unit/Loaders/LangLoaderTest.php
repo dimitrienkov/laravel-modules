@@ -13,9 +13,13 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Translation\FileLoader;
 use Illuminate\Translation\Translator;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(LangLoader::class)]
+#[Group('loaders')]
 final class LangLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -35,7 +39,7 @@ final class LangLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_translation_namespace_for_module(): void
+    public function registersTranslationNamespaceForModule(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $langDir = $modulePath . '/Lang';
@@ -58,7 +62,7 @@ final class LangLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_translation_namespace_when_translator_was_already_resolved(): void
+    public function registersTranslationNamespaceWhenTranslatorWasAlreadyResolved(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $langDir = $modulePath . '/Lang';
@@ -77,7 +81,7 @@ final class LangLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_lang_directory_is_missing(): void
+    public function returnsEarlyWhenLangDirectoryIsMissing(): void
     {
         $fileLoader = new FileLoader(new Filesystem(), $this->tempDir);
         $translator = new Translator($fileLoader, 'en');

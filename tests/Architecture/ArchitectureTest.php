@@ -277,3 +277,107 @@ test('direct filesystem I/O is only allowed in specialized infrastructure classe
         }
     }
 });
+
+arch('use cases use the UseCase suffix')
+    ->expect('DimitrienkoV\LaravelModules\Application\UseCases')
+    ->toHaveSuffix('UseCase');
+
+arch('loaders use the Loader suffix')
+    ->expect('DimitrienkoV\LaravelModules\Loaders')
+    ->classes()
+    ->toHaveSuffix('Loader')
+    ->ignoring(ModuleLoaderPipeline::class);
+
+arch('console commands do not depend on concrete persistence or registry internals')
+    ->expect('DimitrienkoV\LaravelModules\Console\Commands')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
+        'DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository',
+        'DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository',
+        'DimitrienkoV\LaravelModules\Manifest\FeatureRepository',
+        'DimitrienkoV\LaravelModules\Support\LocalFilesystem',
+        'DimitrienkoV\LaravelModules\Support\AtomicFileWriter',
+        'DimitrienkoV\LaravelModules\Support\AtomicJsonWriter',
+    ]);
+
+arch('loaders do not depend on optional UI integrations')
+    ->expect('DimitrienkoV\LaravelModules\Loaders')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\MoonShine',
+        'MoonShine',
+        'Inertia',
+    ]);
+
+arch('application layer does not depend on optional UI integrations')
+    ->expect('DimitrienkoV\LaravelModules\Application')
+    ->not->toUse([
+        'MoonShine',
+        'Inertia',
+    ]);
+
+arch('manifest repository implements its published contract')
+    ->expect('DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository')
+    ->toImplement('DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface');
+
+arch('state repository implements its published contract')
+    ->expect('DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository')
+    ->toImplement('DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface');
+
+arch('feature repository implements its published contract')
+    ->expect('DimitrienkoV\LaravelModules\Manifest\FeatureRepository')
+    ->toImplement('DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface');
+
+test('src does not use global logging or service-location helpers', function (): void {
+    $srcDir = realpath(__DIR__ . '/../../src');
+    expect($srcDir)->not->toBeFalse();
+
+    // Global helpers that bypass constructor DI / introduce runtime logging.
+    // `base_path()` in the service provider (composition root) is sanctioned
+    // and intentionally excluded from this list.
+    $forbiddenHelpers = [
+        'logger', 'logs', 'info', 'app', 'config',
+        'resolve', 'value', 'report', 'dispatch', 'event',
+    ];
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($srcDir, FilesystemIterator::SKIP_DOTS),
+    );
+
+    foreach ($iterator as $file) {
+        if ($file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $lines = preg_split('/\R/', (string) file_get_contents($file->getPathname())) ?: [];
+
+        foreach ($lines as $line) {
+            $trimmed = ltrim($line);
+            // Skip comment lines so prose like "malformed config (...)" never trips the scan.
+            if ($trimmed === '') {
+                continue;
+            }
+            if (str_starts_with($trimmed, '*')) {
+                continue;
+            }
+            if (str_starts_with($trimmed, '//')) {
+                continue;
+            }
+            if (str_starts_with($trimmed, '/*')) {
+                continue;
+            }
+            if (str_starts_with($trimmed, '#')) {
+                continue;
+            }
+
+            foreach ($forbiddenHelpers as $helper) {
+                // Bare global call only: not a method (`->info(`), static (`::value(`),
+                // variable (`$app(`), namespaced symbol, or a method definition.
+                $isGlobalCall = (bool) preg_match('/(?<![\w$>:\\\\])(?<!function\s)' . $helper . '\s*\(/', $line);
+                expect($isGlobalCall)->toBeFalse(
+                    "Global helper {$helper}() found in {$file->getPathname()} — use constructor DI instead.",
+                );
+            }
+        }
+    }
+});

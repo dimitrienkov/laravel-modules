@@ -12,9 +12,13 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(EnableModuleUseCase::class)]
+#[Group('lifecycle')]
 final class EnableModuleUseCaseTest extends TestCase
 {
     use CreatesLifecycleEnvironment;

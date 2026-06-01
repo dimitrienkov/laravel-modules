@@ -13,15 +13,19 @@ use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleLoaderPipeline::class)]
+#[Group('loaders')]
 final class ModuleLoaderPipelineTest extends TestCase
 {
     use MockeryPHPUnitIntegration;
 
     #[Test]
-    public function it_runs_loaders_in_priority_order(): void
+    public function runsLoadersInPriorityOrder(): void
     {
         /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
         $calls = new \ArrayObject();
@@ -46,7 +50,7 @@ final class ModuleLoaderPipelineTest extends TestCase
     }
 
     #[Test]
-    public function it_preserves_registration_order_for_equal_priorities(): void
+    public function preservesRegistrationOrderForEqualPriorities(): void
     {
         /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
         $calls = new \ArrayObject();
@@ -73,7 +77,7 @@ final class ModuleLoaderPipelineTest extends TestCase
     }
 
     #[Test]
-    public function it_skips_disabled_modules(): void
+    public function skipsDisabledModules(): void
     {
         /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
         $calls = new \ArrayObject();
@@ -95,7 +99,7 @@ final class ModuleLoaderPipelineTest extends TestCase
     }
 
     #[Test]
-    public function it_handles_empty_loaders(): void
+    public function handlesEmptyLoaders(): void
     {
         $pipeline = new ModuleLoaderPipeline(
             registry: new PipelineFakeRegistry([
@@ -111,7 +115,7 @@ final class ModuleLoaderPipelineTest extends TestCase
     }
 
     #[Test]
-    public function it_continues_after_loader_exception_and_reports_it(): void
+    public function continuesAfterLoaderExceptionAndReportsIt(): void
     {
         /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
         $calls = new \ArrayObject();

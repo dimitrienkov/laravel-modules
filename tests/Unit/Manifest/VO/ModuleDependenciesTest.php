@@ -6,14 +6,18 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest\VO;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleDependencies::class)]
+#[Group('manifest')]
 final class ModuleDependenciesTest extends TestCase
 {
     #[Test]
-    public function it_rejects_list_form_dependencies(): void
+    public function rejectsListFormDependencies(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('list form is not supported');
@@ -22,7 +26,7 @@ final class ModuleDependenciesTest extends TestCase
     }
 
     #[Test]
-    public function it_accepts_valid_snake_case_dependency_names_in_object_form(): void
+    public function acceptsValidSnakeCaseDependencyNamesInObjectForm(): void
     {
         $deps = ModuleDependencies::fromArray(
             ['users' => '^1.0', 'catalog_product' => '>=2.0'],
@@ -35,7 +39,7 @@ final class ModuleDependenciesTest extends TestCase
 
     #[Test]
     #[DataProvider('invalidDependencyNameProvider')]
-    public function it_rejects_non_snake_case_dependency_names_in_object_form(string $name): void
+    public function rejectsNonSnakeCaseDependencyNamesInObjectForm(string $name): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('must be lowercase snake_case');
@@ -44,7 +48,7 @@ final class ModuleDependenciesTest extends TestCase
     }
 
     #[Test]
-    public function it_rejects_empty_constraint(): void
+    public function rejectsEmptyConstraint(): void
     {
         $this->expectException(InvalidManifestException::class);
         $this->expectExceptionMessage('non-empty Composer constraint');
@@ -53,7 +57,7 @@ final class ModuleDependenciesTest extends TestCase
     }
 
     #[Test]
-    public function it_accepts_empty_dependencies_array(): void
+    public function acceptsEmptyDependenciesArray(): void
     {
         $deps = ModuleDependencies::fromArray([], '/tmp/module.json');
 
@@ -63,7 +67,7 @@ final class ModuleDependenciesTest extends TestCase
     }
 
     #[Test]
-    public function names_returns_dependency_names_in_sorted_order(): void
+    public function namesReturnsDependencyNamesInSortedOrder(): void
     {
         $deps = ModuleDependencies::fromArray(
             ['users' => '^1.0', 'auth' => '*', 'media' => '>=2.0'],
@@ -74,7 +78,7 @@ final class ModuleDependenciesTest extends TestCase
     }
 
     #[Test]
-    public function constraint_for_returns_null_for_non_existent_dependency(): void
+    public function constraintForReturnsNullForNonExistentDependency(): void
     {
         $deps = ModuleDependencies::fromArray(['users' => '^1.0'], '/tmp/module.json');
 
@@ -82,7 +86,7 @@ final class ModuleDependenciesTest extends TestCase
     }
 
     #[Test]
-    public function it_accepts_wildcard_constraint_in_object_form(): void
+    public function acceptsWildcardConstraintInObjectForm(): void
     {
         $deps = ModuleDependencies::fromArray(['users' => '*'], '/tmp/module.json');
 

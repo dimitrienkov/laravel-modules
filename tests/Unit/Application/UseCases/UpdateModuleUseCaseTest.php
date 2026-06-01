@@ -8,14 +8,22 @@ use DimitrienkoV\LaravelModules\Application\UseCases\UpdateModuleUseCase;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleUpdateException;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesSourceArchive;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(UpdateModuleUseCase::class)]
+#[Group('lifecycle')]
 final class UpdateModuleUseCaseTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
+    use CreatesSourceArchive;
+
+    private const string VALID_CHECKSUM = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
     private string $tempDir;
 
@@ -45,13 +53,13 @@ final class UpdateModuleUseCaseTest extends TestCase
     public function updatesModuleSuccessfully(): void
     {
         $this->createInstalledModule('blog', '1.0.0');
-        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
         $useCase = $this->makeUseCase();
 
         $result = $useCase->execute('blog', $sourceDir);
 
-        $this->assertSame('1.0.0', $result->oldVersion);
-        $this->assertSame('2.0.0', $result->newVersion);
+        $this->assertSame('1.0.0', $result->oldVersion->value);
+        $this->assertSame('2.0.0', $result->newVersion->value);
         $this->assertSame('blog', $result->name);
     }
 
@@ -59,7 +67,7 @@ final class UpdateModuleUseCaseTest extends TestCase
     public function throwsOnNameMismatch(): void
     {
         $this->createInstalledModule('blog', '1.0.0');
-        $sourceDir = $this->createSourceModule('forum', '2.0.0');
+        $sourceDir = $this->createSourceZip('forum', '2.0.0');
         $useCase = $this->makeUseCase();
 
         $this->expectException(ModuleUpdateException::class);
@@ -72,7 +80,7 @@ final class UpdateModuleUseCaseTest extends TestCase
     public function preservesStateFromTarget(): void
     {
         $this->createInstalledModule('blog', '1.0.0', enabled: false, installedAt: '2026-01-01T00:00:00+00:00');
-        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
         $useCase = $this->makeUseCase();
 
         $result = $useCase->execute('blog', $sourceDir);
@@ -92,7 +100,7 @@ final class UpdateModuleUseCaseTest extends TestCase
         $values = ['enable_comments' => false, 'max_posts' => 50];
 
         $this->createInstalledModule('blog', '1.0.0', schema: $schema, values: $values);
-        $sourceDir = $this->createSourceModule('blog', '2.0.0', schema: $schema);
+        $sourceDir = $this->createSourceZip('blog', '2.0.0', schema: $schema);
         $useCase = $this->makeUseCase();
 
         $result = $useCase->execute('blog', $sourceDir);
@@ -118,7 +126,7 @@ final class UpdateModuleUseCaseTest extends TestCase
         ];
 
         $this->createInstalledModule('blog', '1.0.0', schema: $oldSchema, values: $oldValues);
-        $sourceDir = $this->createSourceModule('blog', '2.0.0', schema: $newSchema);
+        $sourceDir = $this->createSourceZip('blog', '2.0.0', schema: $newSchema);
         $useCase = $this->makeUseCase();
 
         $result = $useCase->execute('blog', $sourceDir);
@@ -152,7 +160,7 @@ final class UpdateModuleUseCaseTest extends TestCase
         $newSchema = ['enable_comments' => ['type' => 'bool', 'default' => true]];
 
         $this->createInstalledModule('blog', '1.0.0', schema: $oldSchema, values: $oldValues);
-        $sourceDir = $this->createSourceModule('blog', '2.0.0', schema: $newSchema);
+        $sourceDir = $this->createSourceZip('blog', '2.0.0', schema: $newSchema);
         $useCase = $this->makeUseCase();
 
         $result = $useCase->execute('blog', $sourceDir);
@@ -165,7 +173,7 @@ final class UpdateModuleUseCaseTest extends TestCase
     public function rollbackOnManifestWriteFailure(): void
     {
         $this->createInstalledModule('blog', '1.0.0');
-        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
 
         $originalManifest = json_decode(file_get_contents($this->tempDir . '/app/Modules/Blog/module.json'), true);
         $originalState = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
@@ -198,7 +206,7 @@ final class UpdateModuleUseCaseTest extends TestCase
     public function doubleFaultPersistAndRestoreFailure(): void
     {
         $this->createInstalledModule('blog', '1.0.0');
-        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
 
         $failingManifests = $this->createMock(\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface::class);
         $failingManifests->method('load')->willReturnCallback(
@@ -230,10 +238,79 @@ final class UpdateModuleUseCaseTest extends TestCase
     }
 
     #[Test]
+    public function updateUpdatesOriginInstalledVersion(): void
+    {
+        $this->createInstalledModule('blog', '1.0.0', source: ['kind' => 'zip', 'installed_version' => '1.0.0', 'checksum' => self::VALID_CHECKSUM]);
+        $zipPath = $this->createSourceZip('blog', '2.0.0');
+        $useCase = $this->makeUseCase();
+
+        $useCase->execute('blog', $zipPath);
+
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayHasKey('source', $state);
+        $this->assertSame('zip', $state['source']['kind']);
+        $this->assertSame('2.0.0', $state['source']['installed_version']);
+        $this->assertSame(hash_file('sha256', $zipPath), $state['source']['checksum']);
+    }
+
+    #[Test]
+    public function updateWritesArchiveProvenanceWhenSourceAbsent(): void
+    {
+        $this->createInstalledModule('blog', '1.0.0');
+        $zipPath = $this->createSourceZip('blog', '2.0.0');
+        $useCase = $this->makeUseCase();
+
+        $useCase->execute('blog', $zipPath);
+
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayHasKey('source', $state);
+        $this->assertSame('zip', $state['source']['kind']);
+        $this->assertSame('2.0.0', $state['source']['installed_version']);
+        $this->assertSame(hash_file('sha256', $zipPath), $state['source']['checksum']);
+    }
+
+    #[Test]
+    public function updateReplacesOriginDroppingOldChecksum(): void
+    {
+        // Start from a zip-origin whose checksum is VALID_CHECKSUM, then update from
+        // a different archive. The origin is fully REPLACED (ModuleOrigin::forZip),
+        // not merged: the new checksum must be present AND the old one must be gone
+        // from state.json entirely.
+        $this->createInstalledModule('blog', '1.0.0', source: ['kind' => 'zip', 'installed_version' => '1.0.0', 'checksum' => self::VALID_CHECKSUM]);
+        $zipPath = $this->createSourceZip('blog', '2.0.0');
+        $useCase = $this->makeUseCase();
+
+        $useCase->execute('blog', $zipPath);
+
+        $stateJson = file_get_contents($this->stateRoot . '/blog/state.json');
+        $state = json_decode($stateJson, true);
+
+        $newChecksum = hash_file('sha256', $zipPath);
+        $this->assertSame($newChecksum, $state['source']['checksum']);
+        $this->assertNotSame(self::VALID_CHECKSUM, $state['source']['checksum']);
+        $this->assertStringNotContainsString(self::VALID_CHECKSUM, $stateJson);
+    }
+
+    #[Test]
+    public function updateRewritesLocalOriginToZip(): void
+    {
+        $this->createInstalledModule('blog', '1.0.0', source: ['kind' => 'local', 'installed_version' => '1.0.0']);
+        $zipPath = $this->createSourceZip('blog', '2.0.0');
+        $useCase = $this->makeUseCase();
+
+        $useCase->execute('blog', $zipPath);
+
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertSame('zip', $state['source']['kind']);
+        $this->assertSame('2.0.0', $state['source']['installed_version']);
+        $this->assertSame(hash_file('sha256', $zipPath), $state['source']['checksum']);
+    }
+
+    #[Test]
     public function successfulUpdateCleansUpBackup(): void
     {
         $this->createInstalledModule('blog', '1.0.0');
-        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
         $useCase = $this->makeUseCase();
 
         $useCase->execute('blog', $sourceDir);
@@ -270,8 +347,9 @@ final class UpdateModuleUseCaseTest extends TestCase
     }
 
     /**
-     * @param array<string, mixed> $schema
-     * @param array<string, mixed> $values
+     * @param array<string, mixed>      $schema
+     * @param array<string, mixed>      $values
+     * @param array<string, mixed>|null $source
      */
     private function createInstalledModule(
         string $name,
@@ -280,6 +358,7 @@ final class UpdateModuleUseCaseTest extends TestCase
         ?string $installedAt = null,
         array $schema = [],
         array $values = [],
+        ?array $source = null,
     ): void {
         $this->writeModuleManifest(
             $this->tempDir . '/app/Modules',
@@ -287,30 +366,17 @@ final class UpdateModuleUseCaseTest extends TestCase
             $version,
             schema: $schema ?: new \stdClass(),
         );
-        $this->writeModuleState($this->stateRoot, $name, $enabled, $installedAt, $values ?: new \stdClass());
+        $this->writeModuleState($this->stateRoot, $name, $enabled, $installedAt, $values ?: new \stdClass(), $source);
     }
 
     /**
      * @param array<string, mixed> $schema
      */
-    private function createSourceModule(string $name, string $version, array $schema = []): string
+    private function createSourceZip(string $name, string $version, array $schema = []): string
     {
-        $dir = $this->tempDir . '/sources/' . ucfirst($name);
-        if (is_dir($dir)) {
-            $this->filesystem->deleteDirectory($dir);
-        }
-        $this->filesystem->makeDirectory($dir, 0755, true);
-
-        $manifest = [
-            'schema_version' => 1,
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => $version],
-            'settings' => [
-                'schema' => $schema ?: new \stdClass(),
-            ],
-        ];
-
-        file_put_contents($dir . '/module.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-
-        return $dir;
+        return $this->zipModuleSource(
+            $this->tempDir . '/sources/' . $name . '-' . $version . '.zip',
+            $this->moduleManifestArray($name, $version, schema: $schema ?: new \stdClass()),
+        );
     }
 }

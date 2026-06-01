@@ -11,6 +11,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleStateWriteException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
@@ -18,6 +19,7 @@ use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleFileNames;
 use DimitrienkoV\LaravelModules\Support\ModulePermissions;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
+use DimitrienkoV\LaravelModules\Support\StringKeyedObject;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use JsonException;
 
@@ -28,6 +30,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
         'installed_at' => true,
         'updated_at' => true,
         'settings' => true,
+        'source' => true,
     ];
 
     private const array ALLOWED_SETTINGS_KEYS = ['values' => true];
@@ -56,6 +59,8 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
         $stateArray = $this->extractStateFields($raw);
         $valuesArray = $this->extractValues($raw, $statePath);
 
+        $source = $this->extractSource($raw, $statePath);
+
         try {
             $state = ModuleState::fromArray($stateArray, $statePath);
             $values = FeatureValues::fromArray($valuesArray, $module->features, $moduleName, $statePath);
@@ -63,7 +68,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             throw InvalidModuleStateException::forPath($statePath, $e->getMessage(), $e);
         }
 
-        return new ModuleStateDocument($state, $values);
+        return new ModuleStateDocument($state, $values, source: $source);
     }
 
     public function readState(string $moduleName, Module $module): ModuleState
@@ -89,22 +94,26 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
 
     public function writeState(Module $module, ModuleState $state): Module
     {
-        $currentValues = $this->readValues($module);
+        $current = $this->read($module->name, $module);
         $updated = $module->withState($state);
-        $this->writeDocument($module->name, new ModuleStateDocument($state, $currentValues));
+        $this->writeDocument($module->name, new ModuleStateDocument($state, $current->values, source: $current->source));
 
         return $updated;
     }
 
     public function writeValues(Module $module, FeatureValues $values): void
     {
-        $statePath = $this->paths->file($module->name);
+        if ($this->exists($module->name)) {
+            $current = $this->read($module->name, $module);
+            $this->writeDocument($module->name, new ModuleStateDocument($current->state, $values, source: $current->source));
 
-        $state = $this->filesystem->isFile($statePath)
-            ? $this->readState($module->name, $module)
-            : $module->state;
+            return;
+        }
 
-        $this->writeDocument($module->name, new ModuleStateDocument($state, $values));
+        // No state file yet: persist the passed module's own state instead of
+        // defaultDisabled(), so writing values never silently flips enabled or
+        // resets timestamps for an in-memory module that was never written.
+        $this->writeDocument($module->name, new ModuleStateDocument($module->state, $values));
     }
 
     public function delete(string $moduleName): void
@@ -188,7 +197,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
             throw InvalidModuleStateException::forPath($statePath, 'state file must contain a JSON object.');
         }
 
-        return $raw;
+        return $this->objectOrFail($raw, 'state file must be a JSON object.', $statePath);
     }
 
     /**
@@ -249,26 +258,58 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
     }
 
     /**
+     * @param array<string, mixed> $raw
+     */
+    private function extractSource(array $raw, string $statePath): ?ModuleOrigin
+    {
+        if (! \array_key_exists('source', $raw)) {
+            return null;
+        }
+
+        $source = $raw['source'];
+
+        if (! \is_array($source) || ($source !== [] && array_is_list($source))) {
+            throw InvalidModuleStateException::forPath($statePath, 'source must be a JSON object.');
+        }
+
+        $sourceObject = $this->objectOrFail($source, 'source must be a JSON object.', $statePath);
+
+        return ModuleOrigin::fromArray($sourceObject, $statePath);
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     private function assertJsonObject(mixed $value, string $fieldName, string $statePath): ?array
     {
-        if ($value === null) {
+        if ($value === null || $value === []) {
             return null;
         }
 
-        if (! \is_array($value)) {
+        $isJsonObject = \is_array($value) && ! array_is_list($value);
+
+        if (! $isJsonObject) {
             throw InvalidModuleStateException::forPath($statePath, "{$fieldName} must be a JSON object.");
         }
 
-        if ($value === []) {
-            return null;
-        }
+        return $this->objectOrFail($value, "{$fieldName} must be a JSON object.", $statePath);
+    }
 
-        if (array_is_list($value)) {
-            throw InvalidModuleStateException::forPath($statePath, "{$fieldName} must be a JSON object.");
-        }
-
-        return $value;
+    /**
+     * Coerce a decoded JSON object into a guaranteed string-keyed array, failing
+     * with a state-path error built from {@see $message} when an integer key is
+     * present. Single owner of the `$onError` closure shared by every state
+     * object that needs string keys.
+     *
+     * @param array<array-key, mixed> $value
+     *
+     * @return array<string, mixed>
+     */
+    private function objectOrFail(array $value, string $message, string $statePath): array
+    {
+        return StringKeyedObject::toStringKeyedObject(
+            $value,
+            static fn (): InvalidModuleStateException => InvalidModuleStateException::forPath($statePath, $message),
+        );
     }
 }

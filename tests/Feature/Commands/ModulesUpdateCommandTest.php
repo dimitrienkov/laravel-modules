@@ -9,15 +9,19 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesUpdateCommand;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesSourceArchive;
 use DimitrienkoV\LaravelModules\Tests\Support\RegistersLifecycleCommands;
 use Illuminate\Filesystem\Filesystem;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
+#[Group('feature')]
 final class ModulesUpdateCommandTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
+    use CreatesSourceArchive;
     use RegistersLifecycleCommands;
 
     private string $tempDir;
@@ -51,7 +55,7 @@ final class ModulesUpdateCommandTest extends TestCase
     public function updateSucceeds(): void
     {
         $this->installModule('blog', '1.0.0');
-        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
 
         $this->artisanCommand("modules:update blog {$sourceDir}")
             ->assertSuccessful()
@@ -61,7 +65,7 @@ final class ModulesUpdateCommandTest extends TestCase
     #[Test]
     public function updateFailsWhenModuleNotFound(): void
     {
-        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
 
         $this->artisanCommand("modules:update nonexistent {$sourceDir}")
             ->assertFailed()
@@ -72,7 +76,7 @@ final class ModulesUpdateCommandTest extends TestCase
     public function updateOutputShowsVersionInfo(): void
     {
         $this->installModule('blog', '1.0.0');
-        $sourceDir = $this->createSourceModule('blog', '2.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
 
         $this->artisanCommand("modules:update blog {$sourceDir}")
             ->assertSuccessful()
@@ -86,20 +90,11 @@ final class ModulesUpdateCommandTest extends TestCase
         $this->writeModuleState($this->stateRoot, $name, true, values: new \stdClass());
     }
 
-    private function createSourceModule(string $name, string $version): string
+    private function createSourceZip(string $name, string $version): string
     {
-        $dir = $this->tempDir . '/sources/' . ucfirst($name);
-        if (is_dir($dir)) {
-            (new Filesystem())->deleteDirectory($dir);
-        }
-        mkdir($dir, 0755, true);
-
-        file_put_contents($dir . '/module.json', json_encode([
-            'schema_version' => 1,
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => $version],
-            'settings' => ['schema' => new \stdClass()],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-
-        return $dir;
+        return $this->zipModuleSource(
+            $this->tempDir . '/sources/' . $name . '-' . $version . '.zip',
+            $this->moduleManifestArray($name, $version),
+        );
     }
 }

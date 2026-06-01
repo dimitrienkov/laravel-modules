@@ -26,14 +26,18 @@ use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
+use DimitrienkoV\LaravelModules\Manifest\VO\Version;
 use DimitrienkoV\LaravelModules\Support\PathNormalizer;
 use Illuminate\Support\Str;
 use Throwable;
 
 final readonly class ScaffoldModuleUseCase
 {
+    private const string DEFAULT_VERSION = '1.0.0';
+
     public function __construct(
         private ModuleRegistryInterface $registry,
         private ModuleManifestRepositoryInterface $manifestRepository,
@@ -86,11 +90,12 @@ final readonly class ScaffoldModuleUseCase
                     name: $config->name,
                     displayName: $studlyName,
                     kind: $resolvedKind,
-                    version: '1.0.0',
+                    version: new Version(self::DEFAULT_VERSION),
                     author: null,
                     description: null,
                     license: null,
                     dependencies: new ModuleDependencies([]),
+                    group: $config->group,
                 ),
                 state: $state,
                 features: new FeatureSchema([]),
@@ -99,7 +104,8 @@ final readonly class ScaffoldModuleUseCase
             $this->manifestRepository->writeManifest($module);
 
             $values = new FeatureValues($module->features, []);
-            $this->stateRepository->writeDocument($config->name, new ModuleStateDocument($state, $values));
+            $origin = ModuleOrigin::forLocal($module->meta->version);
+            $this->stateRepository->writeDocument($config->name, new ModuleStateDocument($state, $values, $origin));
         } catch (Throwable $e) {
             $cleanupNote = $this->rollback->rollback($config->name, $targetPath);
 
@@ -129,7 +135,7 @@ final readonly class ScaffoldModuleUseCase
     private function validateName(string $name): void
     {
         try {
-            ManifestFieldReader::assertModuleName($name, 'name', 'scaffold');
+            ManifestFieldReader::assertModuleName($name, 'meta.name', 'scaffold');
         } catch (Throwable $e) {
             throw ModuleScaffoldException::forModule($name, 'invalid module name — must be lowercase snake_case.', $e);
         }

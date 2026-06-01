@@ -7,13 +7,17 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Support;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use Illuminate\Contracts\Foundation\Application as ApplicationContract;
 use Illuminate\Foundation\Application;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ContainerLifecycleHooks::class)]
+#[Group('support')]
 final class ContainerLifecycleHooksTest extends TestCase
 {
     #[Test]
-    public function it_runs_callback_for_future_resolutions(): void
+    public function runsCallbackForFutureResolutions(): void
     {
         $app = new Application(sys_get_temp_dir());
         $service = new \stdClass();
@@ -33,7 +37,7 @@ final class ContainerLifecycleHooksTest extends TestCase
     }
 
     #[Test]
-    public function it_runs_callback_immediately_for_already_resolved_services(): void
+    public function runsCallbackImmediatelyForAlreadyResolvedServices(): void
     {
         $app = new Application(sys_get_temp_dir());
         $service = new \stdClass();

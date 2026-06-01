@@ -18,6 +18,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleUpdateException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
 use Throwable;
@@ -63,8 +64,10 @@ final readonly class UpdateModuleUseCase
             );
             $this->dependencyGuard->assertGraphValid($candidateGraph);
 
-            $existingValues = $this->stateRepository->readValues($existingModule);
             $existingStateDocument = $this->stateRepository->read($existingModule->name, $existingModule);
+            $existingValues = $existingStateDocument->values;
+
+            $updatedOrigin = ModuleOrigin::forZip($candidate->meta->version, $prepared->checksum);
 
             try {
                 $backupPath = $this->directoryOps->replaceDirectoryWithBackup(
@@ -88,7 +91,7 @@ final readonly class UpdateModuleUseCase
 
                 $this->stateRepository->writeDocument(
                     $moduleName,
-                    new ModuleStateDocument($preservedState, $mergedValues),
+                    new ModuleStateDocument($preservedState, $mergedValues, $updatedOrigin),
                 );
             } catch (Throwable $e) {
                 try {
@@ -97,7 +100,8 @@ final readonly class UpdateModuleUseCase
                 } catch (Throwable $restoreError) {
                     throw ModuleUpdateException::forModule(
                         $moduleName,
-                        "persistence failed and restore also failed. Backup remains at [{$backupPath}]. Restore error: {$restoreError->getMessage()}",
+                        "persistence failed and restore also failed. Backup remains at [{$backupPath}]. "
+                        . "Original error: {$e->getMessage()}. Restore error: {$restoreError->getMessage()}",
                         $e,
                     );
                 }

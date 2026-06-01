@@ -10,14 +10,20 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesInstallCommand;
 use DimitrienkoV\LaravelModules\Contracts\NamespaceResolverInterface;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesSourceArchive;
 use DimitrienkoV\LaravelModules\Tests\Support\RegistersLifecycleCommands;
 use Illuminate\Filesystem\Filesystem;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
+#[Group('feature')]
 final class ModulesInstallCommandTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
+    use CreatesModuleFiles;
+    use CreatesSourceArchive;
     use RegistersLifecycleCommands;
 
     private string $tempDir;
@@ -50,11 +56,11 @@ final class ModulesInstallCommandTest extends TestCase
     }
 
     #[Test]
-    public function installFromDirectorySucceeds(): void
+    public function installFromZipSucceeds(): void
     {
-        $sourceDir = $this->createSourceModule('blog');
+        $zipPath = $this->createSourceZip('blog');
 
-        $this->artisanCommand("modules:install {$sourceDir}")
+        $this->artisanCommand("modules:install {$zipPath}")
             ->assertSuccessful()
             ->expectsOutputToContain('installed');
     }
@@ -67,22 +73,35 @@ final class ModulesInstallCommandTest extends TestCase
     }
 
     #[Test]
+    public function installFailsWhenSourceContainsStateFile(): void
+    {
+        $zipPath = $this->zipModuleSource(
+            $this->tempDir . '/sources/blog.zip',
+            $this->moduleManifestArray('blog'),
+            ['state.json' => json_encode(['enabled' => true], JSON_THROW_ON_ERROR)],
+        );
+
+        $this->artisanCommand("modules:install {$zipPath}")
+            ->assertFailed();
+    }
+
+    #[Test]
     public function installOutputShowsModuleDetails(): void
     {
-        $sourceDir = $this->createSourceModule('blog');
+        $zipPath = $this->createSourceZip('blog');
 
-        $this->artisanCommand("modules:install {$sourceDir}")
+        $this->artisanCommand("modules:install {$zipPath}")
             ->assertSuccessful()
             ->expectsOutputToContain('blog')
-            ->expectsOutputToContain('directory');
+            ->expectsOutputToContain('zip');
     }
 
     #[Test]
     public function installWithDisabledFlag(): void
     {
-        $sourceDir = $this->createSourceModule('blog');
+        $zipPath = $this->createSourceZip('blog');
 
-        $this->artisanCommand("modules:install {$sourceDir} --disabled")
+        $this->artisanCommand("modules:install {$zipPath} --disabled")
             ->assertSuccessful()
             ->expectsOutputToContain('No');
     }
@@ -90,25 +109,19 @@ final class ModulesInstallCommandTest extends TestCase
     #[Test]
     public function installWithDirectoryOptionToConfiguredRoot(): void
     {
-        $sourceDir = $this->createSourceModule('blog');
+        $zipPath = $this->createSourceZip('blog');
         $configuredRoot = $this->tempDir . '/app/Modules';
 
-        $this->artisanCommand("modules:install {$sourceDir} --directory={$configuredRoot}")
+        $this->artisanCommand("modules:install {$zipPath} --directory={$configuredRoot}")
             ->assertSuccessful()
             ->expectsOutputToContain('installed');
     }
 
-    private function createSourceModule(string $name): string
+    private function createSourceZip(string $name): string
     {
-        $dir = $this->tempDir . '/sources/' . ucfirst($name);
-        mkdir($dir, 0755, true);
-
-        file_put_contents($dir . '/module.json', json_encode([
-            'schema_version' => 1,
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => '1.0.0'],
-            'settings' => ['schema' => new \stdClass()],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-
-        return $dir;
+        return $this->zipModuleSource(
+            $this->tempDir . '/sources/' . $name . '.zip',
+            $this->moduleManifestArray($name),
+        );
     }
 }

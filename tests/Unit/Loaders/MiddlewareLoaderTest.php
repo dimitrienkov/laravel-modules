@@ -11,9 +11,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Routing\Router;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(MiddlewareLoader::class)]
+#[Group('loaders')]
 final class MiddlewareLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -41,7 +45,7 @@ final class MiddlewareLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_middleware_aliases_for_module(): void
+    public function registersMiddlewareAliasesForModule(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $middlewareDir = $modulePath . '/Http/Middleware';
@@ -62,7 +66,7 @@ final class MiddlewareLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_skips_files_without_existing_class(): void
+    public function skipsFilesWithoutExistingClass(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $middlewareDir = $modulePath . '/Http/Middleware';
@@ -77,7 +81,7 @@ final class MiddlewareLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_middleware_directory_is_missing(): void
+    public function returnsEarlyWhenMiddlewareDirectoryIsMissing(): void
     {
         $router = new Router(new Dispatcher());
 
@@ -88,7 +92,7 @@ final class MiddlewareLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_middleware_from_two_modules_without_alias_collision(): void
+    public function registersMiddlewareFromTwoModulesWithoutAliasCollision(): void
     {
         $blogPath = $this->tempDir . '/Blog';
         $blogMiddlewareDir = $blogPath . '/Http/Middleware';

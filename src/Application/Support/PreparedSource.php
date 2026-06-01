@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Application\Support;
 
 use DimitrienkoV\LaravelModules\Application\Enums\ModuleSourceKind;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleSourceException;
+use DimitrienkoV\LaravelModules\Manifest\VO\Checksum;
 
 final readonly class PreparedSource
 {
@@ -18,6 +19,7 @@ final readonly class PreparedSource
         public array $manifest,
         public ?string $temporaryRoot,
         public ModuleSourceKind $sourceKind,
+        public Checksum $checksum,
     ) {
     }
 

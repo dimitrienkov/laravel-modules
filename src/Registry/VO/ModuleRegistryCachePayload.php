@@ -48,7 +48,7 @@ final readonly class ModuleRegistryCachePayload
     }
 
     /**
-     * @param array<string, mixed> $raw
+     * @param array<array-key, mixed> $raw
      */
     public static function fromCachedArray(array $raw, string $cachePath): self
     {

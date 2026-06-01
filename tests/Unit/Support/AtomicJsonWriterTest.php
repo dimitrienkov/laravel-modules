@@ -7,9 +7,13 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Support;
 use DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(AtomicJsonWriter::class)]
+#[Group('support')]
 final class AtomicJsonWriterTest extends TestCase
 {
     private string $tempDir;
@@ -30,7 +34,7 @@ final class AtomicJsonWriterTest extends TestCase
     }
 
     #[Test]
-    public function it_writes_pretty_json_atomically(): void
+    public function writesPrettyJsonAtomically(): void
     {
         $path = $this->tempDir . '/module.json';
 
@@ -52,7 +56,7 @@ final class AtomicJsonWriterTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_when_target_path_cannot_be_replaced(): void
+    public function throwsWhenTargetPathCannotBeReplaced(): void
     {
         $this->expectException(ManifestWriteException::class);
         $this->expectExceptionMessage('temporary file could not be renamed atomically');
@@ -61,7 +65,7 @@ final class AtomicJsonWriterTest extends TestCase
     }
 
     #[Test]
-    public function it_overwrites_existing_file(): void
+    public function overwritesExistingFile(): void
     {
         $path = $this->tempDir . '/module.json';
         $writer = new AtomicJsonWriter();
@@ -75,7 +79,7 @@ final class AtomicJsonWriterTest extends TestCase
     }
 
     #[Test]
-    public function it_preserves_unicode_characters(): void
+    public function preservesUnicodeCharacters(): void
     {
         $path = $this->tempDir . '/module.json';
         (new AtomicJsonWriter())->write($path, ['meta' => ['description' => 'Блог с комментариями 🔥']]);
@@ -87,7 +91,7 @@ final class AtomicJsonWriterTest extends TestCase
     }
 
     #[Test]
-    public function it_reports_target_path_when_json_encode_fails(): void
+    public function reportsTargetPathWhenJsonEncodeFails(): void
     {
         $path = $this->tempDir . '/module.json';
         $handle = fopen($this->tempDir . '/resource.txt', 'wb');

@@ -9,6 +9,9 @@ final readonly class ModuleStateDocument
     public function __construct(
         public ModuleState $state,
         public FeatureValues $values,
+        // `source` is the installed module's provenance (ModuleOrigin), matching
+        // the state.json `source` key — not the staging ModuleSourceKind axis.
+        public ?ModuleOrigin $source = null,
     ) {
     }
 
@@ -17,11 +20,17 @@ final readonly class ModuleStateDocument
      */
     public function toArray(): array
     {
-        return [
+        $data = [
             ...$this->state->toArray(),
             'settings' => [
                 'values' => $this->values->toArray(),
             ],
         ];
+
+        if ($this->source instanceof ModuleOrigin) {
+            $data['source'] = $this->source->toArray();
+        }
+
+        return $data;
     }
 }

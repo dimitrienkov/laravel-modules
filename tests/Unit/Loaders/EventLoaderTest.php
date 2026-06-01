@@ -10,9 +10,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(EventLoader::class)]
+#[Group('loaders')]
 final class EventLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -35,7 +39,7 @@ final class EventLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_adds_listeners_directory_to_event_discovery_paths(): void
+    public function addsListenersDirectoryToEventDiscoveryPaths(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $listenersDir = $modulePath . '/Domain/Listeners';
@@ -53,7 +57,7 @@ final class EventLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_listeners_directory_is_missing(): void
+    public function returnsEarlyWhenListenersDirectoryIsMissing(): void
     {
         (new EventLoader(new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));

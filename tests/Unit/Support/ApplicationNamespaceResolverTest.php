@@ -10,9 +10,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Contracts\Foundation\Application;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ApplicationNamespaceResolver::class)]
+#[Group('support')]
 final class ApplicationNamespaceResolverTest extends TestCase
 {
     use MockeryPHPUnitIntegration;
@@ -23,7 +27,7 @@ final class ApplicationNamespaceResolverTest extends TestCase
         parent::setUp();
 
         $this->createTempDirectory('resolver');
-        mkdir($this->tempDir . '/app/Modules/Blog', 0755, true);
+        $this->createDirectory($this->tempDir . '/app/Modules/Blog');
     }
 
     protected function tearDown(): void
@@ -34,7 +38,7 @@ final class ApplicationNamespaceResolverTest extends TestCase
     }
 
     #[Test]
-    public function it_resolves_module_namespace_from_app_path(): void
+    public function resolvesModuleNamespaceFromAppPath(): void
     {
         $resolver = new ApplicationNamespaceResolver(
             $this->fakeApp($this->tempDir . '/app', 'App\\'),
@@ -46,9 +50,9 @@ final class ApplicationNamespaceResolverTest extends TestCase
     }
 
     #[Test]
-    public function it_resolves_nested_module_path(): void
+    public function resolvesNestedModulePath(): void
     {
-        mkdir($this->tempDir . '/app/Integrations/Shopify', 0755, true);
+        $this->createDirectory($this->tempDir . '/app/Integrations/Shopify');
 
         $resolver = new ApplicationNamespaceResolver(
             $this->fakeApp($this->tempDir . '/app', 'App\\'),
@@ -60,10 +64,10 @@ final class ApplicationNamespaceResolverTest extends TestCase
     }
 
     #[Test]
-    public function it_resolves_with_custom_app_path(): void
+    public function resolvesWithCustomAppPath(): void
     {
         $customPath = $this->tempDir . '/custom';
-        mkdir($customPath . '/Modules/Blog', 0755, true);
+        $this->createDirectory($customPath . '/Modules/Blog');
 
         $resolver = new ApplicationNamespaceResolver(
             $this->fakeApp($customPath, 'Custom\\'),
@@ -75,7 +79,7 @@ final class ApplicationNamespaceResolverTest extends TestCase
     }
 
     #[Test]
-    public function it_throws_when_path_is_outside_app_path(): void
+    public function throwsWhenPathIsOutsideAppPath(): void
     {
         $resolver = new ApplicationNamespaceResolver(
             $this->fakeApp($this->tempDir . '/app', 'App\\'),
@@ -88,14 +92,14 @@ final class ApplicationNamespaceResolverTest extends TestCase
     }
 
     #[Test]
-    public function it_caches_app_path_across_calls(): void
+    public function cachesAppPathAcrossCalls(): void
     {
         $app = $this->fakeApp($this->tempDir . '/app', 'App\\');
 
         $resolver = new ApplicationNamespaceResolver($app);
         $first = $resolver->resolve($this->tempDir . '/app/Modules/Blog');
 
-        mkdir($this->tempDir . '/app/Modules/Shop', 0755, true);
+        $this->createDirectory($this->tempDir . '/app/Modules/Shop');
         $second = $resolver->resolve($this->tempDir . '/app/Modules/Shop');
 
         self::assertSame('App\\Modules\\Blog', $first);

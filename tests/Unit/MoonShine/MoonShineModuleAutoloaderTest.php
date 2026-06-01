@@ -11,9 +11,13 @@ use Mockery;
 use Mockery\Expectation;
 use Mockery\MockInterface;
 use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(MoonShineModuleAutoloader::class)]
+#[Group('moonshine')]
 final class MoonShineModuleAutoloaderTest extends TestCase
 {
     protected function tearDown(): void
@@ -24,7 +28,7 @@ final class MoonShineModuleAutoloaderTest extends TestCase
     }
 
     #[Test]
-    public function it_autoloads_enabled_module_namespaces_via_core_contract(): void
+    public function autoloadsEnabledModuleNamespacesViaCoreContract(): void
     {
         /** @var CoreContract&MockInterface $core */
         $core = Mockery::mock(CoreContract::class);
@@ -45,7 +49,7 @@ final class MoonShineModuleAutoloaderTest extends TestCase
     }
 
     #[Test]
-    public function it_skips_disabled_modules(): void
+    public function skipsDisabledModules(): void
     {
         /** @var CoreContract&MockInterface $core */
         $core = Mockery::mock(CoreContract::class);

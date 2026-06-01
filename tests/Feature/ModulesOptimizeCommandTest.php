@@ -31,8 +31,10 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Testing\PendingCommand;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
+#[Group('feature')]
 final class ModulesOptimizeCommandTest extends TestCase
 {
     use CreatesModuleFiles;
@@ -78,7 +80,7 @@ final class ModulesOptimizeCommandTest extends TestCase
     }
 
     #[Test]
-    public function optimize_writes_v4_module_cache(): void
+    public function optimizeWritesV4ModuleCache(): void
     {
         $this->artisanCommand('modules:optimize')->assertSuccessful();
 
@@ -93,7 +95,7 @@ final class ModulesOptimizeCommandTest extends TestCase
     }
 
     #[Test]
-    public function optimize_clear_removes_only_v4_module_cache(): void
+    public function optimizeClearRemovesOnlyV4ModuleCache(): void
     {
         mkdir($this->tempDir . '/bootstrap/cache', 0755, true);
         file_put_contents($this->tempDir . '/bootstrap/cache/modules.php', '<?php return [];');
@@ -106,7 +108,7 @@ final class ModulesOptimizeCommandTest extends TestCase
     }
 
     #[Test]
-    public function optimize_clear_resets_in_memory_registry_in_same_process(): void
+    public function optimizeClearResetsInMemoryRegistryInSameProcess(): void
     {
         /** @var ModuleRegistry $registry */
         $registry = $this->application()->make(ModuleRegistry::class);

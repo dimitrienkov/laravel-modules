@@ -10,9 +10,13 @@ use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleSkeletonBuilder::class)]
+#[Group('lifecycle')]
 final class ModuleSkeletonBuilderTest extends TestCase
 {
     use UsesTempDirectory;

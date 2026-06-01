@@ -8,6 +8,7 @@ use DimitrienkoV\LaravelModules\Application\Enums\ModuleSourceKind;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleSourceException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
+use DimitrienkoV\LaravelModules\Manifest\VO\Checksum;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleFileNames;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
@@ -25,10 +26,6 @@ final readonly class ModuleSourcePreparer
 
     public function prepare(string $sourcePath): PreparedSource
     {
-        if ($this->filesystem->isDirectory($sourcePath)) {
-            return $this->prepareFromDirectory($sourcePath);
-        }
-
         if ($this->filesystem->isFile($sourcePath) && str_ends_with(strtolower($sourcePath), '.zip')) {
             return $this->prepareFromZip($sourcePath);
         }
@@ -45,33 +42,14 @@ final readonly class ModuleSourcePreparer
         try {
             $this->filesystem->deleteDirectory($source->temporaryRoot);
         } catch (Throwable) {
+            // best-effort: temp dir removal failure must not mask the primary outcome
         }
-    }
-
-    private function prepareFromDirectory(string $sourcePath): PreparedSource
-    {
-        $manifestPath = $sourcePath . '/' . ModuleFileNames::MANIFEST;
-
-        if (! $this->filesystem->isFile($manifestPath)) {
-            throw ModuleSourceException::forPath($sourcePath, 'module.json not found in source directory.');
-        }
-
-        $this->assertNoStateFile($sourcePath);
-
-        $manifest = $this->documentReader->read($manifestPath);
-        $this->validator->validate($manifest, $manifestPath);
-
-        return new PreparedSource(
-            path: $sourcePath,
-            manifestPath: $manifestPath,
-            manifest: $manifest,
-            temporaryRoot: null,
-            sourceKind: ModuleSourceKind::Directory,
-        );
     }
 
     private function prepareFromZip(string $sourcePath): PreparedSource
     {
+        $checksum = $this->checksumForArchive($sourcePath);
+
         $tempDir = $this->zipExtractor->extractToTemp($sourcePath);
 
         try {
@@ -92,12 +70,29 @@ final readonly class ModuleSourcePreparer
                 manifest: $manifest,
                 temporaryRoot: $tempDir,
                 sourceKind: ModuleSourceKind::Zip,
+                checksum: $checksum,
             );
         } catch (Throwable $e) {
-            $this->filesystem->deleteDirectory($tempDir);
+            // Cleanup must not mask the primary failure: a throwing deleteDirectory
+            // would otherwise replace the original manifest/source validation error.
+            try {
+                $this->filesystem->deleteDirectory($tempDir);
+            } catch (Throwable) {
+            }
 
             throw $e;
         }
+    }
+
+    private function checksumForArchive(string $sourcePath): Checksum
+    {
+        $hash = $this->filesystem->hashFile($sourcePath, Checksum::ALGORITHM);
+
+        if ($hash === false) {
+            throw ModuleSourceException::forPath($sourcePath, 'failed to compute checksum for archive.');
+        }
+
+        return new Checksum($hash);
     }
 
     private function assertNoStateFile(string $sourceRoot): void

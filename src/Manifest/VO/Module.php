@@ -46,9 +46,7 @@ final readonly class Module
             throw InvalidManifestException::forPath($manifestPath, 'settings.schema must be an object.');
         }
 
-        /** @var array<string, mixed> $metaRaw */
         $meta = ManifestMeta::fromArray($metaRaw, $manifestPath);
-        /** @var array<string, mixed> $schemaRaw */
         $features = FeatureSchema::fromArray($schemaRaw, $manifestPath);
 
         return new self(

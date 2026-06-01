@@ -23,9 +23,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(LifecycleRegistryInvalidator::class)]
+#[Group('lifecycle')]
 final class LifecycleRegistryInvalidatorTest extends TestCase
 {
     use CreatesModuleFiles;

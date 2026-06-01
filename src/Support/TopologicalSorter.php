@@ -102,12 +102,12 @@ final readonly class TopologicalSorter
                     throw ModuleDependencyDisabledException::forDependency($module->name, $dependencyName);
                 }
 
-                if (! Semver::satisfies($dependency->meta->version, $constraint)) {
+                if (! Semver::satisfies($dependency->meta->version->value, $constraint)) {
                     throw ModuleDependencyIncompatibleException::forDependency(
                         $module->name,
                         $dependencyName,
                         $constraint,
-                        $dependency->meta->version,
+                        $dependency->meta->version->value,
                     );
                 }
             }

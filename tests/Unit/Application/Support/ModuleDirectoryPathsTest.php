@@ -7,9 +7,13 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\Support;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use Illuminate\Config\Repository;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleDirectoryPaths::class)]
+#[Group('lifecycle')]
 final class ModuleDirectoryPathsTest extends TestCase
 {
     private string $basePath;

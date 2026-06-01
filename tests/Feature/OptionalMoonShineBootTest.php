@@ -14,8 +14,10 @@ use Mockery\Expectation;
 use Mockery\MockInterface;
 use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
+#[Group('feature')]
 final class OptionalMoonShineBootTest extends TestCase
 {
     protected function tearDown(): void
@@ -26,7 +28,7 @@ final class OptionalMoonShineBootTest extends TestCase
     }
 
     #[Test]
-    public function provider_boots_without_bound_moonshine_core(): void
+    public function providerBootsWithoutBoundMoonshineCore(): void
     {
         $provider = $this->provider();
         $provider->register();
@@ -38,7 +40,7 @@ final class OptionalMoonShineBootTest extends TestCase
     }
 
     #[Test]
-    public function moonshine_autoloads_modules_when_core_resolves_after_provider_boot(): void
+    public function moonshineAutoloadsModulesWhenCoreResolvesAfterProviderBoot(): void
     {
         /** @var CoreContract&MockInterface $core */
         $core = Mockery::mock(CoreContract::class);
@@ -64,7 +66,7 @@ final class OptionalMoonShineBootTest extends TestCase
     }
 
     #[Test]
-    public function moonshine_autoloads_modules_when_core_was_resolved_before_provider_boot(): void
+    public function moonshineAutoloadsModulesWhenCoreWasResolvedBeforeProviderBoot(): void
     {
         /** @var CoreContract&MockInterface $core */
         $core = Mockery::mock(CoreContract::class);
@@ -90,7 +92,7 @@ final class OptionalMoonShineBootTest extends TestCase
     }
 
     #[Test]
-    public function moonshine_loader_is_not_in_tagged_pipeline(): void
+    public function moonshineLoaderIsNotInTaggedPipeline(): void
     {
         $provider = $this->provider();
         $provider->register();

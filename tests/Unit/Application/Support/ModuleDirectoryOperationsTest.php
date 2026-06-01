@@ -10,9 +10,13 @@ use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleDirectoryOperations::class)]
+#[Group('lifecycle')]
 final class ModuleDirectoryOperationsTest extends TestCase
 {
     private string $tempDir;

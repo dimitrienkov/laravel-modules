@@ -10,13 +10,17 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleDependencyIncompatibleException
 use DimitrienkoV\LaravelModules\Exceptions\ModuleDependencyMissingException;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(TopologicalSorter::class)]
+#[Group('support')]
 final class TopologicalSorterTest extends TestCase
 {
     #[Test]
-    public function it_sorts_modules_after_their_dependencies(): void
+    public function sortsModulesAfterTheirDependencies(): void
     {
         $users = ModuleFactory::make(name: 'users', version: '1.2.0');
         $blog = ModuleFactory::make(name: 'blog', dependencies: ['users' => '^1.0']);
@@ -30,7 +34,7 @@ final class TopologicalSorterTest extends TestCase
     }
 
     #[Test]
-    public function it_fails_for_missing_dependencies(): void
+    public function failsForMissingDependencies(): void
     {
         $this->expectException(ModuleDependencyMissingException::class);
         $this->expectExceptionMessage('requires missing dependency [users]');
@@ -41,7 +45,7 @@ final class TopologicalSorterTest extends TestCase
     }
 
     #[Test]
-    public function it_fails_for_disabled_dependencies(): void
+    public function failsForDisabledDependencies(): void
     {
         $this->expectException(ModuleDependencyDisabledException::class);
         $this->expectExceptionMessage('requires disabled dependency [users]');
@@ -53,7 +57,7 @@ final class TopologicalSorterTest extends TestCase
     }
 
     #[Test]
-    public function it_fails_for_incompatible_dependencies(): void
+    public function failsForIncompatibleDependencies(): void
     {
         $this->expectException(ModuleDependencyIncompatibleException::class);
         $this->expectExceptionMessage('matching [^1.0]');
@@ -65,7 +69,7 @@ final class TopologicalSorterTest extends TestCase
     }
 
     #[Test]
-    public function it_fails_for_dependency_cycles(): void
+    public function failsForDependencyCycles(): void
     {
         $this->expectException(CyclicDependencyException::class);
         $this->expectExceptionMessage('blog -> users -> blog');
@@ -77,7 +81,7 @@ final class TopologicalSorterTest extends TestCase
     }
 
     #[Test]
-    public function disabled_module_with_missing_dependency_does_not_throw(): void
+    public function disabledModuleWithMissingDependencyDoesNotThrow(): void
     {
         $sorted = (new TopologicalSorter())->sort([
             ModuleFactory::make(name: 'blog', enabled: false, dependencies: ['users' => '^1.0']),
@@ -90,7 +94,7 @@ final class TopologicalSorterTest extends TestCase
     }
 
     #[Test]
-    public function disabled_module_with_disabled_dependency_does_not_throw(): void
+    public function disabledModuleWithDisabledDependencyDoesNotThrow(): void
     {
         $sorted = (new TopologicalSorter())->sort([
             ModuleFactory::make(name: 'blog', enabled: false, dependencies: ['users' => '^1.0']),
@@ -101,7 +105,7 @@ final class TopologicalSorterTest extends TestCase
     }
 
     #[Test]
-    public function disabled_module_with_incompatible_dependency_does_not_throw(): void
+    public function disabledModuleWithIncompatibleDependencyDoesNotThrow(): void
     {
         $sorted = (new TopologicalSorter())->sort([
             ModuleFactory::make(name: 'blog', enabled: false, dependencies: ['users' => '^1.0']),
@@ -112,7 +116,7 @@ final class TopologicalSorterTest extends TestCase
     }
 
     #[Test]
-    public function enabled_module_with_missing_dependency_still_throws(): void
+    public function enabledModuleWithMissingDependencyStillThrows(): void
     {
         $this->expectException(ModuleDependencyMissingException::class);
 
@@ -122,7 +126,7 @@ final class TopologicalSorterTest extends TestCase
     }
 
     #[Test]
-    public function disabled_modules_with_cycle_still_throws(): void
+    public function disabledModulesWithCycleStillThrows(): void
     {
         $this->expectException(CyclicDependencyException::class);
 
@@ -133,7 +137,7 @@ final class TopologicalSorterTest extends TestCase
     }
 
     #[Test]
-    public function it_handles_diamond_dependency(): void
+    public function handlesDiamondDependency(): void
     {
         $d = ModuleFactory::make(name: 'd', version: '1.0.0');
         $b = ModuleFactory::make(name: 'b', version: '1.0.0', dependencies: ['d' => '*']);
@@ -156,7 +160,7 @@ final class TopologicalSorterTest extends TestCase
     }
 
     #[Test]
-    public function it_handles_three_level_deep_chain(): void
+    public function handlesThreeLevelDeepChain(): void
     {
         $d = ModuleFactory::make(name: 'd', version: '1.0.0');
         $c = ModuleFactory::make(name: 'c', version: '1.0.0', dependencies: ['d' => '*']);

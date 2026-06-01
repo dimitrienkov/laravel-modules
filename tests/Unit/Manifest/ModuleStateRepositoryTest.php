@@ -8,23 +8,35 @@ use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleStateException;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
+use DimitrienkoV\LaravelModules\Manifest\VO\Checksum;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
+use DimitrienkoV\LaravelModules\Manifest\VO\Version;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ModuleStateRepository::class)]
+#[Group('manifest')]
 final class ModuleStateRepositoryTest extends TestCase
 {
+    use CreatesModuleFiles;
+
+    private const string VALID_CHECKSUM = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+
     private string $tempDir;
 
     private string $stateRoot;
@@ -61,7 +73,7 @@ final class ModuleStateRepositoryTest extends TestCase
     #[Test]
     public function throwsOnScalarSettings(): void
     {
-        $this->writeState('blog', '{"enabled": true, "settings": "invalid"}');
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "settings": "invalid"}');
 
         $this->expectException(InvalidModuleStateException::class);
         $this->expectExceptionMessageMatches('/settings must be a JSON object/');
@@ -72,7 +84,7 @@ final class ModuleStateRepositoryTest extends TestCase
     #[Test]
     public function throwsOnListSettings(): void
     {
-        $this->writeState('blog', '{"enabled": true, "settings": ["a", "b"]}');
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "settings": ["a", "b"]}');
 
         $this->expectException(InvalidModuleStateException::class);
         $this->expectExceptionMessageMatches('/settings must be a JSON object/');
@@ -83,7 +95,7 @@ final class ModuleStateRepositoryTest extends TestCase
     #[Test]
     public function throwsOnScalarSettingsValues(): void
     {
-        $this->writeState('blog', '{"enabled": true, "settings": {"values": 42}}');
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "settings": {"values": 42}}');
 
         $this->expectException(InvalidModuleStateException::class);
         $this->expectExceptionMessageMatches('/settings\.values must be a JSON object/');
@@ -94,7 +106,30 @@ final class ModuleStateRepositoryTest extends TestCase
     #[Test]
     public function throwsOnListSettingsValues(): void
     {
-        $this->writeState('blog', '{"enabled": true, "settings": {"values": [1, 2, 3]}}');
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "settings": {"values": [1, 2, 3]}}');
+
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/settings\.values must be a JSON object/');
+
+        $this->repository->read('blog', $this->makeModule('blog'));
+    }
+
+    #[Test]
+    public function throwsOnIntegerKeyedStateObject(): void
+    {
+        // JSON {"1": ...} decodes to a non-list array with an integer key.
+        $this->writeRawState($this->stateRoot, 'blog', '{"1": "enabled"}');
+
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/state file must be a JSON object/');
+
+        $this->repository->read('blog', $this->makeModule('blog'));
+    }
+
+    #[Test]
+    public function throwsOnIntegerKeyedSettingsValues(): void
+    {
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "settings": {"values": {"1": "x"}}}');
 
         $this->expectException(InvalidModuleStateException::class);
         $this->expectExceptionMessageMatches('/settings\.values must be a JSON object/');
@@ -105,7 +140,7 @@ final class ModuleStateRepositoryTest extends TestCase
     #[Test]
     public function throwsOnUnknownSettingsKey(): void
     {
-        $this->writeState('blog', '{"enabled": true, "settings": {"values": {}, "extra": "bad"}}');
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "settings": {"values": {}, "extra": "bad"}}');
 
         $this->expectException(InvalidModuleStateException::class);
         $this->expectExceptionMessageMatches('/unknown key \[extra\]/');
@@ -116,7 +151,7 @@ final class ModuleStateRepositoryTest extends TestCase
     #[Test]
     public function acceptsEmptySettings(): void
     {
-        $this->writeState('blog', '{"enabled": true, "settings": {}}');
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "settings": {}}');
 
         $doc = $this->repository->read('blog', $this->makeModule('blog'));
 
@@ -127,7 +162,7 @@ final class ModuleStateRepositoryTest extends TestCase
     #[Test]
     public function acceptsMissingSettings(): void
     {
-        $this->writeState('blog', '{"enabled": true}');
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true}');
 
         $doc = $this->repository->read('blog', $this->makeModule('blog'));
 
@@ -138,7 +173,7 @@ final class ModuleStateRepositoryTest extends TestCase
     #[Test]
     public function acceptsNullSettings(): void
     {
-        $this->writeState('blog', '{"enabled": true, "settings": null}');
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "settings": null}');
 
         $doc = $this->repository->read('blog', $this->makeModule('blog'));
 
@@ -148,7 +183,7 @@ final class ModuleStateRepositoryTest extends TestCase
     #[Test]
     public function acceptsNullSettingsValues(): void
     {
-        $this->writeState('blog', '{"enabled": true, "settings": {"values": null}}');
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "settings": {"values": null}}');
 
         $doc = $this->repository->read('blog', $this->makeModule('blog'));
 
@@ -253,13 +288,143 @@ final class ModuleStateRepositoryTest extends TestCase
         $this->assertTrue($this->repository->exists('blog'));
     }
 
-    private function writeState(string $name, string $json): void
+    #[Test]
+    public function readHydratesOriginFromSource(): void
     {
-        $dir = $this->stateRoot . '/' . $name;
-        if (! is_dir($dir)) {
-            mkdir($dir, 0755, true);
-        }
-        file_put_contents($dir . '/state.json', $json);
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "source": {"kind": "zip", "installed_version": "1.0.0", "checksum": "' . self::VALID_CHECKSUM . '"}}');
+
+        $doc = $this->repository->read('blog', $this->makeModule('blog'));
+
+        $this->assertNotNull($doc->source);
+        $this->assertSame('zip', $doc->source->kind->value);
+        $this->assertSame('1.0.0', $doc->source->installedVersion->value);
+        $this->assertNotNull($doc->source->checksum);
+        $this->assertSame(self::VALID_CHECKSUM, $doc->source->checksum->value);
+    }
+
+    #[Test]
+    public function readThrowsWhenSourceIsList(): void
+    {
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "source": ["zip"]}');
+
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/source must be a JSON object/');
+
+        $this->repository->read('blog', $this->makeModule('blog'));
+    }
+
+    #[Test]
+    public function readThrowsWhenSourceIsScalar(): void
+    {
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "source": "zip"}');
+
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/source must be a JSON object/');
+
+        $this->repository->read('blog', $this->makeModule('blog'));
+    }
+
+    #[Test]
+    public function readThrowsWhenSourceHasIntegerKeys(): void
+    {
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true, "source": {"1": "zip"}}');
+
+        $this->expectException(InvalidModuleStateException::class);
+        $this->expectExceptionMessageMatches('/source must be a JSON object/');
+
+        $this->repository->read('blog', $this->makeModule('blog'));
+    }
+
+    #[Test]
+    public function readReturnsNullOriginWhenSourceAbsent(): void
+    {
+        $this->writeRawState($this->stateRoot, 'blog', '{"enabled": true}');
+
+        $doc = $this->repository->read('blog', $this->makeModule('blog'));
+
+        $this->assertNull($doc->source);
+    }
+
+    #[Test]
+    public function writeDocumentPersistsOrigin(): void
+    {
+        $module = $this->makeModule('blog');
+        $state = ModuleState::initialState();
+        $values = new FeatureValues($module->features, []);
+        $origin = ModuleOrigin::forZip(new Version('1.0.0'), new Checksum(self::VALID_CHECKSUM));
+        $document = new ModuleStateDocument($state, $values, $origin);
+
+        $this->repository->writeDocument('blog', $document);
+
+        $raw = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayHasKey('source', $raw);
+        $this->assertSame('zip', $raw['source']['kind']);
+        $this->assertSame('1.0.0', $raw['source']['installed_version']);
+        $this->assertSame(self::VALID_CHECKSUM, $raw['source']['checksum']);
+    }
+
+    #[Test]
+    public function writeStatePreservesOrigin(): void
+    {
+        $module = $this->makeModule('blog');
+        $state = ModuleState::initialState();
+        $values = new FeatureValues($module->features, []);
+        $origin = ModuleOrigin::forLocal(new Version('1.0.0'));
+        $this->repository->writeDocument('blog', new ModuleStateDocument($state, $values, $origin));
+
+        $newState = $state->withEnabled(false);
+        $this->repository->writeState($module, $newState);
+
+        $raw = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertFalse($raw['enabled']);
+        $this->assertArrayHasKey('source', $raw);
+        $this->assertSame('local', $raw['source']['kind']);
+    }
+
+    #[Test]
+    public function writeValuesPreservesOrigin(): void
+    {
+        $module = $this->makeModule('blog');
+        $state = ModuleState::initialState();
+        $values = new FeatureValues($module->features, []);
+        $origin = ModuleOrigin::forZip(new Version('1.0.0'), new Checksum(self::VALID_CHECKSUM));
+        $this->repository->writeDocument('blog', new ModuleStateDocument($state, $values, $origin));
+
+        $this->repository->writeValues($module, $values);
+
+        $raw = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayHasKey('source', $raw);
+        $this->assertSame('zip', $raw['source']['kind']);
+        $this->assertSame(self::VALID_CHECKSUM, $raw['source']['checksum']);
+    }
+
+    #[Test]
+    public function writeValuesPreservesEnabledStateWhenNoStateFileExists(): void
+    {
+        $module = $this->makeModule('blog')->withState(ModuleState::initialState(enabled: true));
+        $values = new FeatureValues($module->features, []);
+
+        // No state file written yet: writeValues must persist the passed module's
+        // own enabled state, not silently fall back to defaultDisabled().
+        $this->repository->writeValues($module, $values);
+
+        $raw = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertTrue($raw['enabled']);
+        $this->assertArrayNotHasKey('source', $raw);
+    }
+
+    #[Test]
+    public function writeDocumentOmitsSourceWhenOriginNull(): void
+    {
+        $module = $this->makeModule('blog');
+        $state = ModuleState::initialState();
+        $values = new FeatureValues($module->features, []);
+        $document = new ModuleStateDocument($state, $values);
+
+        $this->repository->writeDocument('blog', $document);
+
+        $raw = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayNotHasKey('source', $raw);
     }
 
     private function makeModule(string $name): Module
@@ -274,7 +439,7 @@ final class ModuleStateRepositoryTest extends TestCase
                 name: $name,
                 displayName: ucfirst($name),
                 kind: ModuleKind::Module,
-                version: '1.0.0',
+                version: new Version('1.0.0'),
                 author: null,
                 description: null,
                 license: null,

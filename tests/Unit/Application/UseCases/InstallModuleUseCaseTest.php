@@ -9,15 +9,20 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleInstallException;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
+use DimitrienkoV\LaravelModules\Tests\Support\CreatesSourceArchive;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use ZipArchive;
 
+#[CoversClass(InstallModuleUseCase::class)]
+#[Group('lifecycle')]
 final class InstallModuleUseCaseTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
+    use CreatesSourceArchive;
 
     private string $tempDir;
 
@@ -43,22 +48,6 @@ final class InstallModuleUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function installFromDirectorySource(): void
-    {
-        $sourceDir = $this->createSourceModule('blog');
-        $useCase = $this->makeUseCase();
-
-        $result = $useCase->execute($sourceDir);
-
-        $this->assertSame('blog', $result->name);
-        $this->assertTrue($result->enabled);
-        $this->assertSame('directory', $result->sourceKind->value);
-        $this->assertDirectoryExists($result->path);
-        $this->assertFileExists($result->path . '/module.json');
-        $this->assertFileExists($this->stateRoot . '/blog/state.json');
-    }
-
-    #[Test]
     public function installFromZipSource(): void
     {
         $zipPath = $this->createSourceZip('blog');
@@ -67,17 +56,36 @@ final class InstallModuleUseCaseTest extends TestCase
         $result = $useCase->execute($zipPath);
 
         $this->assertSame('blog', $result->name);
+        $this->assertTrue($result->enabled);
         $this->assertSame('zip', $result->sourceKind->value);
         $this->assertDirectoryExists($result->path);
+        $this->assertFileExists($result->path . '/module.json');
+        $this->assertFileExists($this->stateRoot . '/blog/state.json');
+    }
+
+    #[Test]
+    public function installWritesZipSourceOriginWithChecksum(): void
+    {
+        $zipPath = $this->createSourceZip('blog');
+        $useCase = $this->makeUseCase();
+
+        $useCase->execute($zipPath);
+
+        $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
+        $this->assertArrayHasKey('source', $state);
+        $this->assertSame('zip', $state['source']['kind']);
+        $this->assertSame('1.0.0', $state['source']['installed_version']);
+        $this->assertNotEmpty($state['source']['checksum']);
+        $this->assertSame(64, \strlen($state['source']['checksum']));
     }
 
     #[Test]
     public function installDisabled(): void
     {
-        $sourceDir = $this->createSourceModule('blog');
+        $zipPath = $this->createSourceZip('blog');
         $useCase = $this->makeUseCase();
 
-        $result = $useCase->execute($sourceDir, enabled: false);
+        $result = $useCase->execute($zipPath, enabled: false);
 
         $this->assertFalse($result->enabled);
         $state = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
@@ -87,18 +95,18 @@ final class InstallModuleUseCaseTest extends TestCase
     #[Test]
     public function installThrowsWhenModuleAlreadyInRegistry(): void
     {
-        $sourceDir = $this->createSourceModule('blog');
+        $zipPath = $this->createSourceZip('blog');
         $this->createInstalledModule('blog');
         $useCase = $this->makeUseCase();
 
         $this->expectException(ModuleAlreadyExistsException::class);
-        $useCase->execute($sourceDir);
+        $useCase->execute($zipPath);
     }
 
     #[Test]
     public function installRollsBackOnStatePersistenceFailure(): void
     {
-        $sourceDir = $this->createSourceModule('blog');
+        $zipPath = $this->createSourceZip('blog');
         $targetPath = $this->tempDir . '/app/Modules/Blog';
 
         $failingManifests = $this->createMock(\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface::class);
@@ -109,7 +117,7 @@ final class InstallModuleUseCaseTest extends TestCase
         $useCase = $this->makeUseCase(manifestRepository: $failingManifests);
 
         try {
-            $useCase->execute($sourceDir);
+            $useCase->execute($zipPath);
             $this->fail('Expected ModuleInstallException was not thrown');
         } catch (ModuleInstallException $e) {
             $this->assertStringContainsString('persistence failed', $e->getMessage());
@@ -124,24 +132,27 @@ final class InstallModuleUseCaseTest extends TestCase
         $zipPath = $this->createSourceZip('blog');
         $useCase = $this->makeUseCase();
 
+        $before = glob(sys_get_temp_dir() . '/module_zip_*') ?: [];
+
         $useCase->execute($zipPath);
 
-        $tempDirs = glob(sys_get_temp_dir() . '/module_zip_*');
-        $recentTempDirs = array_filter($tempDirs, fn ($d) => is_dir($d) && filemtime($d) > time() - 5);
-        $this->assertEmpty($recentTempDirs);
+        $after = glob(sys_get_temp_dir() . '/module_zip_*') ?: [];
+        $leaked = array_values(array_diff($after, $before));
+
+        $this->assertSame([], $leaked, 'Prepared source temp directory should be removed after a successful install.');
     }
 
     #[Test]
     public function installThrowsWhenTargetDirectoryAlreadyExists(): void
     {
-        $sourceDir = $this->createSourceModule('blog');
+        $zipPath = $this->createSourceZip('blog');
         $targetPath = $this->tempDir . '/app/Modules/Blog';
         $this->filesystem->makeDirectory($targetPath, 0755, true);
 
         $useCase = $this->makeUseCase();
 
         $this->expectException(ModuleAlreadyExistsException::class);
-        $useCase->execute($sourceDir);
+        $useCase->execute($zipPath);
     }
 
     #[Test]
@@ -149,10 +160,10 @@ final class InstallModuleUseCaseTest extends TestCase
     {
         $this->createInstalledModule('users');
 
-        $sourceDir = $this->createSourceModuleWithDeps('blog', ['users' => '^1.0']);
+        $zipPath = $this->createSourceZipWithDeps('blog', ['users' => '^1.0']);
         $useCase = $this->makeUseCase();
 
-        $result = $useCase->execute($sourceDir);
+        $result = $useCase->execute($zipPath);
 
         $this->assertSame('blog', $result->name);
         $this->assertTrue($result->enabled);
@@ -184,62 +195,23 @@ final class InstallModuleUseCaseTest extends TestCase
         );
     }
 
-    private function createSourceModule(string $name): string
-    {
-        $dir = $this->tempDir . '/sources/' . ucfirst($name);
-        $this->filesystem->makeDirectory($dir, 0755, true);
-
-        file_put_contents($dir . '/module.json', json_encode([
-            'schema_version' => 1,
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => '1.0.0'],
-            'settings' => ['schema' => new \stdClass()],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-
-        file_put_contents($dir . '/readme.txt', 'Module ' . $name);
-
-        return $dir;
-    }
-
     private function createSourceZip(string $name): string
     {
-        $manifest = json_encode([
-            'schema_version' => 1,
-            'meta' => ['name' => $name, 'display_name' => ucfirst($name), 'kind' => 'module', 'version' => '1.0.0'],
-            'settings' => ['schema' => new \stdClass()],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-
-        $zipPath = $this->tempDir . '/sources/' . $name . '.zip';
-        $zip = new ZipArchive();
-        $zip->open($zipPath, ZipArchive::CREATE);
-        $zip->addFromString('module.json', $manifest);
-        $zip->close();
-
-        return $zipPath;
+        return $this->zipModuleSource(
+            $this->tempDir . '/sources/' . $name . '.zip',
+            $this->moduleManifestArray($name),
+        );
     }
 
     /**
      * @param array<string, string> $dependencies
      */
-    private function createSourceModuleWithDeps(string $name, array $dependencies): string
+    private function createSourceZipWithDeps(string $name, array $dependencies): string
     {
-        $dir = $this->tempDir . '/sources/' . ucfirst($name);
-        $this->filesystem->makeDirectory($dir, 0755, true);
-
-        file_put_contents($dir . '/module.json', json_encode([
-            'schema_version' => 1,
-            'meta' => [
-                'name' => $name,
-                'display_name' => ucfirst($name),
-                'kind' => 'module',
-                'version' => '1.0.0',
-                'dependencies' => $dependencies,
-            ],
-            'settings' => ['schema' => new \stdClass()],
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-
-        file_put_contents($dir . '/readme.txt', 'Module ' . $name);
-
-        return $dir;
+        return $this->zipModuleSource(
+            $this->tempDir . '/sources/' . $name . '.zip',
+            $this->moduleManifestArray($name, dependencies: $dependencies),
+        );
     }
 
     private function createInstalledModule(string $name): void

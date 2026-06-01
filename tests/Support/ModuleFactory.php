@@ -12,6 +12,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependency;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
+use DimitrienkoV\LaravelModules\Manifest\VO\Version;
 
 final readonly class ModuleFactory
 {
@@ -41,7 +42,7 @@ final readonly class ModuleFactory
                 name: $name,
                 displayName: ucfirst($name),
                 kind: $kind,
-                version: $version,
+                version: new Version($version),
                 author: null,
                 description: null,
                 license: null,

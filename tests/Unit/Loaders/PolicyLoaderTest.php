@@ -11,9 +11,13 @@ use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Auth\Access\Gate;
 use Illuminate\Container\Container;
 use Illuminate\Filesystem\Filesystem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(PolicyLoader::class)]
+#[Group('loaders')]
 final class PolicyLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -41,7 +45,7 @@ final class PolicyLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_policy_for_matching_model(): void
+    public function registersPolicyForMatchingModel(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $policiesDir = $modulePath . '/Domain/Policies';
@@ -69,7 +73,7 @@ final class PolicyLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_skips_when_model_class_does_not_exist(): void
+    public function skipsWhenModelClassDoesNotExist(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $policiesDir = $modulePath . '/Domain/Policies';
@@ -88,7 +92,7 @@ final class PolicyLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_skips_when_policy_class_does_not_exist(): void
+    public function skipsWhenPolicyClassDoesNotExist(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         $policiesDir = $modulePath . '/Domain/Policies';
@@ -110,7 +114,7 @@ final class PolicyLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_policies_directory_is_missing(): void
+    public function returnsEarlyWhenPoliciesDirectoryIsMissing(): void
     {
         $gate = new Gate(new Container(), static fn () => null);
 

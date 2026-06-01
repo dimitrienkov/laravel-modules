@@ -11,9 +11,13 @@ use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Illuminate\Routing\Router;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(RouteLoader::class)]
+#[Group('loaders')]
 final class RouteLoaderTest extends TestCase
 {
     private string $tempDir;
@@ -34,12 +38,12 @@ final class RouteLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_registers_flat_and_versioned_route_files(): void
+    public function registersConfigDrivenRouteFiles(): void
     {
         $modulePath = $this->tempDir . '/Blog';
-        mkdir($modulePath . '/Routes/api', 0755, true);
+        mkdir($modulePath . '/Routes', 0755, true);
         file_put_contents($modulePath . '/Routes/web.php', '<?php');
-        file_put_contents($modulePath . '/Routes/api/v1.php', '<?php');
+        file_put_contents($modulePath . '/Routes/api_v1.php', '<?php');
         $router = new RecordingRouter();
 
         (new RouteLoader($this->fakeApp(cached: false), $router, $this->config(), new Filesystem(), new ModuleLayout()))
@@ -51,14 +55,14 @@ final class RouteLoaderTest extends TestCase
                 'routes' => $modulePath . '/Routes/web.php',
             ],
             [
-                'attributes' => ['prefix' => 'api/v1', 'middleware' => ['api']],
-                'routes' => $modulePath . '/Routes/api/v1.php',
+                'attributes' => ['prefix' => 'api/v1', 'middleware' => ['api_v1']],
+                'routes' => $modulePath . '/Routes/api_v1.php',
             ],
         ], $router->groups);
     }
 
     #[Test]
-    public function it_returns_early_when_routes_directory_is_missing(): void
+    public function returnsEarlyWhenRoutesDirectoryIsMissing(): void
     {
         $router = new RecordingRouter();
 
@@ -69,7 +73,7 @@ final class RouteLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_routes_are_cached(): void
+    public function returnsEarlyWhenRoutesAreCached(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath . '/Routes', 0755, true);
@@ -96,13 +100,13 @@ final class RouteLoaderTest extends TestCase
             'modules' => [
                 'routing' => [
                     'types' => [
-                        'api' => [
-                            'prefix' => 'api',
-                            'middleware' => ['api'],
-                        ],
                         'web' => [
                             'prefix' => null,
                             'middleware' => ['web'],
+                        ],
+                        'api_v1' => [
+                            'prefix' => 'api/v1',
+                            'middleware' => ['api_v1'],
                         ],
                     ],
                 ],

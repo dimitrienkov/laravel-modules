@@ -12,12 +12,18 @@ use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
 use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
+use DimitrienkoV\LaravelModules\Manifest\VO\Version;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(ListModulesUseCase::class)]
+#[Group('lifecycle')]
 final class ListModulesUseCaseTest extends TestCase
 {
     use MockeryPHPUnitIntegration;
@@ -67,6 +73,35 @@ final class ListModulesUseCaseTest extends TestCase
         $this->assertSame([], $result->modules);
     }
 
+    #[Test]
+    public function filtersByGroup(): void
+    {
+        $modules = [
+            $this->makeModule('blog', true, group: 'content'),
+            $this->makeModule('users', true),
+        ];
+        $useCase = $this->makeUseCase($modules);
+
+        $result = $useCase->execute(groupFilter: new ModuleGroup('content'));
+
+        $this->assertCount(1, $result->modules);
+        $this->assertSame('blog', $result->modules[0]->name);
+    }
+
+    #[Test]
+    public function returnsEmptyListForGroupWithoutMatches(): void
+    {
+        $modules = [
+            $this->makeModule('blog', true, group: 'content'),
+            $this->makeModule('users', true),
+        ];
+        $useCase = $this->makeUseCase($modules);
+
+        $result = $useCase->execute(groupFilter: new ModuleGroup('missing'));
+
+        $this->assertSame([], $result->modules);
+    }
+
     /**
      * @param list<Module> $modules
      */
@@ -79,7 +114,7 @@ final class ListModulesUseCaseTest extends TestCase
         return new ListModulesUseCase($registry);
     }
 
-    private function makeModule(string $name, bool $enabled, ModuleKind $kind = ModuleKind::Module): Module
+    private function makeModule(string $name, bool $enabled, ModuleKind $kind = ModuleKind::Module, ?string $group = null): Module
     {
         return new Module(
             name: $name,
@@ -91,11 +126,12 @@ final class ListModulesUseCaseTest extends TestCase
                 name: $name,
                 displayName: ucfirst($name),
                 kind: $kind,
-                version: '1.0.0',
+                version: new Version('1.0.0'),
                 author: null,
                 description: null,
                 license: null,
                 dependencies: new ModuleDependencies([]),
+                group: $group === null ? null : new ModuleGroup($group),
             ),
             state: new ModuleState(enabled: $enabled, installedAt: '2026-01-01T00:00:00+00:00'),
             features: new FeatureSchema([]),

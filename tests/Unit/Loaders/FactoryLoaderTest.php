@@ -11,9 +11,14 @@ use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
+#[CoversClass(FactoryLoader::class)]
+#[Group('loaders')]
 final class FactoryLoaderTest extends TestCase
 {
     use UsesTempDirectory;
@@ -35,7 +40,7 @@ final class FactoryLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_resolves_module_factory_class_from_model_namespace(): void
+    public function resolvesModuleFactoryClassFromModelNamespace(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath . '/Database/Factories', 0755, true);
@@ -50,7 +55,7 @@ final class FactoryLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_early_when_factories_directory_is_missing(): void
+    public function returnsEarlyWhenFactoriesDirectoryIsMissing(): void
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath, 0755, true);
@@ -65,7 +70,7 @@ final class FactoryLoaderTest extends TestCase
     }
 
     #[Test]
-    public function it_preserves_existing_host_factory_resolver_for_non_module_models(): void
+    public function preservesExistingHostFactoryResolverForNonModuleModels(): void
     {
         Factory::guessFactoryNamesUsing(
             static fn (string $modelClass): string => 'Host\\Database\\Factories\\'
@@ -86,6 +91,25 @@ final class FactoryLoaderTest extends TestCase
         self::assertSame(
             'Host\\Database\\Factories\\UserFactory',
             Factory::resolveFactoryName('App\\Models\\User'),
+        );
+    }
+
+    #[Test]
+    public function laravelFactoryStillExposesStaticFactoryNameResolver(): void
+    {
+        // Tripwire: FactoryLoader reads Factory::$factoryNameResolver via reflection
+        // to preserve the host's existing resolver when chaining module resolvers.
+        // This is an intentional dependency on a Laravel internal — if the property
+        // is renamed or removed (or made non-static), the loader would silently drop
+        // the host resolver in production, so fail here on CI first.
+        self::assertTrue(
+            property_exists(Factory::class, 'factoryNameResolver'),
+            'FactoryLoader depends on the internal Factory::$factoryNameResolver property.',
+        );
+
+        self::assertTrue(
+            (new ReflectionProperty(Factory::class, 'factoryNameResolver'))->isStatic(),
+            'FactoryLoader reads the resolver without an instance, so the property must stay static.',
         );
     }
 
