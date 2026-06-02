@@ -83,7 +83,7 @@ final readonly class ScaffoldModuleUseCase
 
         try {
             try {
-                $this->skeletonBuilder->build($targetPath, $namespace, $studlyName, $config->name);
+                $this->skeletonBuilder->build($targetPath, $namespace, $studlyName, $config->name, $config->components);
 
                 $state = ModuleState::initialState(enabled: $config->enabled);
 

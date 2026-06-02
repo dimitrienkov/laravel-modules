@@ -91,4 +91,28 @@ final class ScaffoldComponentTest extends TestCase
             self::assertStringContainsString($case->value, $list);
         }
     }
+
+    #[Test]
+    public function everyCaseMapsToAtLeastOneRelativeDirectory(): void
+    {
+        foreach (ScaffoldComponent::cases() as $case) {
+            self::assertNotEmpty($case->relativeDirectories());
+        }
+    }
+
+    #[Test]
+    public function applicationAndDatabaseExpandToTheirLayerDirectories(): void
+    {
+        self::assertSame(
+            ['Application/UseCases', 'Application/Actions', 'Application/Queries', 'Application/DTOs'],
+            ScaffoldComponent::Application->relativeDirectories(),
+        );
+
+        self::assertSame(
+            ['Database/Factories', 'Database/Migrations', 'Database/Seeders'],
+            ScaffoldComponent::Database->relativeDirectories(),
+        );
+
+        self::assertSame(['Resources/views'], ScaffoldComponent::Views->relativeDirectories());
+    }
 }

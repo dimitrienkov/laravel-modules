@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\Support;
 
+use DimitrienkoV\LaravelModules\Application\Enums\ScaffoldComponent;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
@@ -71,6 +72,46 @@ final class ModuleSkeletonBuilderTest extends TestCase
         $content = file_get_contents($providerPath);
         $this->assertStringContainsString('App\\Modules\\Blog', $content);
         $this->assertStringContainsString('Blog', $content);
+    }
+
+    #[Test]
+    public function buildWithComponentsCreatesOnlySelectedPlusMandatory(): void
+    {
+        $targetPath = $this->tempDir . '/Blog';
+
+        $this->builder->build($targetPath, 'App\\Modules\\Blog', 'Blog', 'blog', [
+            ScaffoldComponent::Routes,
+            ScaffoldComponent::Views,
+            ScaffoldComponent::Domain,
+        ]);
+
+        // Mandatory + selected.
+        $this->assertDirectoryExists($targetPath . '/Providers');
+        $this->assertDirectoryExists($targetPath . '/Routes');
+        $this->assertDirectoryExists($targetPath . '/Resources/views');
+        $this->assertDirectoryExists($targetPath . '/Domain/Models');
+
+        // Not selected — must not be created.
+        $this->assertDirectoryDoesNotExist($targetPath . '/Config');
+        $this->assertDirectoryDoesNotExist($targetPath . '/Console/Commands');
+        $this->assertDirectoryDoesNotExist($targetPath . '/Database/Factories');
+        $this->assertDirectoryDoesNotExist($targetPath . '/Http/Middleware');
+    }
+
+    #[Test]
+    public function buildWithEmptyComponentsCreatesOnlyMandatory(): void
+    {
+        $targetPath = $this->tempDir . '/Blog';
+
+        $this->builder->build($targetPath, 'App\\Modules\\Blog', 'Blog', 'blog', []);
+
+        $this->assertDirectoryExists($targetPath);
+        $this->assertDirectoryExists($targetPath . '/Providers');
+        $this->assertFileExists($targetPath . '/Providers/BlogServiceProvider.php');
+
+        $this->assertDirectoryDoesNotExist($targetPath . '/Config');
+        $this->assertDirectoryDoesNotExist($targetPath . '/Routes');
+        $this->assertDirectoryDoesNotExist($targetPath . '/Domain/Models');
     }
 
     #[Test]

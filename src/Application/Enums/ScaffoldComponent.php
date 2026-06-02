@@ -44,6 +44,25 @@ enum ScaffoldComponent: string
     }
 
     /**
+     * Module-relative directories this component scaffolds.
+     *
+     * @return array<int, string>
+     */
+    public function relativeDirectories(): array
+    {
+        return match ($this) {
+            self::Application => ['Application/UseCases', 'Application/Actions', 'Application/Queries', 'Application/DTOs'],
+            self::Config => ['Config'],
+            self::Console => ['Console/Commands'],
+            self::Database => ['Database/Factories', 'Database/Migrations', 'Database/Seeders'],
+            self::Domain => ['Domain/Models'],
+            self::Http => ['Http/Controllers', 'Http/Middleware'],
+            self::Routes => ['Routes'],
+            self::Views => ['Resources/views'],
+        };
+    }
+
+    /**
      * Parse a raw comma-separated `--with` value into a validated component list.
      *
      * An empty (or whitespace-only) string yields an empty selection — the

@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Console\Commands\Modules;
 
 use DimitrienkoV\LaravelModules\Application\DTOs\ScaffoldModuleConfig;
+use DimitrienkoV\LaravelModules\Application\Enums\ScaffoldComponent;
 use DimitrienkoV\LaravelModules\Application\UseCases\ScaffoldModuleUseCase;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
 use Illuminate\Console\Command;
 use InvalidArgumentException;
+
+use function Laravel\Prompts\multiselect;
 
 final class MakeModuleCommand extends Command
 {
@@ -19,6 +22,7 @@ final class MakeModuleCommand extends Command
         {--directory= : Target module root directory}
         {--kind= : Module kind (module, subsystem, integration)}
         {--group= : Module group for UI/CLI grouping (kebab-case)}
+        {--with= : Comma-separated components to scaffold (application, config, console, database, domain, http, routes, views)}
         {--disabled : Create the module in disabled state}
         {--overwrite : Overwrite if module already exists}';
 
@@ -61,6 +65,12 @@ final class MakeModuleCommand extends Command
             }
         }
 
+        $components = $this->resolveComponents();
+
+        if ($components === false) {
+            return self::FAILURE;
+        }
+
         $config = new ScaffoldModuleConfig(
             name: $name,
             directory: $directory,
@@ -68,6 +78,7 @@ final class MakeModuleCommand extends Command
             force: (bool) $this->option('overwrite'),
             kind: $kind,
             group: $group,
+            components: $components,
         );
 
         try {
@@ -84,5 +95,56 @@ final class MakeModuleCommand extends Command
 
             return self::FAILURE;
         }
+    }
+
+    /**
+     * Resolve the component selection for the skeleton.
+     *
+     * `--with=` is parsed and validated fail-fast (an empty value is a valid,
+     * mandatory-only selection). Without `--with`, an interactive run prompts via
+     * a multiselect, while a non-interactive run returns `null` to keep the
+     * default minimal skeleton. `false` signals invalid input — the caller aborts.
+     *
+     * @return array<int, ScaffoldComponent>|false|null
+     */
+    private function resolveComponents(): array|false|null
+    {
+        $with = $this->option('with');
+
+        if (\is_string($with)) {
+            try {
+                return ScaffoldComponent::parseList($with);
+            } catch (InvalidArgumentException $e) {
+                $this->components->error($e->getMessage());
+
+                return false;
+            }
+        }
+
+        if ($this->input->isInteractive()) {
+            return $this->promptForComponents();
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<int, ScaffoldComponent>
+     */
+    private function promptForComponents(): array
+    {
+        $options = [];
+
+        foreach (ScaffoldComponent::cases() as $case) {
+            $options[$case->value] = $case->label();
+        }
+
+        /** @var array<int, int|string> $selected */
+        $selected = multiselect(
+            label: 'Which components should the module include?',
+            options: $options,
+        );
+
+        return ScaffoldComponent::fromValues(array_map(static fn (int|string $value): string => (string) $value, $selected));
     }
 }

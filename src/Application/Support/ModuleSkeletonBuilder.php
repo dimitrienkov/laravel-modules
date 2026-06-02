@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Application\Support;
 
+use DimitrienkoV\LaravelModules\Application\Enums\ScaffoldComponent;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
@@ -19,15 +20,41 @@ final readonly class ModuleSkeletonBuilder
     ) {
     }
 
-    public function build(string $targetPath, string $namespace, string $studlyName, string $moduleName): void
+    /**
+     * @param array<int, ScaffoldComponent>|null $components Explicit component
+     *                                                       selection; `null` keeps the default minimal skeleton.
+     */
+    public function build(string $targetPath, string $namespace, string $studlyName, string $moduleName, ?array $components = null): void
     {
-        $this->createDirectories($targetPath, $moduleName);
+        $this->createDirectories($targetPath, $moduleName, $components);
         $this->renderProviderStub($targetPath, $namespace, $studlyName, $moduleName);
     }
 
-    private function createDirectories(string $targetPath, string $moduleName): void
+    /**
+     * @param array<int, ScaffoldComponent>|null $components
+     */
+    private function createDirectories(string $targetPath, string $moduleName, ?array $components): void
     {
-        $directories = [
+        $directories = $components === null
+            ? $this->defaultDirectories($targetPath)
+            : $this->componentDirectories($targetPath, $components);
+
+        foreach ($directories as $dir) {
+            if (! $this->filesystem->isDirectory($dir) && ! $this->filesystem->makeDirectory($dir, ModulePermissions::DIRECTORY, true)) {
+                throw ModuleScaffoldException::forModule(
+                    $moduleName,
+                    "failed to create directory [{$dir}].",
+                );
+            }
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function defaultDirectories(string $targetPath): array
+    {
+        return [
             $targetPath,
             $targetPath . '/Config',
             $targetPath . '/Console/Commands',
@@ -38,15 +65,31 @@ final readonly class ModuleSkeletonBuilder
             $targetPath . '/Providers',
             $targetPath . '/Routes',
         ];
+    }
 
-        foreach ($directories as $dir) {
-            if (! $this->filesystem->isDirectory($dir) && ! $this->filesystem->makeDirectory($dir, ModulePermissions::DIRECTORY, true)) {
-                throw ModuleScaffoldException::forModule(
-                    $moduleName,
-                    "failed to create directory [{$dir}].",
-                );
+    /**
+     * The mandatory module root and Providers directory, plus whatever the
+     * selected components map to. The manifest and state are written by their
+     * repositories, never as directories here.
+     *
+     * @param array<int, ScaffoldComponent> $components
+     *
+     * @return array<int, string>
+     */
+    private function componentDirectories(string $targetPath, array $components): array
+    {
+        $directories = [
+            $targetPath,
+            $targetPath . '/Providers',
+        ];
+
+        foreach ($components as $component) {
+            foreach ($component->relativeDirectories() as $relative) {
+                $directories[] = $targetPath . '/' . $relative;
             }
         }
+
+        return array_values(array_unique($directories));
     }
 
     private function renderProviderStub(string $targetPath, string $namespace, string $studlyName, string $moduleName): void
