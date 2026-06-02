@@ -41,6 +41,22 @@ final class ModuleLayoutTest extends TestCase
     }
 
     #[Test]
+    public function relativeToModuleStripsTheModuleRootAndItsSeparator(): void
+    {
+        $module = ModuleFactory::make(path: '/app/Modules/Blog');
+        $layout = new ModuleLayout();
+
+        // The `+ 1` in the offset must drop the separator after the module root.
+        self::assertSame(
+            'Database/Migrations',
+            $layout->relativeToModule($module, '/app/Modules/Blog/Database/Migrations'),
+        );
+        // Round-trips with the absolute paths this same layout produces.
+        self::assertSame('Config', $layout->relativeToModule($module, $layout->configDir($module)));
+        self::assertSame('Lang', $layout->relativeToModule($module, $layout->langDir($module)));
+    }
+
+    #[Test]
     public function resolvesNamespaceSegmentsFromModule(): void
     {
         $module = ModuleFactory::make(path: '/app/Modules/Blog', namespace: 'App\\Modules\\Blog');

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\LangLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
@@ -50,7 +52,7 @@ final class LangLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $app->singleton('translator', static fn (): Translator => $translator);
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(name: 'blog', path: $modulePath));
 
         self::assertFalse($app->resolved('translator'));
@@ -59,6 +61,8 @@ final class LangLoaderTest extends TestCase
 
         self::assertArrayHasKey('blog', $fileLoader->namespaces());
         self::assertSame($langDir, $fileLoader->namespaces()['blog']);
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['lang' => ['Lang']], $report->artifacts);
     }
 
     #[Test]
@@ -88,12 +92,14 @@ final class LangLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $app->singleton('translator', static fn (): Translator => $translator);
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
 
         $app->make('translator');
 
         self::assertSame([], $fileLoader->namespaces());
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NoDirectory, $report->reason);
     }
 
     private function loader(Application $app): LangLoader

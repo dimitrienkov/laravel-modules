@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Application\Enums\RemoveStrategy;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\UseCases\RemoveModuleUseCase;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\DependentModulesExistException;
 use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleRemoveException;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use Illuminate\Filesystem\Filesystem;
@@ -270,7 +273,105 @@ final class RemoveModuleUseCaseTest extends TestCase
         }
     }
 
-    private function makeUseCase(): RemoveModuleUseCase
+    #[Test]
+    public function emitsLifecycleFailedWhenDirectoryRemovalFails(): void
+    {
+        $this->createModule('blog');
+        $config = $this->lifecycleConfig(backupPath: $this->tempDir . '/backups');
+        $stateRepo = $this->lifecycleStateRepository($config);
+        $manifests = $this->lifecycleManifestRepository($stateRepo);
+        $cache = $this->lifecycleRegistryCache($stateRepo);
+        $registry = $this->lifecycleRegistry($manifests, $stateRepo, $config);
+
+        /** @var Filesystem&Mockery\MockInterface $failingFs */
+        $failingFs = Mockery::mock(Filesystem::class)->makePartial();
+        $failingFs->shouldReceive('deleteDirectory')->andReturn(false);
+        $failingFs->shouldReceive('isDirectory')->andReturn(true);
+
+        $failingDirOps = new ModuleDirectoryOperations(
+            new LocalFilesystem($failingFs),
+            $this->lifecycleDirectoryPaths($config),
+        );
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = new RemoveModuleUseCase(
+            $registry,
+            $stateRepo,
+            $this->lifecycleDependencyGuard($registry),
+            $failingDirOps,
+            $this->lifecycleInvalidator($cache, $registry),
+            $diagnostics,
+        );
+
+        try {
+            $useCase->execute('blog', strategy: RemoveStrategy::Permanent);
+            $this->fail('Expected ModuleRemoveException');
+        } catch (ModuleRemoveException) {
+            // expected
+        }
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Remove, 'blog');
+        // Permanent delete failed after the directory move, so state is restored
+        // and the rollback marker fires before the terminal `failed`.
+        $diagnostics->shouldHaveReceived('lifecycleRolledBack')
+            ->once()
+            ->with(LifecycleOperation::Remove, 'blog', 'directory_removal');
+        $diagnostics->shouldHaveReceived('lifecycleFailed')->once()->with(
+            LifecycleOperation::Remove,
+            'blog',
+            Mockery::type(ModuleRemoveException::class),
+        );
+        $diagnostics->shouldNotHaveReceived('lifecycleSucceeded');
+    }
+
+    #[Test]
+    public function dependencyGuardRejectionEmitsNoLifecycleEvents(): void
+    {
+        $this->createModule('users');
+        $this->createModule('blog', dependencies: ['users' => '^1.0']);
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = $this->makeUseCase($diagnostics);
+
+        try {
+            $useCase->execute('users');
+            $this->fail('Expected DependentModulesExistException');
+        } catch (DependentModulesExistException) {
+            // expected
+        }
+
+        // assertCanRemove runs before lifecycleStarted: a precondition rejection
+        // is not a started-and-failed operation, so it emits nothing.
+        $diagnostics->shouldNotHaveReceived('lifecycleStarted');
+        $diagnostics->shouldNotHaveReceived('lifecycleFailed');
+    }
+
+    #[Test]
+    public function emitsStartedBackupCreatedAndSucceededOnceOnTheHappyPath(): void
+    {
+        $this->createModule('blog');
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = $this->makeUseCase($diagnostics);
+
+        $useCase->execute('blog');
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Remove, 'blog');
+        $diagnostics->shouldHaveReceived('lifecycleBackupCreated')
+            ->once()
+            ->with(LifecycleOperation::Remove, 'blog', Mockery::type('string'));
+        $diagnostics->shouldHaveReceived('lifecycleSucceeded')->once()->with(LifecycleOperation::Remove, 'blog');
+        $diagnostics->shouldNotHaveReceived('lifecycleFailed');
+        $diagnostics->shouldNotHaveReceived('lifecycleRolledBack');
+    }
+
+    private function makeUseCase(?ModuleDiagnosticsInterface $diagnostics = null): RemoveModuleUseCase
     {
         $config = $this->lifecycleConfig(backupPath: $this->tempDir . '/backups');
         $stateRepo = $this->lifecycleStateRepository($config);
@@ -284,6 +385,7 @@ final class RemoveModuleUseCaseTest extends TestCase
             $this->lifecycleDependencyGuard($registry),
             $this->lifecycleDirectoryOps($this->lifecycleDirectoryPaths($config)),
             $this->lifecycleInvalidator($cache, $registry),
+            $diagnostics ?? new NullModuleDiagnostics(),
         );
     }
 

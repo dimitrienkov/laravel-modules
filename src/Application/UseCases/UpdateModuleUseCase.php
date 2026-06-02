@@ -6,10 +6,12 @@ namespace DimitrienkoV\LaravelModules\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\DTOs\SkippedFeatureValue;
 use DimitrienkoV\LaravelModules\Application\DTOs\UpdateModuleResult;
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
@@ -21,6 +23,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleStateDocument;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use Throwable;
 
 final readonly class UpdateModuleUseCase
@@ -33,6 +36,7 @@ final readonly class UpdateModuleUseCase
         private ModuleDependencyGuard $dependencyGuard,
         private ModuleDirectoryOperations $directoryOps,
         private LifecycleRegistryInvalidator $invalidator,
+        private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
     ) {
     }
 
@@ -47,83 +51,97 @@ final readonly class UpdateModuleUseCase
                 throw ModuleUpdateException::nameMismatch($moduleName, $sourceName);
             }
 
-            $preservedState = ModuleState::updatedFrom($existingModule->state);
-
-            $candidate = Module::fromManifest(
-                path: $existingModule->path,
-                namespace: $existingModule->namespace,
-                manifest: $prepared->manifest,
-                manifestPath: $prepared->manifestPath,
-                state: $preservedState,
-            );
-
-            $allModules = $this->registry->all();
-            $candidateGraph = array_map(
-                static fn (Module $m): Module => $m->name === $moduleName ? $candidate : $m,
-                $allModules,
-            );
-            $this->dependencyGuard->assertGraphValid($candidateGraph);
-
-            $existingStateDocument = $this->stateRepository->read($existingModule->name, $existingModule);
-            $existingValues = $existingStateDocument->values;
-
-            $updatedOrigin = ModuleOrigin::forZip($candidate->meta->version, $prepared->checksum);
+            $this->diagnostics->lifecycleStarted(LifecycleOperation::Update, $moduleName, $prepared->sourceKind->value);
 
             try {
-                $backupPath = $this->directoryOps->replaceDirectoryWithBackup(
-                    $existingModule->path,
-                    $prepared->path,
-                    $moduleName,
-                );
-            } catch (DirectoryOperationException $e) {
-                throw ModuleUpdateException::forModule($moduleName, $e->getMessage(), $e);
-            }
+                $preservedState = ModuleState::updatedFrom($existingModule->state);
 
-            try {
-                $this->manifestRepository->writeManifest($candidate);
-
-                [$mergedValues, $skippedDetails] = $this->mergeValues(
-                    $existingValues,
-                    $candidate->features,
-                    $candidate->name,
-                    $candidate->manifestPath(),
+                $candidate = Module::fromManifest(
+                    path: $existingModule->path,
+                    namespace: $existingModule->namespace,
+                    manifest: $prepared->manifest,
+                    manifestPath: $prepared->manifestPath,
+                    state: $preservedState,
                 );
 
-                $this->stateRepository->writeDocument(
-                    $moduleName,
-                    new ModuleStateDocument($preservedState, $mergedValues, $updatedOrigin),
+                $allModules = $this->registry->all();
+                $candidateGraph = array_map(
+                    static fn (Module $m): Module => $m->name === $moduleName ? $candidate : $m,
+                    $allModules,
                 );
-            } catch (Throwable $e) {
+                $this->dependencyGuard->assertGraphValid($candidateGraph);
+
+                $existingStateDocument = $this->stateRepository->read($existingModule->name, $existingModule);
+                $existingValues = $existingStateDocument->values;
+
+                $updatedOrigin = ModuleOrigin::forZip($candidate->meta->version, $prepared->checksum);
+
                 try {
-                    $this->directoryOps->restoreBackup($backupPath, $existingModule->path);
-                    $this->stateRepository->writeDocument($existingModule->name, $existingStateDocument);
-                } catch (Throwable $restoreError) {
+                    $backupPath = $this->directoryOps->replaceDirectoryWithBackup(
+                        $existingModule->path,
+                        $prepared->path,
+                        $moduleName,
+                    );
+                } catch (DirectoryOperationException $e) {
+                    throw ModuleUpdateException::forModule($moduleName, $e->getMessage(), $e);
+                }
+
+                $this->diagnostics->lifecycleBackupCreated(LifecycleOperation::Update, $moduleName, $backupPath);
+
+                try {
+                    $this->manifestRepository->writeManifest($candidate);
+
+                    [$mergedValues, $skippedDetails] = $this->mergeValues(
+                        $existingValues,
+                        $candidate->features,
+                        $candidate->name,
+                        $candidate->manifestPath(),
+                    );
+
+                    $this->stateRepository->writeDocument(
+                        $moduleName,
+                        new ModuleStateDocument($preservedState, $mergedValues, $updatedOrigin),
+                    );
+                } catch (Throwable $e) {
+                    try {
+                        $this->directoryOps->restoreBackup($backupPath, $existingModule->path);
+                        $this->stateRepository->writeDocument($existingModule->name, $existingStateDocument);
+                    } catch (Throwable $restoreError) {
+                        throw ModuleUpdateException::forModule(
+                            $moduleName,
+                            "persistence failed and restore also failed. Backup remains at [{$backupPath}]. "
+                            . "Original error: {$e->getMessage()}. Restore error: {$restoreError->getMessage()}",
+                            $e,
+                        );
+                    }
+
+                    $this->diagnostics->lifecycleRolledBack(LifecycleOperation::Update, $moduleName, 'persistence');
+
                     throw ModuleUpdateException::forModule(
                         $moduleName,
-                        "persistence failed and restore also failed. Backup remains at [{$backupPath}]. "
-                        . "Original error: {$e->getMessage()}. Restore error: {$restoreError->getMessage()}",
+                        'persistence failed after directory replacement, restored from backup.',
                         $e,
                     );
                 }
 
-                throw ModuleUpdateException::forModule(
-                    $moduleName,
-                    'persistence failed after directory replacement, restored from backup.',
-                    $e,
+                $this->invalidator->flushAndReset();
+
+                $this->directoryOps->tryDeleteDirectory($backupPath);
+
+                $this->diagnostics->lifecycleSucceeded(LifecycleOperation::Update, $moduleName);
+
+                return new UpdateModuleResult(
+                    name: $moduleName,
+                    oldVersion: $existingModule->meta->version,
+                    newVersion: $candidate->meta->version,
+                    skippedValues: $skippedDetails,
+                    path: $existingModule->path,
                 );
+            } catch (Throwable $e) {
+                $this->diagnostics->lifecycleFailed(LifecycleOperation::Update, $moduleName, $e);
+
+                throw $e;
             }
-
-            $this->invalidator->flushAndReset();
-
-            $this->directoryOps->tryDeleteDirectory($backupPath);
-
-            return new UpdateModuleResult(
-                name: $moduleName,
-                oldVersion: $existingModule->meta->version,
-                newVersion: $candidate->meta->version,
-                skippedValues: $skippedDetails,
-                path: $existingModule->path,
-            );
         } finally {
             $this->sourcePreparer->cleanup($prepared);
         }

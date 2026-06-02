@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -23,16 +25,16 @@ final readonly class CommandLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
         if (! $this->app->runningInConsole()) {
-            return;
+            return LoadReport::skipped(SkipReason::NotRunningInConsole);
         }
 
         $commandsDir = $this->layout->commandsDir($module);
 
         if (! $this->filesystem->isDirectory($commandsDir)) {
-            return;
+            return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
         $app = $this->app;
@@ -47,6 +49,8 @@ final readonly class CommandLoader implements LoaderInterface
                 $app->booted(static fn () => $kernel->addCommandPaths([$commandsDir]));
             },
         );
+
+        return LoadReport::applied(['commands' => [$this->layout->relativeToModule($module, $commandsDir)]]);
     }
 
     public function priority(): int

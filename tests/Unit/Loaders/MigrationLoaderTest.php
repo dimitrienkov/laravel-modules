@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\MigrationLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
@@ -50,7 +52,7 @@ final class MigrationLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $app->singleton('migrator', static fn (): Migrator => $migrator);
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $modulePath));
 
         self::assertFalse($app->resolved('migrator'));
@@ -58,6 +60,8 @@ final class MigrationLoaderTest extends TestCase
         $app->make('migrator');
 
         self::assertContains($migrationPath, $migrator->paths());
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['migrations' => ['Database/Migrations']], $report->artifacts);
     }
 
     #[Test]
@@ -84,12 +88,14 @@ final class MigrationLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $app->singleton('migrator', static fn (): Migrator => $migrator);
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Blog'));
 
         $app->make('migrator');
 
         self::assertSame([], $migrator->paths());
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NoDirectory, $report->reason);
     }
 
     private function loader(Application $app): MigrationLoader

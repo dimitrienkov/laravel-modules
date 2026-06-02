@@ -27,8 +27,8 @@
 | `Registry` | Filesystem discovery, snapshot builder, production cache format, registry/cache VO. |
 | `Application` | UseCase orchestration для lifecycle и optimize flows, DTO, support-сервисы операций над модулями. |
 | `Console/Commands` | Тонкие Artisan adapters над `Application/UseCases` и `Contracts`. |
-| `Loaders` | Convention-based runtime loaders. Не читают manifest-флаги загрузки. |
-| `Support` | Общие инфраструктурные утилиты: atomic write, paths, namespace resolution, filesystem wrapper, topological sort. |
+| `Loaders` | Convention-based runtime loaders. Не читают manifest-флаги загрузки. Каждый `load()` возвращает `LoadReport` (`Loaders/VO`). |
+| `Support` | Общие инфраструктурные утилиты: atomic write, paths, namespace resolution, filesystem wrapper, topological sort. `Support/Logging` — диагностический adapter (`ModuleLogger`/`NullModuleDiagnostics`). |
 | `Providers` | Container wiring, default loader registration, optimizer hooks, optional bridge wiring. |
 | `MoonShine` | Optional bridge, активируется только при наличии MoonShine contracts. |
 
@@ -48,6 +48,7 @@ src/
 │   │   ├── SkippedFeatureValue.php
 │   │   └── UpdateModuleResult.php
 │   ├── Enums/
+│   │   ├── LifecycleOperation.php
 │   │   ├── ModuleSourceKind.php
 │   │   └── RemoveStrategy.php
 │   ├── Support/
@@ -73,7 +74,8 @@ src/
 ├── Contracts/
 ├── Exceptions/
 ├── Loaders/
-│   └── Pipeline/ModuleLoaderPipeline.php
+│   ├── Pipeline/ModuleLoaderPipeline.php
+│   └── VO/                          # LoadReport, LoadStatus, SkipReason, PipelineRunSummary
 ├── Manifest/
 │   ├── Enums/
 │   │   ├── FeatureType.php
@@ -86,6 +88,7 @@ src/
 ├── Registry/
 │   └── VO/
 └── Support/
+    └── Logging/                     # ModuleLogger, NullModuleDiagnostics
 ```
 
 Детальная карта проекта и docs-index находятся в `AGENTS.md`. Этот документ фиксирует только архитектурные границы и runtime flow.
@@ -101,17 +104,19 @@ src/
 - `Application/DTOs ->` без зависимостей на runtime-сервисы
 - `Manifest -> Contracts + Registry + Manifest/VO + Manifest/Parsing + Manifest/Enums + Support`
 - `Registry -> Contracts + Manifest/VO + Registry/VO + Support`
-- `Loaders -> Contracts + Manifest/VO/Module + Support + Laravel abstractions`
+- `Loaders -> Contracts + Manifest/VO/Module + Loaders/VO + Support + Laravel abstractions`
 - `Support -> Laravel abstractions` только для инфраструктурных адаптеров; `Support -> Manifest/VO` допустим, когда утилита работает с typed module object.
+- `Support/Logging -> Contracts + Psr\Log + Loaders/VO + Application/Enums` — диагностический adapter как cross-cutting инфраструктура.
+- `Contracts -> Manifest/VO + Loaders/VO + Application/Enums/LifecycleOperation` — только typed data (VO/enum), не реализации (зеркало уже существующего `Contracts\LoaderInterface -> Manifest\VO\Module`).
 
 Запрещённые направления:
 
-- `Contracts` не зависят от реализаций.
+- `Contracts` не зависят от реализаций (typed data VO/enum — допустимы).
 - `Application` не зависит от `Loaders`, `Providers`, `MoonShine`.
 - `Manifest` не зависит от конкретных loaders.
 - `Support` не вызывает service providers или Artisan commands.
 - Optional integrations не становятся обязательными runtime dependencies.
-- В `src/` не используются Laravel facades, mutable static properties, debug/termination calls и runtime logging через `Log`.
+- В `src/` не используются Laravel facades, mutable static properties, debug/termination calls и global logging helpers (`Log::*`, `logger()`, `info()`). Логирование разрешено только через инъецированный `ModuleDiagnosticsInterface` (обёртка над `Psr\Log\LoggerInterface`), а не через фасад или хелпер.
 
 ## Bootstrap Flow
 
@@ -225,7 +230,7 @@ Optimize flow:
 ```php
 interface LoaderInterface
 {
-    public function load(Module $module): void;
+    public function load(Module $module): LoadReport;
 
     public function priority(): int;
 }
@@ -257,7 +262,8 @@ Pipeline behavior:
 - Equal priorities keep registration order.
 - Disabled modules are skipped.
 - Exceptions from one loader are reported as `ModuleLoaderException` and do not stop remaining loaders/modules.
-- Loader applicability is convention-based: loader returns early when expected files/directories are absent.
+- Loader applicability is convention-based: loader возвращает `LoadReport::skipped(<reason>)`, когда ожидаемых файлов/директорий нет, и `LoadReport::applied(<artifacts>)` при загрузке.
+- Pipeline инъецирует `ModuleDiagnosticsInterface` и эмитит `pipelineStarted` / `loaderCompleted` (на каждую пару loader × module) / `loaderFailed` / `pipelineFinished`. Счётчики накапливаются в локальных переменных `boot()` — pipeline остаётся `final readonly`.
 
 ## Lifecycle Commands
 
@@ -289,4 +295,4 @@ Lifecycle-команды остаются тонкими adapters над use cas
 - Singleton runtime-сервисы stateless или держат immutable-ish lazy snapshots.
 - Direct filesystem operations изолированы в инфраструктурных классах: `LocalFilesystem`, `AtomicFileWriter`, `ManifestDocumentReader`, `ModuleRegistryCache`.
 - Atomic writes используют temp file, lock и rename через shared writers.
-- Package core не пишет runtime logs; failures видны через typed exceptions, command output и tests.
+- Package core по умолчанию не пишет runtime logs — диагностика off by default. При `modules.logging.enabled` события discovery/cache/pipeline/lifecycle пишутся через инъецированный `ModuleDiagnosticsInterface`: `Support\Logging\ModuleLogger` поверх host-канала PSR-3, иначе `Support\Logging\NullModuleDiagnostics`. Context — только whitelisted-скаляры (имя модуля, относительный путь, shortname лоадера, счётчики, `SkipReason`, basename артефактов), без feature values и секретов. Failures по-прежнему видны через typed exceptions, command output и tests; `pipeline.loader.failed` логируется дополнительно к `ExceptionHandler::report()`, не вместо него.

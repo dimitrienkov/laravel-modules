@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\FactoryLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
@@ -46,12 +48,14 @@ final class FactoryLoaderTest extends TestCase
         mkdir($modulePath . '/Database/Factories', 0755, true);
         $loader = $this->loader();
 
-        $loader->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
+        $report = $loader->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
         self::assertSame(
             'App\\Modules\\Blog\\Database\\Factories\\PostFactory',
             $loader->factoryClassFor('App\\Modules\\Blog\\Domain\\Models\\Post'),
         );
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['factories' => ['Database/Factories']], $report->artifacts);
     }
 
     #[Test]
@@ -61,12 +65,14 @@ final class FactoryLoaderTest extends TestCase
         mkdir($modulePath, 0755, true);
         $loader = $this->loader();
 
-        $loader->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
+        $report = $loader->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
         self::assertSame(
             'Database\\Factories\\PostFactory',
             $loader->factoryClassFor('App\\Models\\Post'),
         );
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NoDirectory, $report->reason);
     }
 
     #[Test]

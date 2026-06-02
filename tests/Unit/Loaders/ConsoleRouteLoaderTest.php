@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\ConsoleRouteLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
@@ -48,7 +50,7 @@ final class ConsoleRouteLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $kernel = new RecordingConsoleKernel();
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $modulePath));
 
         $app->singleton(ConsoleKernelContract::class, static fn (): RecordingConsoleKernel => $kernel);
@@ -59,6 +61,8 @@ final class ConsoleRouteLoaderTest extends TestCase
         $app->boot();
 
         self::assertContains($consoleRoutesFile, $kernel->addedRoutePaths);
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['console' => ['console.php']], $report->artifacts);
     }
 
     #[Test]
@@ -108,7 +112,7 @@ final class ConsoleRouteLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $kernel = new RecordingConsoleKernel();
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Blog'));
 
         $app->singleton(ConsoleKernelContract::class, static fn (): RecordingConsoleKernel => $kernel);
@@ -116,6 +120,8 @@ final class ConsoleRouteLoaderTest extends TestCase
         $app->boot();
 
         self::assertSame([], $kernel->addedRoutePaths);
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::FileNotFound, $report->reason);
     }
 
     #[Test]
@@ -130,7 +136,7 @@ final class ConsoleRouteLoaderTest extends TestCase
         $reflection->setValue($app, false);
         $kernel = new RecordingConsoleKernel();
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $modulePath));
 
         $app->singleton(ConsoleKernelContract::class, static fn (): RecordingConsoleKernel => $kernel);
@@ -138,6 +144,8 @@ final class ConsoleRouteLoaderTest extends TestCase
         $app->boot();
 
         self::assertSame([], $kernel->addedRoutePaths);
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NotRunningInConsole, $report->reason);
     }
 
     private function loader(Application $app): ConsoleRouteLoader

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\EventLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
@@ -45,7 +47,7 @@ final class EventLoaderTest extends TestCase
         $listenersDir = $modulePath . '/Domain/Listeners';
         mkdir($listenersDir, 0755, true);
 
-        (new EventLoader(new Filesystem(), new ModuleLayout()))
+        $report = (new EventLoader(new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath));
 
         $reflection = new \ReflectionProperty(EventServiceProvider::class, 'eventDiscoveryPaths');
@@ -54,17 +56,21 @@ final class EventLoaderTest extends TestCase
         $pathsArray = $paths instanceof \Traversable ? iterator_to_array($paths) : (array) $paths;
 
         self::assertContains($listenersDir, $pathsArray);
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['listeners' => ['Domain/Listeners']], $report->artifacts);
     }
 
     #[Test]
     public function returnsEarlyWhenListenersDirectoryIsMissing(): void
     {
-        (new EventLoader(new Filesystem(), new ModuleLayout()))
+        $report = (new EventLoader(new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
 
         $reflection = new \ReflectionProperty(EventServiceProvider::class, 'eventDiscoveryPaths');
         $paths = $reflection->getValue(null);
 
         self::assertNull($paths);
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NoDirectory, $report->reason);
     }
 }

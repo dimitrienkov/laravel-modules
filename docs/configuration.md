@@ -104,6 +104,30 @@ storage/app/private/modules/
 
 Label используется командой `modules:list` в колонке Group и рендерится как `"Human Label (code)"`. Если для кода нет записи — выводится голый код (допустимый fallback). Malformed config — fail-loud: если `modules.groups` не array, либо label для запрашиваемого кода присутствует, но не строка или пустой, `modules:list` падает с `InvalidConfigurationException`. `modules.groups` — единственная точка валидации этого маппинга, поэтому silent fallback на ошибочном label больше не применяется. Фильтр `modules:list --group=<code>` всегда работает по коду, а не по label. Коды также зарезервированы под будущий module UI.
 
+## Logging
+
+`modules.logging` включает opt-in диагностический слой (discovery, cache, loader
+pipeline, lifecycle). По умолчанию выключен:
+
+```php
+'logging' => [
+    'enabled' => env('MODULES_LOGGING', false),
+    'channel' => env('MODULES_LOG_CHANNEL'),
+    'level' => env('MODULES_LOG_LEVEL', 'debug'),
+    'events' => [
+        'discovery' => true,
+        'cache' => true,
+        'pipeline' => true,
+        'lifecycle' => true,
+    ],
+],
+```
+
+`enabled` биндит `ModuleLogger` (или `NullModuleDiagnostics` при `false`); `channel`
+выбирает лог-канал хоста по имени (`null` → канал по умолчанию); `level` — глобальный
+порог уровня; `events` — тумблеры категорий. Полный каталог событий, поведение порога,
+сниппет выделенного канала и гарантия whitelist — в [docs/logging.md](logging.md).
+
 ## Stubs
 
 ```bash
@@ -153,11 +177,11 @@ Middleware-группу `api_v1` host-приложение объявляет в
 
 ## Routes cache
 
-Когда Laravel routes cached, `RouteLoader` завершает работу ранним return:
+Когда Laravel routes cached, `RouteLoader` завершает работу ранним skip-репортом:
 
 ```php
 if ($this->app->routesAreCached()) {
-    return;
+    return LoadReport::skipped(SkipReason::RoutesCached);
 }
 ```
 
@@ -183,4 +207,5 @@ composer require moonshine/core moonshine/contracts
 
 - [Module Structure](module-structure.md) - route files и поддерживаемые пути.
 - [Architecture](architecture.md) - provider boot flow.
+- [Logging](logging.md) - диагностический слой и каталог событий.
 - [CLI](cli.md) - cache-команды, связанные с изменениями config.

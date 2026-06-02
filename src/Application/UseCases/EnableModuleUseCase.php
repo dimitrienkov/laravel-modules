@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Application\UseCases;
 
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyEnabledException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
+use Throwable;
 
 final readonly class EnableModuleUseCase
 {
@@ -19,6 +23,7 @@ final readonly class EnableModuleUseCase
         private ModuleStateRepositoryInterface $stateRepository,
         private ModuleDependencyGuard $dependencyGuard,
         private LifecycleRegistryInvalidator $invalidator,
+        private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
     ) {
     }
 
@@ -30,20 +35,30 @@ final readonly class EnableModuleUseCase
             throw ModuleAlreadyEnabledException::forModule($moduleName);
         }
 
-        $candidateState = ModuleState::updatedFrom($module->state)->withEnabled(true);
-        $candidate = $module->withState($candidateState);
+        $this->diagnostics->lifecycleStarted(LifecycleOperation::Enable, $moduleName);
 
-        $allModules = $this->registry->all();
-        $candidateGraph = array_map(
-            static fn (Module $m): Module => $m->name === $moduleName ? $candidate : $m,
-            $allModules,
-        );
+        try {
+            $candidateState = ModuleState::updatedFrom($module->state)->withEnabled(true);
+            $candidate = $module->withState($candidateState);
 
-        $this->dependencyGuard->assertGraphValid($candidateGraph);
+            $allModules = $this->registry->all();
+            $candidateGraph = array_map(
+                static fn (Module $m): Module => $m->name === $moduleName ? $candidate : $m,
+                $allModules,
+            );
 
-        $updated = $this->stateRepository->writeState($module, $candidateState);
-        $this->invalidator->flushAndReset();
+            $this->dependencyGuard->assertGraphValid($candidateGraph);
 
-        return $updated;
+            $updated = $this->stateRepository->writeState($module, $candidateState);
+            $this->invalidator->flushAndReset();
+
+            $this->diagnostics->lifecycleSucceeded(LifecycleOperation::Enable, $moduleName);
+
+            return $updated;
+        } catch (Throwable $e) {
+            $this->diagnostics->lifecycleFailed(LifecycleOperation::Enable, $moduleName, $e);
+
+            throw $e;
+        }
     }
 }

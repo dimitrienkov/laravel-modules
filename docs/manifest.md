@@ -8,6 +8,7 @@
 
 ```json
 {
+  "schema_version": 1,
   "meta": {
     "name": "blog",
     "display_name": "Blog",
@@ -49,10 +50,11 @@
 
 | Ключ | Обязателен | Назначение |
 |------|------------|------------|
+| `schema_version` | Да | Версия формата manifest (integer). Текущая поддерживаемая — `1` |
 | `meta` | Да | Module identity, version и dependencies |
 | `settings` | Да | Feature schema (только `schema`, без `values`) |
 
-Неизвестные top-level ключи invalid. Legacy-секции `autoload` и `state` явно запрещены — state хранится в `state.json`.
+`schema_version` — обязательный top-level integer. Текущая поддерживаемая версия — `1`; неизвестное значение → `InvalidManifestException` (strict-fail, без fallback). Неизвестные top-level ключи invalid. Legacy-секции `autoload` и `state` явно запрещены — state хранится в `state.json`.
 
 ## `meta`
 

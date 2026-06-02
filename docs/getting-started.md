@@ -74,8 +74,10 @@ app/Modules/Blog/
 
 ```json
 {
+  "schema_version": 1,
   "meta": {
     "name": "blog",
+    "kind": "module",
     "version": "1.0.0"
   },
   "settings": {
@@ -83,6 +85,8 @@ app/Modules/Blog/
   }
 }
 ```
+
+`schema_version`, `meta.name`, `meta.kind` и `meta.version` — обязательные; без любого из них manifest отклоняется с `InvalidManifestException`.
 
 Mutable state хранится отдельно в `state.json`. При использовании `make:module` state создаётся автоматически. При ручной настройке создайте файл в state-хранилище:
 

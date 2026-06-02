@@ -4,16 +4,24 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Application\UseCases\UpdateModuleUseCase;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
+use DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleUpdateException;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesSourceArchive;
 use Illuminate\Filesystem\Filesystem;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 #[CoversClass(UpdateModuleUseCase::class)]
 #[Group('lifecycle')]
@@ -22,6 +30,7 @@ final class UpdateModuleUseCaseTest extends TestCase
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
     use CreatesSourceArchive;
+    use MockeryPHPUnitIntegration;
 
     private const string VALID_CHECKSUM = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
@@ -319,8 +328,77 @@ final class UpdateModuleUseCaseTest extends TestCase
         $this->assertEmpty($backupDirs, 'Backup directory should be cleaned up after successful update');
     }
 
+    #[Test]
+    public function emitsLifecycleFailedCarryingTheRootCauseWhenPersistenceFails(): void
+    {
+        $this->createInstalledModule('blog', '1.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
+
+        $failingManifests = $this->createMock(ModuleManifestRepositoryInterface::class);
+        $failingManifests->method('load')->willReturnCallback(
+            fn (string $path) => $this->makeRealManifestRepo()->load($path),
+        );
+        $failingManifests->method('writeManifest')->willThrowException(
+            new ManifestWriteException('simulated write failure'),
+        );
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = $this->makeUseCase(manifestRepository: $failingManifests, diagnostics: $diagnostics);
+
+        try {
+            $useCase->execute('blog', $sourceDir);
+            $this->fail('Expected ModuleUpdateException');
+        } catch (ModuleUpdateException) {
+            // expected
+        }
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once();
+        // The backup is taken before persistence, then rolled back when the write
+        // fails — both compensating markers fire before the terminal `failed`.
+        $diagnostics->shouldHaveReceived('lifecycleBackupCreated')
+            ->once()
+            ->with(LifecycleOperation::Update, 'blog', Mockery::type('string'));
+        $diagnostics->shouldHaveReceived('lifecycleRolledBack')
+            ->once()
+            ->with(LifecycleOperation::Update, 'blog', 'persistence');
+        // The terminal `failed` carries the wrapped exception whose $previous is
+        // the original write failure — the root cause is never lost.
+        $diagnostics->shouldHaveReceived('lifecycleFailed')->once()->with(
+            LifecycleOperation::Update,
+            'blog',
+            Mockery::on(static fn (Throwable $e): bool => $e instanceof ModuleUpdateException
+                && $e->getPrevious() instanceof ManifestWriteException),
+        );
+        $diagnostics->shouldNotHaveReceived('lifecycleSucceeded');
+    }
+
+    #[Test]
+    public function emitsStartedBackupCreatedAndSucceededOnceOnTheHappyPath(): void
+    {
+        $this->createInstalledModule('blog', '1.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = $this->makeUseCase(diagnostics: $diagnostics);
+
+        $useCase->execute('blog', $sourceDir);
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Update, 'blog', 'zip');
+        $diagnostics->shouldHaveReceived('lifecycleBackupCreated')
+            ->once()
+            ->with(LifecycleOperation::Update, 'blog', Mockery::type('string'));
+        $diagnostics->shouldHaveReceived('lifecycleSucceeded')->once()->with(LifecycleOperation::Update, 'blog');
+        $diagnostics->shouldNotHaveReceived('lifecycleFailed');
+        $diagnostics->shouldNotHaveReceived('lifecycleRolledBack');
+    }
+
     private function makeUseCase(
-        ?\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface $manifestRepository = null,
+        ?ModuleManifestRepositoryInterface $manifestRepository = null,
+        ?ModuleDiagnosticsInterface $diagnostics = null,
     ): UpdateModuleUseCase {
         $config = $this->lifecycleConfig(backupPath: $this->tempDir . '/backups');
         $stateRepo = $this->lifecycleStateRepository($config);
@@ -336,6 +414,7 @@ final class UpdateModuleUseCaseTest extends TestCase
             $this->lifecycleDependencyGuard($registry),
             $this->lifecycleDirectoryOps($this->lifecycleDirectoryPaths($config)),
             $this->lifecycleInvalidator($cache, $registry),
+            $diagnostics ?? new NullModuleDiagnostics(),
         );
     }
 

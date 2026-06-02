@@ -1,4 +1,4 @@
-[← Feature Toggles](feature-toggles.md) · [Back to README](../README.MD) · [Contributing →](contributing.md)
+[← Logging](logging.md) · [Back to README](../README.MD) · [Contributing →](contributing.md)
 
 # CLI
 
@@ -14,7 +14,7 @@
 | `modules:enable` | Включает модуль с проверкой зависимостей |
 | `modules:disable` | Отключает модуль с проверкой reverse dependencies |
 | `modules:list` | Показывает таблицу зарегистрированных модулей |
-| `modules:install` | Устанавливает модуль из директории или zip-архива |
+| `modules:install` | Устанавливает модуль из zip-архива |
 | `modules:update` | Обновляет модуль с backup и merge settings values |
 | `modules:remove` | Удаляет модуль с backup или без |
 

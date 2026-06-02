@@ -22,6 +22,7 @@ use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesUpdateCommand;
 use DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryCacheInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
@@ -60,6 +61,8 @@ use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
+use DimitrienkoV\LaravelModules\Support\Logging\ModuleLogger;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
@@ -100,6 +103,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom($this->packageConfigPath(), 'modules');
 
+        $this->registerDiagnosticsBindings();
         $this->registerManifestBindings();
         $this->registerStateBindings();
         $this->registerRegistryBindings();
@@ -140,6 +144,59 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
 
         $this->bootMoonShineIntegration();
         $this->pipeline()->boot();
+    }
+
+    private function registerDiagnosticsBindings(): void
+    {
+        $this->app->singleton(
+            ModuleDiagnosticsInterface::class,
+            fn (): ModuleDiagnosticsInterface => $this->makeDiagnostics(),
+        );
+    }
+
+    /**
+     * Compose the diagnostics sink at the composition root: when logging is on,
+     * a ModuleLogger over the host-configured channel; otherwise the null
+     * object. Config is read through the typed Repository contract (the project
+     * idiom) and passed to the logger as primitives, so ModuleLogger stays
+     * decoupled from the framework config.
+     */
+    private function makeDiagnostics(): ModuleDiagnosticsInterface
+    {
+        $config = $this->app->make(Repository::class);
+
+        if ($config->get('modules.logging.enabled', false) !== true) {
+            return new NullModuleDiagnostics();
+        }
+
+        $channel = $config->get('modules.logging.channel');
+        $level = $config->get('modules.logging.level', 'debug');
+
+        return new ModuleLogger(
+            logger: $this->app->make('log')->channel(\is_string($channel) ? $channel : null),
+            level: \is_string($level) ? $level : 'debug',
+            events: $this->normalizeEventToggles($config->get('modules.logging.events', [])),
+        );
+    }
+
+    /**
+     * @return array<string, bool>
+     */
+    private function normalizeEventToggles(mixed $events): array
+    {
+        if (! \is_array($events)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($events as $category => $enabled) {
+            if (\is_string($category)) {
+                $normalized[$category] = $enabled === true;
+            }
+        }
+
+        return $normalized;
     }
 
     private function registerManifestBindings(): void
@@ -214,6 +271,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 layout: $this->app->make(ModuleLayout::class),
                 basePath: $this->app->basePath(),
                 appPath: $this->app->path(),
+                diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
             );
         });
 
@@ -223,6 +281,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 layout: $this->app->make(ModuleLayout::class),
                 stateRepository: $this->app->make(ModuleStateRepositoryInterface::class),
                 basePath: $this->app->basePath(),
+                diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
             );
         });
 
@@ -236,6 +295,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 scanner: $this->app->make(ModuleDirectoryScanner::class),
                 manifests: $this->app->make(ModuleManifestRepositoryInterface::class),
                 sorter: $this->app->make(TopologicalSorter::class),
+                diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
             );
         });
 
@@ -243,6 +303,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             return new ModuleRegistry(
                 builder: $this->app->make(ModuleRegistrySnapshotBuilder::class),
                 cache: $this->app->make(ModuleRegistryCacheInterface::class),
+                diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
             );
         });
         $this->app->singleton(
@@ -348,6 +409,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             registry: $this->app->make(ModuleRegistryInterface::class),
             loaders: $this->resolveTaggedLoaders(),
             exceptionHandler: $this->app->make(ExceptionHandler::class),
+            diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
         );
     }
 

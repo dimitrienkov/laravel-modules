@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\BladeComponentLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
@@ -46,7 +48,7 @@ final class BladeComponentLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $app->singleton(BladeCompiler::class, static fn (): BladeCompiler => $blade);
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(name: 'blog', path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
         self::assertFalse($app->resolved(BladeCompiler::class));
@@ -56,6 +58,8 @@ final class BladeComponentLoaderTest extends TestCase
         $namespaces = $blade->getClassComponentNamespaces();
         self::assertArrayHasKey('blog', $namespaces);
         self::assertSame('App\\Modules\\Blog\\View\\Components', $namespaces['blog']);
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['components' => ['View/Components']], $report->artifacts);
     }
 
     #[Test]
@@ -83,12 +87,14 @@ final class BladeComponentLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $app->singleton(BladeCompiler::class, static fn (): BladeCompiler => $blade);
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
 
         $app->make(BladeCompiler::class);
 
         self::assertSame([], $blade->getClassComponentNamespaces());
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NoDirectory, $report->reason);
     }
 
     private function loader(Application $app): BladeComponentLoader

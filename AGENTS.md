@@ -25,14 +25,15 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 ├── src/                              # код пакета
 │   ├── Application/                  # lifecycle/optimize UseCase-классы, DTO и support-сервисы
 │   │   ├── DTOs/                     # results/config objects для команд
-│   │   ├── Enums/                    # ModuleSourceKind, RemoveStrategy
+│   │   ├── Enums/                    # LifecycleOperation, ModuleSourceKind, RemoveStrategy
 │   │   ├── Support/                  # source staging, directory ops, dependency guards, rollback
 │   │   └── UseCases/                 # scaffold/install/update/remove/enable/disable/optimize flows
 │   ├── Console/Commands/Modules/     # Artisan adapters: make:module и modules:* команды
 │   ├── Contracts/                    # публичные интерфейсы ядра
 │   ├── Exceptions/                   # типизированные runtime-исключения
-│   ├── Loaders/                      # реализации LoaderInterface
-│   │   └── Pipeline/                 # ModuleLoaderPipeline, оркестрация лоадеров
+│   ├── Loaders/                      # реализации LoaderInterface (load(): LoadReport)
+│   │   ├── Pipeline/                 # ModuleLoaderPipeline, оркестрация лоадеров
+│   │   └── VO/                       # LoadReport, LoadStatus, SkipReason, PipelineRunSummary
 │   ├── Manifest/                     # manifest services, state repository, parser helpers, VO, enums
 │   │   ├── Enums/                    # FeatureType, ModuleKind, ModuleOriginKind
 │   │   ├── Parsing/                  # фабрики и нормализаторы manifest fields
@@ -41,6 +42,7 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 │   ├── Providers/                    # ModuleLoaderServiceProvider
 │   ├── Registry/                     # scanner, snapshot builder, cache и registry VO
 │   └── Support/                      # layout/state paths, atomic writers, filesystem, sorter, namespace resolver
+│       └── Logging/                  # ModuleLogger, NullModuleDiagnostics (opt-in диагностика)
 ├── config/
 │   └── modules.php                   # дефолтные директории модулей и route types
 ├── tests/
@@ -88,7 +90,8 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 - `ModuleStateRepository` читает/пишет mutable state из `state.json` (`storage/app/private/modules/{name}/`).
 - `TopologicalSorter` сортирует модули по `meta.dependencies` и проверяет Composer SemVer constraints.
 - `ModuleRegistry` читает `bootstrap/cache/modules.php`, если cache существует, иначе сканирует файловую систему.
-- `ModuleLoaderPipeline` запускает 15 default loaders: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`. Pipeline изолирует ошибки: исключение в одном loader не останавливает загрузку остальных.
+- `ModuleLoaderPipeline` запускает 15 default loaders: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`. Pipeline изолирует ошибки: исключение в одном loader не останавливает загрузку остальных. Каждый `load()` возвращает `LoadReport` (`applied`/`skipped`), а pipeline скармливает его диагностике.
+- Opt-in диагностика (`modules.logging`, off by default): `ModuleDiagnosticsInterface` биндится как `ModuleLogger` поверх host-канала PSR-3 либо `NullModuleDiagnostics`. Discovery/cache/pipeline/lifecycle инъецируют контракт (дефолт — null-object) и пишут только whitelisted-скаляры. См. `docs/logging.md`.
 - `MoonShineModuleAutoloader` подключается только при наличии MoonShine `CoreContract`.
 - `FeatureRepositoryInterface` биндится как scoped и читает актуальные `settings.values` из `state.json` через `ModuleStateRepository`, а не из production cache.
 - Lifecycle-команды являются тонкими adapters над `Application/UseCases`; install/update валидируют source до копирования, reject'ят source `state.json`, используют backup/rollback boundaries и инвалидируют optimized registry cache после успешной мутации.
@@ -102,8 +105,9 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 | Module Structure | `docs/module-structure.md` | Поддерживаемые пути модулей |
 | Manifest | `docs/manifest.md` | Контракт `module.json` |
 | Configuration | `docs/configuration.md` | Конфиг и маршруты |
-| Architecture | `docs/architecture.md` | Registry, cache, lifecycle |
+| Architecture | `docs/architecture.md` | Registry, cache, lifecycle, диагностика |
 | Feature Toggles | `docs/feature-toggles.md` | Runtime settings API |
+| Logging | `docs/logging.md` | Opt-in диагностический слой и каталог событий |
 | CLI | `docs/cli.md` | Реализованные команды |
 | Contributing | `docs/contributing.md` | Quality gates и PR |
 

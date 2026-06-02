@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Contracts\Config\Repository;
@@ -23,21 +25,30 @@ final readonly class RouteLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
         if ($this->app->routesAreCached()) {
-            return;
+            return LoadReport::skipped(SkipReason::RoutesCached);
         }
 
         $routesDir = $this->layout->routesDir($module);
 
         if (! $this->filesystem->isDirectory($routesDir)) {
-            return;
+            return LoadReport::skipped(SkipReason::NoDirectory);
         }
+
+        $loaded = [];
 
         foreach ($this->routeFiles($module) as $route) {
             $this->router->group($route['attributes'], $route['path']);
+            $loaded[] = basename($route['path']);
         }
+
+        if ($loaded === []) {
+            return LoadReport::skipped(SkipReason::EmptyDirectory);
+        }
+
+        return LoadReport::applied(['routes' => $loaded]);
     }
 
     public function priority(): int
@@ -54,6 +65,9 @@ final readonly class RouteLoader implements LoaderInterface
         $types = $this->routeTypes();
 
         foreach (array_keys($types) as $type) {
+            // When the optional Inertia integration is absent, its route file is
+            // silently omitted rather than skipping the whole loader — the other
+            // route types still load and the module reports `applied`.
             if ($type === 'inertia' && ! $this->inertiaAvailable()) {
                 continue;
             }

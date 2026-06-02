@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\ConfigLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Config\Repository;
@@ -51,7 +53,7 @@ final class ConfigLoaderTest extends TestCase
             ],
         ]);
 
-        (new ConfigLoader($config, new Filesystem(), new ModuleLayout()))
+        $report = (new ConfigLoader($config, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(name: 'blog', path: $modulePath));
 
         self::assertSame([
@@ -61,6 +63,8 @@ final class ConfigLoaderTest extends TestCase
             ],
             'enabled' => true,
         ], $config->get('blog.settings'));
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['config' => ['settings.php']], $report->artifacts);
     }
 
     #[Test]
@@ -83,10 +87,26 @@ final class ConfigLoaderTest extends TestCase
     {
         $config = new Repository();
 
-        (new ConfigLoader($config, new Filesystem(), new ModuleLayout()))
+        $report = (new ConfigLoader($config, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
 
         self::assertNull($config->get('blog'));
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NoDirectory, $report->reason);
+    }
+
+    #[Test]
+    public function skipsWithEmptyDirectoryReasonWhenConfigDirectoryHasNoPhpFiles(): void
+    {
+        $modulePath = $this->tempDir . '/Blog';
+        mkdir($modulePath . '/Config', 0755, true);
+        $config = new Repository();
+
+        $report = (new ConfigLoader($config, new Filesystem(), new ModuleLayout()))
+            ->load(ModuleFactory::make(name: 'blog', path: $modulePath));
+
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::EmptyDirectory, $report->reason);
     }
 
 }

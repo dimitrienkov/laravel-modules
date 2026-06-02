@@ -59,12 +59,44 @@ arch('value objects are final readonly')
     ->toBeReadonly()
     ->toBeFinal();
 
+arch('loader value objects are final readonly')
+    ->expect([
+        'DimitrienkoV\LaravelModules\Loaders\VO\LoadReport',
+        'DimitrienkoV\LaravelModules\Loaders\VO\PipelineRunSummary',
+    ])
+    ->toBeReadonly()
+    ->toBeFinal();
+
+arch('loader value object enums are string backed')
+    ->expect([
+        'DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus',
+        'DimitrienkoV\LaravelModules\Loaders\VO\SkipReason',
+    ])
+    ->toBeStringBackedEnums();
+
+arch('diagnostics implementations are final and implement the contract')
+    ->expect('DimitrienkoV\LaravelModules\Support\Logging')
+    ->classes()
+    ->toBeFinal()
+    ->toImplement('DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface')
+    ->ignoring([
+        'DimitrienkoV\LaravelModules\Support\Logging\LogEvent',
+        'DimitrienkoV\LaravelModules\Support\Logging\LifecyclePhase',
+    ]);
+
+arch('logging event enums are string backed')
+    ->expect([
+        'DimitrienkoV\LaravelModules\Support\Logging\LogEvent',
+        'DimitrienkoV\LaravelModules\Support\Logging\LifecyclePhase',
+    ])
+    ->toBeStringBackedEnums();
+
 arch('loaders are final and implement LoaderInterface')
     ->expect('DimitrienkoV\LaravelModules\Loaders')
     ->classes()
     ->toBeFinal()
     ->toImplement(LoaderInterface::class)
-    ->ignoring(ModuleLoaderPipeline::class);
+    ->ignoring([ModuleLoaderPipeline::class, 'DimitrienkoV\LaravelModules\Loaders\VO']);
 
 test('src does not contain debug or termination calls', function (): void {
     $srcDir = realpath(__DIR__ . '/../../src');
@@ -286,7 +318,7 @@ arch('loaders use the Loader suffix')
     ->expect('DimitrienkoV\LaravelModules\Loaders')
     ->classes()
     ->toHaveSuffix('Loader')
-    ->ignoring(ModuleLoaderPipeline::class);
+    ->ignoring([ModuleLoaderPipeline::class, 'DimitrienkoV\LaravelModules\Loaders\VO']);
 
 arch('console commands do not depend on concrete persistence or registry internals')
     ->expect('DimitrienkoV\LaravelModules\Console\Commands')

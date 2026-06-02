@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ClassName;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\Filesystem;
@@ -21,11 +23,21 @@ final readonly class ServiceProviderLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    /**
+     * Unlike the convention loaders, an absent Providers directory is not a
+     * missing precondition here: registering zero providers is a valid applied
+     * outcome with no artifacts, never a skip.
+     */
+    public function load(Module $module): LoadReport
     {
+        $registered = [];
+
         foreach ($this->providers($module) as $provider) {
             $this->app->register($provider);
+            $registered[] = ClassName::short($provider);
         }
+
+        return LoadReport::applied($registered === [] ? [] : ['providers' => $registered]);
     }
 
     public function priority(): int

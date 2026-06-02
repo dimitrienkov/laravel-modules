@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Contracts\Config\Repository;
@@ -19,16 +21,18 @@ final readonly class ConfigLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
         $configDir = $this->layout->configDir($module);
 
         if (! $this->filesystem->isDirectory($configDir)) {
-            return;
+            return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
         $files = $this->filesystem->glob($configDir . '/*.php') ?: [];
         sort($files);
+
+        $merged = [];
 
         foreach ($files as $file) {
             if (! \is_string($file)) {
@@ -36,7 +40,14 @@ final readonly class ConfigLoader implements LoaderInterface
             }
 
             $this->mergeConfig($module, $file);
+            $merged[] = basename($file);
         }
+
+        if ($merged === []) {
+            return LoadReport::skipped(SkipReason::EmptyDirectory);
+        }
+
+        return LoadReport::applied(['config' => $merged]);
     }
 
     public function priority(): int

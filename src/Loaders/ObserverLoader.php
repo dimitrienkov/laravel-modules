@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Database\Eloquent\Model;
@@ -19,16 +21,18 @@ final readonly class ObserverLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
         $observersDir = $this->layout->observersDir($module);
 
         if (! $this->filesystem->isDirectory($observersDir)) {
-            return;
+            return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
         $files = $this->filesystem->glob($observersDir . '/*Observer.php') ?: [];
         sort($files);
+
+        $observers = [];
 
         foreach ($files as $file) {
             if (! \is_string($file)) {
@@ -36,7 +40,14 @@ final readonly class ObserverLoader implements LoaderInterface
             }
 
             $this->registerObserver($module, $file);
+            $observers[] = basename($file);
         }
+
+        if ($observers === []) {
+            return LoadReport::skipped(SkipReason::EmptyDirectory);
+        }
+
+        return LoadReport::applied(['observers' => $observers]);
     }
 
     public function priority(): int

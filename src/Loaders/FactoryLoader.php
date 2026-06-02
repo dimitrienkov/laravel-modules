@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ClassName;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -33,24 +36,27 @@ final class FactoryLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
         $factoriesDir = $this->layout->factoriesDir($module);
 
         if (! $this->filesystem->isDirectory($factoriesDir)) {
-            return;
+            return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
         $this->factoryNamespacesByModelNamespace[$this->layout->modelNamespace($module) . '\\'] =
             $this->layout->factoryNamespace($module) . '\\';
 
-        if ($this->registered) {
-            return;
+        // The global resolver is registered once, but the namespace mapping is
+        // recorded for every module with a Factories directory — so an
+        // already-registered loader still applied (it just reused the resolver).
+        if (! $this->registered) {
+            $this->previousFactoryNameResolver = $this->currentFactoryNameResolver();
+            Factory::guessFactoryNamesUsing($this->factoryClassForModel(...));
+            $this->registered = true;
         }
 
-        $this->previousFactoryNameResolver = $this->currentFactoryNameResolver();
-        Factory::guessFactoryNamesUsing($this->factoryClassForModel(...));
-        $this->registered = true;
+        return LoadReport::applied(['factories' => [$this->layout->relativeToModule($module, $factoriesDir)]]);
     }
 
     public function priority(): int
@@ -65,7 +71,7 @@ final class FactoryLoader implements LoaderInterface
                 continue;
             }
 
-            $modelBaseName = basename(str_replace('\\', '/', $modelClass));
+            $modelBaseName = ClassName::short($modelClass);
             /** @var class-string<Factory<Model>> $factoryClass */
             $factoryClass = $factoryNamespace . $modelBaseName . 'Factory';
 

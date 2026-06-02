@@ -18,6 +18,23 @@ return [
         // 'content' => 'Content Management',
         // 'e-commerce' => 'E-Commerce',
     ],
+    // Opt-in diagnostic logging for module discovery, caching, the loader
+    // pipeline and lifecycle operations. Off by default: the package core stays
+    // silent unless the host explicitly enables it (typically for field
+    // diagnostics of shipped modules). When enabled, events are written to the
+    // host-configured channel (null = default channel) and gated by a global
+    // severity threshold plus per-category toggles. See docs/logging.md.
+    'logging' => [
+        'enabled' => env('MODULES_LOGGING', false),
+        'channel' => env('MODULES_LOG_CHANNEL'),
+        'level' => env('MODULES_LOG_LEVEL', 'debug'),
+        'events' => [
+            'discovery' => true,
+            'cache' => true,
+            'pipeline' => true,
+            'lifecycle' => true,
+        ],
+    ],
     'routing' => [
         'types' => [
             'api' => [

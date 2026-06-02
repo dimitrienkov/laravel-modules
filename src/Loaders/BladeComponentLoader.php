@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Loaders;
 
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
@@ -20,12 +22,12 @@ final readonly class BladeComponentLoader implements LoaderInterface
     ) {
     }
 
-    public function load(Module $module): void
+    public function load(Module $module): LoadReport
     {
         $bladeComponentsDir = $this->layout->bladeComponentsDir($module);
 
         if (! $this->filesystem->isDirectory($bladeComponentsDir)) {
-            return;
+            return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
         $componentNamespace = $this->layout->bladeComponentNamespace($module);
@@ -36,6 +38,8 @@ final readonly class BladeComponentLoader implements LoaderInterface
                 $blade->componentNamespace($componentNamespace, $module->name);
             },
         );
+
+        return LoadReport::applied(['components' => [$this->layout->relativeToModule($module, $bladeComponentsDir)]]);
     }
 
     public function priority(): int

@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Registry;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -19,6 +23,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('registry')]
 final class ModuleDirectoryScannerTest extends TestCase
 {
+    use MockeryPHPUnitIntegration;
+
     private string $tempDir;
 
     protected function setUp(): void
@@ -130,10 +136,43 @@ final class ModuleDirectoryScannerTest extends TestCase
         $this->scanner(['outside/Modules'])->scan();
     }
 
+    #[Test]
+    public function reportsAMissingRootToDiagnosticsWithTheRelativeDirectory(): void
+    {
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $this->scanner(['app/NonexistentPath'], $diagnostics)->scan();
+
+        $diagnostics->shouldHaveReceived('discoveryRootMissing')->once()->with('app/NonexistentPath');
+    }
+
+    #[Test]
+    public function reportsARejectedRootToDiagnosticsBeforeThrowing(): void
+    {
+        $outsideDir = $this->tempDir . '/outside';
+        mkdir($outsideDir . '/Modules/Blog', 0755, true);
+        file_put_contents($outsideDir . '/Modules/Blog/module.json', '{}');
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        try {
+            $this->scanner(['outside/Modules'], $diagnostics)->scan();
+            self::fail('Expected InvalidConfigurationException');
+        } catch (InvalidConfigurationException) {
+            // expected
+        }
+
+        $diagnostics->shouldHaveReceived('discoveryRootRejected')
+            ->once()
+            ->with('outside/Modules', Mockery::type('string'));
+    }
+
     /**
      * @param array<mixed> $directories
      */
-    private function scanner(array $directories): ModuleDirectoryScanner
+    private function scanner(array $directories, ?ModuleDiagnosticsInterface $diagnostics = null): ModuleDirectoryScanner
     {
         return new ModuleDirectoryScanner(
             config: new Repository([
@@ -143,6 +182,7 @@ final class ModuleDirectoryScannerTest extends TestCase
             layout: new ModuleLayout(),
             basePath: $this->tempDir,
             appPath: $this->tempDir . '/app',
+            diagnostics: $diagnostics ?? new NullModuleDiagnostics(),
         );
     }
 

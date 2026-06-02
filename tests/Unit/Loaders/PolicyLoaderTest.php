@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\PolicyLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
@@ -64,12 +66,14 @@ final class PolicyLoaderTest extends TestCase
         $this->registerAutoloader($policiesDir . '/PostPolicy.php', 'App\\Modules\\Blog\\Domain\\Policies\\PostPolicy');
         $gate = new Gate(new Container(), static fn () => null);
 
-        (new PolicyLoader($gate, new Filesystem(), new ModuleLayout()))
+        $report = (new PolicyLoader($gate, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
         $policies = $gate->policies();
         self::assertArrayHasKey('App\\Modules\\Blog\\Domain\\Models\\Post', $policies);
         self::assertSame('App\\Modules\\Blog\\Domain\\Policies\\PostPolicy', $policies['App\\Modules\\Blog\\Domain\\Models\\Post']);
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['policies' => ['PostPolicy.php']], $report->artifacts);
     }
 
     #[Test]
@@ -118,10 +122,26 @@ final class PolicyLoaderTest extends TestCase
     {
         $gate = new Gate(new Container(), static fn () => null);
 
-        (new PolicyLoader($gate, new Filesystem(), new ModuleLayout()))
+        $report = (new PolicyLoader($gate, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
 
         self::assertSame([], $gate->policies());
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NoDirectory, $report->reason);
+    }
+
+    #[Test]
+    public function skipsWithEmptyDirectoryReasonWhenNoPolicyFilesPresent(): void
+    {
+        $modulePath = $this->tempDir . '/Blog';
+        mkdir($modulePath . '/Domain/Policies', 0755, true);
+        $gate = new Gate(new Container(), static fn () => null);
+
+        $report = (new PolicyLoader($gate, new Filesystem(), new ModuleLayout()))
+            ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
+
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::EmptyDirectory, $report->reason);
     }
 
     private function registerAutoloader(string $file, string $class): void

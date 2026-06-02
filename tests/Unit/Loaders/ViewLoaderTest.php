@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\ViewLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
@@ -52,7 +54,7 @@ final class ViewLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $app->singleton('view', static fn (): ViewFactory => $factory);
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(name: 'blog', path: $modulePath));
 
         self::assertFalse($app->resolved('view'));
@@ -62,6 +64,8 @@ final class ViewLoaderTest extends TestCase
         $hints = $finder->getHints();
         self::assertArrayHasKey('blog', $hints);
         self::assertSame([$viewsDir], $hints['blog']);
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['views' => ['Resources/views']], $report->artifacts);
     }
 
     #[Test]
@@ -92,12 +96,14 @@ final class ViewLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $app->singleton('view', static fn (): ViewFactory => $factory);
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
 
         $app->make('view');
 
         self::assertSame([], $finder->getHints());
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NoDirectory, $report->reason);
     }
 
     #[Test]

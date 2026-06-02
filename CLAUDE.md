@@ -43,5 +43,6 @@ Two-file model per module: `module.json` (immutable `meta` + `settings.schema`) 
 - **Architecture** (registry, cache, loader pipeline, lifecycle): `docs/architecture.md`
 - **Manifest contract**: `docs/manifest.md` · **Configuration**: `docs/configuration.md`
 - **CLI commands**: `docs/cli.md` · **Feature toggles**: `docs/feature-toggles.md`
+- **Diagnostic logging** (opt-in, off by default): `docs/logging.md`
 - **Module structure**: `docs/module-structure.md` · **Getting started**: `docs/getting-started.md`
 - **Quality gates & PR rules**: `docs/contributing.md`

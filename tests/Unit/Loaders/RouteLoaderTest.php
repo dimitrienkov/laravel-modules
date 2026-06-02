@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\RouteLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Config\Repository;
@@ -46,7 +48,7 @@ final class RouteLoaderTest extends TestCase
         file_put_contents($modulePath . '/Routes/api_v1.php', '<?php');
         $router = new RecordingRouter();
 
-        (new RouteLoader($this->fakeApp(cached: false), $router, $this->config(), new Filesystem(), new ModuleLayout()))
+        $report = (new RouteLoader($this->fakeApp(cached: false), $router, $this->config(), new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath));
 
         self::assertSame([
@@ -59,6 +61,8 @@ final class RouteLoaderTest extends TestCase
                 'routes' => $modulePath . '/Routes/api_v1.php',
             ],
         ], $router->groups);
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['routes' => ['web.php', 'api_v1.php']], $report->artifacts);
     }
 
     #[Test]
@@ -66,10 +70,29 @@ final class RouteLoaderTest extends TestCase
     {
         $router = new RecordingRouter();
 
-        (new RouteLoader($this->fakeApp(cached: false), $router, $this->config(), new Filesystem(), new ModuleLayout()))
+        $report = (new RouteLoader($this->fakeApp(cached: false), $router, $this->config(), new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Blog'));
 
         self::assertSame([], $router->groups);
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NoDirectory, $report->reason);
+    }
+
+    #[Test]
+    public function skipsWithEmptyDirectoryReasonWhenNoConfiguredRouteFilesExist(): void
+    {
+        $modulePath = $this->tempDir . '/Blog';
+        mkdir($modulePath . '/Routes', 0755, true);
+        // Routes/ exists but holds no web/api_v1 file the config knows about.
+        file_put_contents($modulePath . '/Routes/console.php', '<?php');
+        $router = new RecordingRouter();
+
+        $report = (new RouteLoader($this->fakeApp(cached: false), $router, $this->config(), new Filesystem(), new ModuleLayout()))
+            ->load(ModuleFactory::make(path: $modulePath));
+
+        self::assertSame([], $router->groups);
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::EmptyDirectory, $report->reason);
     }
 
     #[Test]
@@ -80,10 +103,12 @@ final class RouteLoaderTest extends TestCase
         file_put_contents($modulePath . '/Routes/web.php', '<?php');
         $router = new RecordingRouter();
 
-        (new RouteLoader($this->fakeApp(cached: true), $router, $this->config(), new Filesystem(), new ModuleLayout()))
+        $report = (new RouteLoader($this->fakeApp(cached: true), $router, $this->config(), new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath));
 
         self::assertSame([], $router->groups);
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::RoutesCached, $report->reason);
     }
 
     private function fakeApp(bool $cached): Application

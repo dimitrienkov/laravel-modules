@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\MiddlewareLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
@@ -57,12 +59,14 @@ final class MiddlewareLoaderTest extends TestCase
         $this->registerAutoloader($middlewareDir . '/CheckAge.php', 'App\\Modules\\Blog\\Http\\Middleware\\CheckAge');
         $router = new Router(new Dispatcher());
 
-        (new MiddlewareLoader($router, new Filesystem(), new ModuleLayout()))
+        $report = (new MiddlewareLoader($router, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(name: 'blog', path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
         $middleware = $router->getMiddleware();
         self::assertArrayHasKey('blog.check_age', $middleware);
         self::assertSame('App\\Modules\\Blog\\Http\\Middleware\\CheckAge', $middleware['blog.check_age']);
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['middleware' => ['CheckAge.php']], $report->artifacts);
     }
 
     #[Test]
@@ -85,10 +89,26 @@ final class MiddlewareLoaderTest extends TestCase
     {
         $router = new Router(new Dispatcher());
 
-        (new MiddlewareLoader($router, new Filesystem(), new ModuleLayout()))
+        $report = (new MiddlewareLoader($router, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
 
         self::assertSame([], $router->getMiddleware());
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NoDirectory, $report->reason);
+    }
+
+    #[Test]
+    public function skipsWithEmptyDirectoryReasonWhenNoMiddlewareFilesPresent(): void
+    {
+        $modulePath = $this->tempDir . '/Blog';
+        mkdir($modulePath . '/Http/Middleware', 0755, true);
+        $router = new Router(new Dispatcher());
+
+        $report = (new MiddlewareLoader($router, new Filesystem(), new ModuleLayout()))
+            ->load(ModuleFactory::make(name: 'blog', path: $modulePath, namespace: 'App\\Modules\\Blog'));
+
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::EmptyDirectory, $report->reason);
     }
 
     #[Test]

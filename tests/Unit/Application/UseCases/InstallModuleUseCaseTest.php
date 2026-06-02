@@ -4,13 +4,21 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
+use DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback;
 use DimitrienkoV\LaravelModules\Application\UseCases\InstallModuleUseCase;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
+use DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleInstallException;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesSourceArchive;
 use Illuminate\Filesystem\Filesystem;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -23,6 +31,7 @@ final class InstallModuleUseCaseTest extends TestCase
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
     use CreatesSourceArchive;
+    use MockeryPHPUnitIntegration;
 
     private string $tempDir;
 
@@ -169,8 +178,79 @@ final class InstallModuleUseCaseTest extends TestCase
         $this->assertTrue($result->enabled);
     }
 
+    #[Test]
+    public function emitsLifecycleFailedAndNoSuccessWhenPersistenceFails(): void
+    {
+        $zipPath = $this->createSourceZip('blog');
+
+        $failingManifests = $this->createMock(ModuleManifestRepositoryInterface::class);
+        $failingManifests->method('writeManifest')->willThrowException(
+            new ManifestWriteException('simulated write failure'),
+        );
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = $this->makeUseCase(manifestRepository: $failingManifests, diagnostics: $diagnostics);
+
+        try {
+            $useCase->execute($zipPath);
+            $this->fail('Expected ModuleInstallException');
+        } catch (ModuleInstallException) {
+            // expected
+        }
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Install, 'blog', 'zip');
+        $diagnostics->shouldHaveReceived('lifecycleFailed')->once()->with(
+            LifecycleOperation::Install,
+            'blog',
+            Mockery::type(ModuleInstallException::class),
+        );
+        $diagnostics->shouldNotHaveReceived('lifecycleSucceeded');
+    }
+
+    #[Test]
+    public function guardRejectionBeforeStartEmitsNoLifecycleEvents(): void
+    {
+        $zipPath = $this->createSourceZip('blog');
+        $this->createInstalledModule('blog');
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = $this->makeUseCase(diagnostics: $diagnostics);
+
+        try {
+            $useCase->execute($zipPath);
+            $this->fail('Expected ModuleAlreadyExistsException');
+        } catch (ModuleAlreadyExistsException) {
+            // expected
+        }
+
+        $diagnostics->shouldNotHaveReceived('lifecycleStarted');
+        $diagnostics->shouldNotHaveReceived('lifecycleFailed');
+    }
+
+    #[Test]
+    public function emitsStartedThenSucceededExactlyOnceOnTheHappyPath(): void
+    {
+        $zipPath = $this->createSourceZip('blog');
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = $this->makeUseCase(diagnostics: $diagnostics);
+
+        $useCase->execute($zipPath);
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Install, 'blog', 'zip');
+        $diagnostics->shouldHaveReceived('lifecycleSucceeded')->once()->with(LifecycleOperation::Install, 'blog');
+        $diagnostics->shouldNotHaveReceived('lifecycleFailed');
+    }
+
     private function makeUseCase(
-        ?\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface $manifestRepository = null,
+        ?ModuleManifestRepositoryInterface $manifestRepository = null,
+        ?ModuleDiagnosticsInterface $diagnostics = null,
     ): InstallModuleUseCase {
         $config = $this->lifecycleConfig(backupPath: $this->tempDir . '/backups');
         $stateRepo = $this->lifecycleStateRepository($config);
@@ -191,7 +271,8 @@ final class InstallModuleUseCaseTest extends TestCase
             $directoryOps,
             $this->lifecycleInvalidator($cache, $registry),
             $this->lifecycleNamespaceResolver(),
-            new \DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback($directoryOps, $stateRepo),
+            new PartialModuleRollback($directoryOps, $stateRepo),
+            $diagnostics ?? new NullModuleDiagnostics(),
         );
     }
 

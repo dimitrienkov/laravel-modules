@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Loaders;
 
 use DimitrienkoV\LaravelModules\Loaders\CommandLoader;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
@@ -48,7 +50,7 @@ final class CommandLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $kernel = new CommandRecordingKernel();
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
         $app->singleton(ConsoleKernelContract::class, static fn (): CommandRecordingKernel => $kernel);
@@ -59,6 +61,8 @@ final class CommandLoaderTest extends TestCase
         $app->boot();
 
         self::assertContains($commandsDir, $kernel->addedCommandPaths);
+        self::assertTrue($report->wasApplied());
+        self::assertSame(['commands' => ['Console/Commands']], $report->artifacts);
     }
 
     #[Test]
@@ -106,7 +110,7 @@ final class CommandLoaderTest extends TestCase
         $app = new Application($this->tempDir);
         $kernel = new CommandRecordingKernel();
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Blog'));
 
         $app->singleton(ConsoleKernelContract::class, static fn (): CommandRecordingKernel => $kernel);
@@ -114,6 +118,8 @@ final class CommandLoaderTest extends TestCase
         $app->boot();
 
         self::assertSame([], $kernel->addedCommandPaths);
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NoDirectory, $report->reason);
     }
 
     #[Test]
@@ -128,7 +134,7 @@ final class CommandLoaderTest extends TestCase
         $reflection->setValue($app, false);
         $kernel = new CommandRecordingKernel();
 
-        $this->loader($app)
+        $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
         $app->singleton(ConsoleKernelContract::class, static fn (): CommandRecordingKernel => $kernel);
@@ -136,6 +142,8 @@ final class CommandLoaderTest extends TestCase
         $app->boot();
 
         self::assertSame([], $kernel->addedCommandPaths);
+        self::assertSame(LoadStatus::Skipped, $report->status);
+        self::assertSame(SkipReason::NotRunningInConsole, $report->reason);
     }
 
     private function loader(Application $app): CommandLoader
