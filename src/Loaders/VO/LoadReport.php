@@ -70,6 +70,11 @@ final readonly class LoadReport
         return $this->status === LoadStatus::Applied;
     }
 
+    public function wasSkipped(): bool
+    {
+        return $this->status === LoadStatus::Skipped;
+    }
+
     /**
      * Whitelisted scalar projection — the status string, the optional skip reason
      * value, and artifact basenames/paths. Safe to write to a log channel.

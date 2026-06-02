@@ -18,6 +18,8 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\Version;
+use DimitrienkoV\LaravelModules\Support\Logging\LifecyclePhase;
+use DimitrienkoV\LaravelModules\Support\Logging\LogEvent;
 use DimitrienkoV\LaravelModules\Support\Logging\ModuleLogger;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -34,12 +36,12 @@ final class ModuleLoggerTest extends TestCase
     private const string FEATURE_SECRET = 'TOP_SECRET_FEATURE_DEFAULT';
 
     #[Test]
-    public function appliedLoaderOutcomeLogsOnlyWhitelistedScalars(): void
+    public function appliedLoaderCompletedLogsOnlyWhitelistedScalars(): void
     {
         $logger = new RecordingPsrLogger();
         $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
 
-        $moduleLogger->loaderOutcome(
+        $moduleLogger->loaderCompleted(
             $this->moduleCarryingSecrets(),
             new WhitelistFakeLoader(),
             LoadReport::applied(['config' => ['settings.php']]),
@@ -47,7 +49,7 @@ final class ModuleLoggerTest extends TestCase
 
         self::assertCount(1, $logger->records);
         self::assertSame(LogLevel::DEBUG, $logger->records[0]['level']);
-        self::assertSame('pipeline.loader.applied', $logger->records[0]['message']);
+        self::assertSame(LogEvent::PipelineLoaderApplied->value, $logger->records[0]['message']);
         self::assertSame([
             'module' => 'blog',
             'loader' => 'WhitelistFakeLoader',
@@ -58,18 +60,18 @@ final class ModuleLoggerTest extends TestCase
     }
 
     #[Test]
-    public function skippedLoaderOutcomeLogsReasonValueOnly(): void
+    public function skippedLoaderCompletedLogsReasonValueOnly(): void
     {
         $logger = new RecordingPsrLogger();
         $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
 
-        $moduleLogger->loaderOutcome(
+        $moduleLogger->loaderCompleted(
             $this->moduleCarryingSecrets(),
             new WhitelistFakeLoader(),
             LoadReport::skipped(SkipReason::NoDirectory),
         );
 
-        self::assertSame('pipeline.loader.skipped', $logger->records[0]['message']);
+        self::assertSame(LogEvent::PipelineLoaderSkipped->value, $logger->records[0]['message']);
         self::assertSame([
             'module' => 'blog',
             'loader' => 'WhitelistFakeLoader',
@@ -93,7 +95,7 @@ final class ModuleLoggerTest extends TestCase
         );
 
         self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
-        self::assertSame('pipeline.loader.failed', $logger->records[0]['message']);
+        self::assertSame(LogEvent::PipelineLoaderFailed->value, $logger->records[0]['message']);
 
         $context = $logger->records[0]['context'];
         self::assertSame('blog', $context['module']);
@@ -112,7 +114,10 @@ final class ModuleLoggerTest extends TestCase
 
         $moduleLogger->lifecycleStarted(LifecycleOperation::Install, 'blog', 'zip');
 
-        self::assertSame('lifecycle.install.started', $logger->records[0]['message']);
+        self::assertSame(
+            LogEvent::lifecycle(LifecycleOperation::Install, LifecyclePhase::Started),
+            $logger->records[0]['message'],
+        );
         self::assertSame(['module' => 'blog', 'source' => 'zip'], $logger->records[0]['context']);
     }
 
@@ -125,7 +130,10 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger->lifecycleStarted(LifecycleOperation::Optimize);
 
         self::assertSame(LogLevel::INFO, $logger->records[0]['level']);
-        self::assertSame('lifecycle.optimize.started', $logger->records[0]['message']);
+        self::assertSame(
+            LogEvent::lifecycle(LifecycleOperation::Optimize, LifecyclePhase::Started),
+            $logger->records[0]['message'],
+        );
         self::assertSame([], $logger->records[0]['context']);
     }
 
@@ -138,7 +146,10 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger->lifecycleSucceeded(LifecycleOperation::Install, 'blog');
 
         self::assertSame(LogLevel::INFO, $logger->records[0]['level']);
-        self::assertSame('lifecycle.install.succeeded', $logger->records[0]['message']);
+        self::assertSame(
+            LogEvent::lifecycle(LifecycleOperation::Install, LifecyclePhase::Succeeded),
+            $logger->records[0]['message'],
+        );
         self::assertSame(['module' => 'blog'], $logger->records[0]['context']);
     }
 
@@ -153,7 +164,10 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger->lifecycleFailed(LifecycleOperation::Remove, 'blog', $exception);
 
         self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
-        self::assertSame('lifecycle.remove.failed', $logger->records[0]['message']);
+        self::assertSame(
+            LogEvent::lifecycle(LifecycleOperation::Remove, LifecyclePhase::Failed),
+            $logger->records[0]['message'],
+        );
 
         $context = $logger->records[0]['context'];
         self::assertSame('blog', $context['module']);
@@ -170,7 +184,10 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger->lifecycleRolledBack(LifecycleOperation::Update, 'blog', 'persistence');
 
         self::assertSame(LogLevel::WARNING, $logger->records[0]['level']);
-        self::assertSame('lifecycle.update.rolled_back', $logger->records[0]['message']);
+        self::assertSame(
+            LogEvent::lifecycle(LifecycleOperation::Update, LifecyclePhase::RolledBack),
+            $logger->records[0]['message'],
+        );
         self::assertSame(['module' => 'blog', 'stage' => 'persistence'], $logger->records[0]['context']);
     }
 
@@ -183,7 +200,10 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger->lifecycleBackupCreated(LifecycleOperation::Update, 'blog', '/backups/blog-123');
 
         self::assertSame(LogLevel::INFO, $logger->records[0]['level']);
-        self::assertSame('lifecycle.update.backup_created', $logger->records[0]['message']);
+        self::assertSame(
+            LogEvent::lifecycle(LifecycleOperation::Update, LifecyclePhase::BackupCreated),
+            $logger->records[0]['message'],
+        );
         self::assertSame(['module' => 'blog', 'backup' => '/backups/blog-123'], $logger->records[0]['context']);
     }
 
@@ -203,7 +223,7 @@ final class ModuleLoggerTest extends TestCase
         ));
 
         self::assertSame(LogLevel::DEBUG, $logger->records[0]['level']);
-        self::assertSame('pipeline.finished', $logger->records[0]['message']);
+        self::assertSame(LogEvent::PipelineFinished->value, $logger->records[0]['message']);
     }
 
     #[Test]
@@ -224,7 +244,7 @@ final class ModuleLoggerTest extends TestCase
 
         self::assertCount(1, $logger->records);
         self::assertSame(LogLevel::WARNING, $logger->records[0]['level']);
-        self::assertSame('pipeline.finished', $logger->records[0]['message']);
+        self::assertSame(LogEvent::PipelineFinished->value, $logger->records[0]['message']);
     }
 
     #[Test]
@@ -236,7 +256,7 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger->discoveryCompleted(1, 1, 0);
 
         self::assertCount(1, $logger->records);
-        self::assertSame('discovery.completed', $logger->records[0]['message']);
+        self::assertSame(LogEvent::DiscoveryCompleted->value, $logger->records[0]['message']);
     }
 
     #[Test]
@@ -251,7 +271,7 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger->cacheWritten(2, 'bootstrap/cache/modules.php');
 
         self::assertCount(1, $logger->records);
-        self::assertSame('cache.written', $logger->records[0]['message']);
+        self::assertSame(LogEvent::CacheWritten->value, $logger->records[0]['message']);
     }
 
     #[Test]
@@ -272,7 +292,7 @@ final class ModuleLoggerTest extends TestCase
             new \RuntimeException('boom'),
         );
         // DEBUG stays gated by the disabled pipeline category.
-        $moduleLogger->loaderOutcome(
+        $moduleLogger->loaderCompleted(
             $this->moduleCarryingSecrets(),
             new WhitelistFakeLoader(),
             LoadReport::applied(),
@@ -285,9 +305,65 @@ final class ModuleLoggerTest extends TestCase
         $messages = array_map(static fn (array $record): string => $record['message'], $logger->records);
 
         self::assertSame([
-            'pipeline.loader.failed',
-            'lifecycle.remove.failed',
+            LogEvent::PipelineLoaderFailed->value,
+            LogEvent::lifecycle(LifecycleOperation::Remove, LifecyclePhase::Failed),
         ], $messages);
+    }
+
+    #[Test]
+    public function errorEventsAreRecordedEvenWhenTheThresholdIsRaisedAboveError(): void
+    {
+        $logger = new RecordingPsrLogger();
+        // The highest threshold AND the two failure categories are off: the floor
+        // on ERROR must still let a loader/lifecycle failure through.
+        $moduleLogger = new ModuleLogger($logger, LogLevel::EMERGENCY, [
+            'discovery' => false,
+            'cache' => false,
+            'pipeline' => false,
+            'lifecycle' => false,
+        ]);
+
+        $moduleLogger->loaderFailed(
+            $this->moduleCarryingSecrets(),
+            new WhitelistFakeLoader(),
+            new \RuntimeException('boom'),
+        );
+        $moduleLogger->lifecycleFailed(LifecycleOperation::Install, 'blog', new \RuntimeException('x'));
+        // A WARNING-level event at the same raised threshold stays suppressed.
+        $moduleLogger->lifecycleRolledBack(LifecycleOperation::Install, 'blog', 'persistence');
+
+        $messages = array_map(static fn (array $record): string => $record['message'], $logger->records);
+
+        self::assertSame([
+            LogEvent::PipelineLoaderFailed->value,
+            LogEvent::lifecycle(LifecycleOperation::Install, LifecyclePhase::Failed),
+        ], $messages);
+    }
+
+    #[Test]
+    public function discoveryRootRejectedIsRecordedAtErrorEvenWhenItsCategoryIsOffAndThresholdRaised(): void
+    {
+        $logger = new RecordingPsrLogger();
+        // discovery category off + threshold above error: a rejected root aborts
+        // discovery (it precedes a thrown exception), so it must not be hideable.
+        $moduleLogger = new ModuleLogger($logger, LogLevel::EMERGENCY, [
+            'discovery' => false,
+            'cache' => true,
+            'pipeline' => true,
+            'lifecycle' => true,
+        ]);
+
+        $moduleLogger->discoveryRootRejected('outside/Modules', 'resolves outside app_path()');
+        // The non-fatal sibling stays at WARNING and is suppressed by the threshold.
+        $moduleLogger->discoveryRootMissing('app/Modules');
+
+        self::assertCount(1, $logger->records);
+        self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
+        self::assertSame(LogEvent::DiscoveryRootRejected->value, $logger->records[0]['message']);
+        self::assertSame([
+            'directory' => 'outside/Modules',
+            'reason' => 'resolves outside app_path()',
+        ], $logger->records[0]['context']);
     }
 
     #[Test]
@@ -308,6 +384,19 @@ final class ModuleLoggerTest extends TestCase
     }
 
     #[Test]
+    public function anEnabledCategoryStillObeysTheThresholdForBelowErrorEvents(): void
+    {
+        $logger = new RecordingPsrLogger();
+        // Cache category ON, threshold at error: a WARNING-level cache event is
+        // still suppressed because only ERROR+ ignores the threshold.
+        $moduleLogger = new ModuleLogger($logger, LogLevel::ERROR, $this->allEventsEnabled());
+
+        $moduleLogger->cacheInvalid('corrupt', new \RuntimeException('parse'));
+
+        self::assertSame([], $logger->records);
+    }
+
+    #[Test]
     public function isSilentWhenTheCategoryToggleIsOff(): void
     {
         $logger = new RecordingPsrLogger();
@@ -318,7 +407,7 @@ final class ModuleLoggerTest extends TestCase
             'lifecycle' => true,
         ]);
 
-        $moduleLogger->loaderOutcome(
+        $moduleLogger->loaderCompleted(
             $this->moduleCarryingSecrets(),
             new WhitelistFakeLoader(),
             LoadReport::applied(),
@@ -330,7 +419,7 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger->discoveryCompleted(1, 1, 0);
 
         self::assertCount(1, $logger->records);
-        self::assertSame('discovery.completed', $logger->records[0]['message']);
+        self::assertSame(LogEvent::DiscoveryCompleted->value, $logger->records[0]['message']);
     }
 
     #[Test]
@@ -340,7 +429,7 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger = new ModuleLogger($logger, LogLevel::ERROR, $this->allEventsEnabled());
 
         // debug-level event filtered out by the error threshold.
-        $moduleLogger->loaderOutcome(
+        $moduleLogger->loaderCompleted(
             $this->moduleCarryingSecrets(),
             new WhitelistFakeLoader(),
             LoadReport::applied(),
@@ -356,7 +445,35 @@ final class ModuleLoggerTest extends TestCase
         );
 
         self::assertCount(1, $logger->records);
-        self::assertSame('pipeline.loader.failed', $logger->records[0]['message']);
+        self::assertSame(LogEvent::PipelineLoaderFailed->value, $logger->records[0]['message']);
+    }
+
+    #[Test]
+    public function aThrowingChannelOnTheDebugPathIsSwallowed(): void
+    {
+        $logger = new ThrowingPsrLogger();
+        $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
+
+        // Must not propagate — diagnostics are additive and never break boot.
+        $moduleLogger->discoveryCompleted(1, 1, 0);
+
+        // The write was attempted (gating passed) and the channel failure swallowed.
+        self::assertSame(1, $logger->attempts);
+    }
+
+    #[Test]
+    public function aThrowingChannelOnTheErrorPathIsSwallowed(): void
+    {
+        $logger = new ThrowingPsrLogger();
+        $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
+
+        $moduleLogger->loaderFailed(
+            $this->moduleCarryingSecrets(),
+            new WhitelistFakeLoader(),
+            new \RuntimeException('boom'),
+        );
+
+        self::assertSame(1, $logger->attempts);
     }
 
     /**
@@ -443,5 +560,20 @@ final class RecordingPsrLogger extends AbstractLogger
             'message' => (string) $message,
             'context' => $context,
         ];
+    }
+}
+
+final class ThrowingPsrLogger extends AbstractLogger
+{
+    public int $attempts = 0;
+
+    /**
+     * @param array<array-key, mixed> $context
+     */
+    public function log($level, string|Stringable $message, array $context = []): void
+    {
+        $this->attempts++;
+
+        throw new \RuntimeException('log channel is broken');
     }
 }

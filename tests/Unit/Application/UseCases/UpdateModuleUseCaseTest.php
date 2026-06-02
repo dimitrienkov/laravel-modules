@@ -355,6 +355,14 @@ final class UpdateModuleUseCaseTest extends TestCase
         }
 
         $diagnostics->shouldHaveReceived('lifecycleStarted')->once();
+        // The backup is taken before persistence, then rolled back when the write
+        // fails — both compensating markers fire before the terminal `failed`.
+        $diagnostics->shouldHaveReceived('lifecycleBackupCreated')
+            ->once()
+            ->with(LifecycleOperation::Update, 'blog', Mockery::type('string'));
+        $diagnostics->shouldHaveReceived('lifecycleRolledBack')
+            ->once()
+            ->with(LifecycleOperation::Update, 'blog', 'persistence');
         // The terminal `failed` carries the wrapped exception whose $previous is
         // the original write failure — the root cause is never lost.
         $diagnostics->shouldHaveReceived('lifecycleFailed')->once()->with(
@@ -364,6 +372,28 @@ final class UpdateModuleUseCaseTest extends TestCase
                 && $e->getPrevious() instanceof ManifestWriteException),
         );
         $diagnostics->shouldNotHaveReceived('lifecycleSucceeded');
+    }
+
+    #[Test]
+    public function emitsStartedBackupCreatedAndSucceededOnceOnTheHappyPath(): void
+    {
+        $this->createInstalledModule('blog', '1.0.0');
+        $sourceDir = $this->createSourceZip('blog', '2.0.0');
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = $this->makeUseCase(diagnostics: $diagnostics);
+
+        $useCase->execute('blog', $sourceDir);
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Update, 'blog', 'zip');
+        $diagnostics->shouldHaveReceived('lifecycleBackupCreated')
+            ->once()
+            ->with(LifecycleOperation::Update, 'blog', Mockery::type('string'));
+        $diagnostics->shouldHaveReceived('lifecycleSucceeded')->once()->with(LifecycleOperation::Update, 'blog');
+        $diagnostics->shouldNotHaveReceived('lifecycleFailed');
+        $diagnostics->shouldNotHaveReceived('lifecycleRolledBack');
     }
 
     private function makeUseCase(

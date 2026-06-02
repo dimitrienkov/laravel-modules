@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Application\UseCases\EnableModuleUseCase;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyEnabledException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleDependencyDisabledException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleDependencyMissingException;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use Illuminate\Filesystem\Filesystem;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -23,6 +28,7 @@ final class EnableModuleUseCaseTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
+    use MockeryPHPUnitIntegration;
 
     private string $tempDir;
 
@@ -145,10 +151,27 @@ final class EnableModuleUseCaseTest extends TestCase
         $this->assertSame($manifestBefore, $manifestAfter);
     }
 
+    #[Test]
+    public function emitsStartedThenSucceededOnceOnTheHappyPath(): void
+    {
+        $this->createModule('blog', enabled: false);
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        [$useCase] = $this->makeUseCaseWithRegistry($diagnostics);
+
+        $useCase->execute('blog');
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Enable, 'blog');
+        $diagnostics->shouldHaveReceived('lifecycleSucceeded')->once()->with(LifecycleOperation::Enable, 'blog');
+        $diagnostics->shouldNotHaveReceived('lifecycleFailed');
+    }
+
     /**
      * @return array{0: EnableModuleUseCase, 1: ModuleRegistry}
      */
-    private function makeUseCaseWithRegistry(): array
+    private function makeUseCaseWithRegistry(?ModuleDiagnosticsInterface $diagnostics = null): array
     {
         $config = $this->lifecycleConfig();
         $stateRepo = $this->lifecycleStateRepository($config);
@@ -161,6 +184,7 @@ final class EnableModuleUseCaseTest extends TestCase
             $stateRepo,
             $this->lifecycleDependencyGuard($registry),
             $this->lifecycleInvalidator($cache, $registry),
+            $diagnostics ?? new NullModuleDiagnostics(),
         );
 
         return [$useCase, $registry];

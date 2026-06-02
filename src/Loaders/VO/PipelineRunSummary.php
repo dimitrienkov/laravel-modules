@@ -13,6 +13,12 @@ namespace DimitrienkoV\LaravelModules\Loaders\VO;
  */
 final readonly class PipelineRunSummary
 {
+    /**
+     * `modulesEnabled` and `loaders` are simple counts; `applied`, `skipped` and
+     * `failed` count (loader × module) pairs, so they are measured against a
+     * different denominator (`loaders × modulesEnabled`) — their sum is NOT
+     * expected to equal `modulesEnabled`. This is by design, not a miscount.
+     */
     public function __construct(
         public int $modulesEnabled,
         public int $loaders,

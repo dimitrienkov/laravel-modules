@@ -37,6 +37,7 @@ php artisan modules:optimize
 - **Runtime feature API**: `FeatureRepositoryInterface` читает актуальные `settings.values` из `state.json`.
 - **Production cache**: `modules:optimize` кеширует discovery в `bootstrap/cache/modules.php`, но не кеширует state и values.
 - **Lifecycle toolkit**: scaffold, install, update, remove, enable и disable работают через UseCase-классы с backup/rollback boundaries.
+- **Opt-in диагностическое логирование**: off by default; включается через `MODULES_LOGGING=true` и пишет structured discovery/cache/pipeline/lifecycle события на выбранный канал хоста для field-diagnostics ([docs/logging.md](docs/logging.md)).
 - **Optional bridges**: MoonShine и Inertia активируются только при наличии соответствующих пакетов.
 
 ## Минимальный модуль

@@ -7,6 +7,7 @@ namespace DimitrienkoV\LaravelModules\Loaders;
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ClassName;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Filesystem\Filesystem;
@@ -33,7 +34,7 @@ final readonly class ServiceProviderLoader implements LoaderInterface
 
         foreach ($this->providers($module) as $provider) {
             $this->app->register($provider);
-            $registered[] = basename(str_replace('\\', '/', $provider));
+            $registered[] = ClassName::short($provider);
         }
 
         return LoadReport::applied($registered === [] ? [] : ['providers' => $registered]);

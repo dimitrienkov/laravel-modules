@@ -231,6 +231,23 @@ final class InstallModuleUseCaseTest extends TestCase
         $diagnostics->shouldNotHaveReceived('lifecycleFailed');
     }
 
+    #[Test]
+    public function emitsStartedThenSucceededExactlyOnceOnTheHappyPath(): void
+    {
+        $zipPath = $this->createSourceZip('blog');
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = $this->makeUseCase(diagnostics: $diagnostics);
+
+        $useCase->execute($zipPath);
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Install, 'blog', 'zip');
+        $diagnostics->shouldHaveReceived('lifecycleSucceeded')->once()->with(LifecycleOperation::Install, 'blog');
+        $diagnostics->shouldNotHaveReceived('lifecycleFailed');
+    }
+
     private function makeUseCase(
         ?ModuleManifestRepositoryInterface $manifestRepository = null,
         ?ModuleDiagnosticsInterface $diagnostics = null,

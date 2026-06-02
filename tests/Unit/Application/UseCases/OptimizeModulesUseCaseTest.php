@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Application\UseCases\OptimizeModulesUseCase;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryCacheInterface;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
@@ -91,6 +93,25 @@ final class OptimizeModulesUseCaseTest extends TestCase
         $result = $useCase->execute();
 
         self::assertSame(1, $result->count);
+    }
+
+    #[Test]
+    public function emitsStartedThenSucceededOnceOnTheHappyPath(): void
+    {
+        $this->writeModule('blog', '1.0.0');
+
+        $cache = Mockery::mock(ModuleRegistryCacheInterface::class);
+        $cache->expects('write')->once()->andReturn('/cache/modules.php');
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = new OptimizeModulesUseCase($this->builder(), $cache, $diagnostics);
+        $useCase->execute();
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Optimize);
+        $diagnostics->shouldHaveReceived('lifecycleSucceeded')->once()->with(LifecycleOperation::Optimize);
+        $diagnostics->shouldNotHaveReceived('lifecycleFailed');
     }
 
     private function builder(): ModuleRegistrySnapshotBuilder

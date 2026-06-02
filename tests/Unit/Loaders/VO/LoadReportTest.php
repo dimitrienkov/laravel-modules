@@ -28,6 +28,7 @@ final class LoadReportTest extends TestCase
         self::assertSame(['config' => ['settings.php']], $report->artifacts);
         self::assertNull($report->reason);
         self::assertTrue($report->wasApplied());
+        self::assertFalse($report->wasSkipped());
     }
 
     #[Test]
@@ -49,6 +50,7 @@ final class LoadReportTest extends TestCase
         self::assertSame(SkipReason::NoDirectory, $report->reason);
         self::assertSame([], $report->artifacts);
         self::assertFalse($report->wasApplied());
+        self::assertTrue($report->wasSkipped());
     }
 
     #[Test]

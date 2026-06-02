@@ -60,7 +60,7 @@ final readonly class NullModuleDiagnostics implements ModuleDiagnosticsInterface
     {
     }
 
-    public function loaderOutcome(Module $module, LoaderInterface $loader, LoadReport $report): void
+    public function loaderCompleted(Module $module, LoaderInterface $loader, LoadReport $report): void
     {
     }
 

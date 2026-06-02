@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Manifest;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestDocumentReader;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
@@ -16,6 +17,7 @@ use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
@@ -23,6 +25,8 @@ use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
 use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -33,6 +37,7 @@ use PHPUnit\Framework\TestCase;
 final class ModuleRegistryTest extends TestCase
 {
     use CreatesModuleFiles;
+    use MockeryPHPUnitIntegration;
     private string $tempDir;
 
     private string $stateRoot;
@@ -118,6 +123,46 @@ final class ModuleRegistryTest extends TestCase
         $this->registry()->find('missing');
     }
 
+    #[Test]
+    public function emitsCacheMissOnAColdLoadFromAFreshScan(): void
+    {
+        $this->writeModule('Blog', 'blog', '1.0.0');
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $this->registry($diagnostics)->all();
+
+        $diagnostics->shouldHaveReceived('cacheMiss')->once();
+        $diagnostics->shouldNotHaveReceived('cacheHit');
+    }
+
+    #[Test]
+    public function emitsCacheHitWithTheModuleCountOnAWarmLoad(): void
+    {
+        $cachePath = $this->tempDir . '/bootstrap/cache/modules.php';
+        mkdir(\dirname($cachePath), 0755, true);
+        file_put_contents($cachePath, '<?php return ' . var_export([
+            'version' => 4,
+            'modules' => [
+                'cached' => [
+                    'path' => $this->tempDir . '/missing/Cached',
+                    'namespace' => 'App\\Cached',
+                    'manifest' => $this->manifest('cached', '1.0.0'),
+                ],
+            ],
+            'load_order' => ['cached'],
+        ], true) . ';' . PHP_EOL);
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $this->registry($diagnostics)->all();
+
+        $diagnostics->shouldHaveReceived('cacheHit')->once()->with(1);
+        $diagnostics->shouldNotHaveReceived('cacheMiss');
+    }
+
     private function stateRepository(): ModuleStateRepository
     {
         $config = new Repository([
@@ -136,7 +181,7 @@ final class ModuleRegistryTest extends TestCase
         );
     }
 
-    private function registry(): ModuleRegistry
+    private function registry(?ModuleDiagnosticsInterface $diagnostics = null): ModuleRegistry
     {
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
@@ -178,6 +223,7 @@ final class ModuleRegistryTest extends TestCase
                 stateRepository: $stateRepo,
                 basePath: $this->tempDir,
             ),
+            diagnostics: $diagnostics ?? new NullModuleDiagnostics(),
         );
     }
 

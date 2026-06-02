@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Application\UseCases\DisableModuleUseCase;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Exceptions\DependentModulesExistException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyDisabledException;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use Illuminate\Filesystem\Filesystem;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -22,6 +27,7 @@ final class DisableModuleUseCaseTest extends TestCase
 {
     use CreatesLifecycleEnvironment;
     use CreatesModuleFiles;
+    use MockeryPHPUnitIntegration;
 
     private string $tempDir;
 
@@ -134,10 +140,27 @@ final class DisableModuleUseCaseTest extends TestCase
         $this->assertSame($manifestBefore, $manifestAfter);
     }
 
+    #[Test]
+    public function emitsStartedThenSucceededOnceOnTheHappyPath(): void
+    {
+        $this->createModule('blog', enabled: true);
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        [$useCase] = $this->makeUseCaseWithRegistry($diagnostics);
+
+        $useCase->execute('blog');
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Disable, 'blog');
+        $diagnostics->shouldHaveReceived('lifecycleSucceeded')->once()->with(LifecycleOperation::Disable, 'blog');
+        $diagnostics->shouldNotHaveReceived('lifecycleFailed');
+    }
+
     /**
      * @return array{0: DisableModuleUseCase, 1: ModuleRegistry}
      */
-    private function makeUseCaseWithRegistry(): array
+    private function makeUseCaseWithRegistry(?ModuleDiagnosticsInterface $diagnostics = null): array
     {
         $config = $this->lifecycleConfig();
         $stateRepo = $this->lifecycleStateRepository($config);
@@ -150,6 +173,7 @@ final class DisableModuleUseCaseTest extends TestCase
             $stateRepo,
             $this->lifecycleDependencyGuard($registry),
             $this->lifecycleInvalidator($cache, $registry),
+            $diagnostics ?? new NullModuleDiagnostics(),
         );
 
         return [$useCase, $registry];

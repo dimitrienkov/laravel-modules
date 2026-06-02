@@ -49,11 +49,11 @@ final readonly class ModuleLoaderPipeline
 
                 try {
                     $report = $loader->load($module);
-                    $this->diagnostics->loaderOutcome($module, $loader, $report);
+                    $this->diagnostics->loaderCompleted($module, $loader, $report);
 
                     if ($report->wasApplied()) {
                         $applied++;
-                    } else {
+                    } elseif ($report->wasSkipped()) {
                         $skipped++;
                     }
                 } catch (Throwable $exception) {

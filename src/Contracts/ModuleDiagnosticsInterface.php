@@ -48,7 +48,7 @@ interface ModuleDiagnosticsInterface
 
     public function pipelineStarted(int $modulesEnabled, int $loaders): void;
 
-    public function loaderOutcome(Module $module, LoaderInterface $loader, LoadReport $report): void;
+    public function loaderCompleted(Module $module, LoaderInterface $loader, LoadReport $report): void;
 
     public function loaderFailed(Module $module, LoaderInterface $loader, Throwable $exception): void;
 

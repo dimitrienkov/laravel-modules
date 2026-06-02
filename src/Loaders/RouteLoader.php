@@ -37,7 +37,6 @@ final readonly class RouteLoader implements LoaderInterface
             return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
-        // A missing inertia integration only omits the inertia file, never skips.
         $loaded = [];
 
         foreach ($this->routeFiles($module) as $route) {
@@ -66,6 +65,9 @@ final readonly class RouteLoader implements LoaderInterface
         $types = $this->routeTypes();
 
         foreach (array_keys($types) as $type) {
+            // When the optional Inertia integration is absent, its route file is
+            // silently omitted rather than skipping the whole loader — the other
+            // route types still load and the module reports `applied`.
             if ($type === 'inertia' && ! $this->inertiaAvailable()) {
                 continue;
             }

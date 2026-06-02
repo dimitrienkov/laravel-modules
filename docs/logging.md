@@ -96,24 +96,32 @@ MODULES_LOG_CHANNEL=modules
 Каждое событие гейтится своим тумблером `events.*` и глобальным порогом. Context —
 только whitelisted-скаляры (см. гарантию ниже).
 
-> **Ошибки не глушатся категорией.** События уровня `error` и выше
-> (`pipeline.loader.failed`, `lifecycle.{op}.failed`) обходят per-category
-> тумблер: `events.pipeline=false` приглушит DEBUG-шум pipeline, но **не**
-> ошибку loader'а. Их подавляет только глобальный порог `level` (например,
-> `MODULES_LOG_LEVEL=emergency`).
+> **Отказ невозможно скрыть.** События уровня `error` и выше
+> (`pipeline.loader.failed`, `lifecycle.{op}.failed`, `discovery.root.rejected`)
+> обходят **и** per-category тумблер, **и** глобальный порог `level`. Пока
+> `logging.enabled=true`, отказ loader'а, lifecycle-операции или discovery виден
+> всегда: ни `events.pipeline=false`, ни `MODULES_LOG_LEVEL=emergency` его не
+> подавят. Поднятие порога приглушает только события **ниже** `error`.
 
 ### `events.discovery`
 
 | Событие | Уровень | Context |
 |---|---|---|
 | `discovery.root.missing` | warning | `directory` |
-| `discovery.root.rejected` | warning | `directory`, `reason` |
+| `discovery.root.rejected` | error | `directory`, `reason` |
 | `discovery.module.found` | debug | `module`, `path` |
 | `discovery.completed` | debug | `total`, `enabled`, `disabled` |
 
 `directory` на `discovery.root.*` — относительная директория из
 `modules.paths.directories`; `path` на `discovery.module.found` — абсолютный путь
 найденного модуля.
+
+`discovery.root.rejected` логируется на **error** (а не warning): это aborting-
+условие, которое предшествует брошенному `InvalidConfigurationException`, поэтому
+оно не должно подавляться поднятым порогом. Его `reason` сейчас единственный —
+`resolves outside app_path()` (корень из `modules.paths.directories` указывает за
+пределы `app_path()`). Нефатальный сосед `discovery.root.missing` остаётся на
+`warning`.
 
 ### `events.cache`
 
@@ -150,7 +158,7 @@ host-трекер ошибок по-прежнему получает полно
 | `reason` | Когда |
 |---|---|
 | `no_directory` | convention-директория модуля отсутствует |
-| `empty_directory` | директория есть, но нет подходящих файлов (лоадеры, перечисляющие файлы, и `RouteLoader`) |
+| `empty_directory` | директория есть, но нет подходящих файлов; сообщают только лоадеры, перечисляющие содержимое директории — `ConfigLoader`/`MiddlewareLoader`/`ObserverLoader`/`PolicyLoader` и `RouteLoader` (path-registering лоадеры `Migration`/`Event`/`Command`/`Factory`/`BladeComponent` его не эмитят) |
 | `file_not_found` | ожидаемый одиночный файл отсутствует (`Routes/console.php`, `Routes/channels.php`) |
 | `routes_cached` | host закешировал маршруты — `RouteLoader` не трогает их |
 | `not_running_in_console` | console-only лоадер вне CLI (`CommandLoader`, `ConsoleRouteLoader`) |
@@ -180,6 +188,32 @@ path-registering лоадеров (`MigrationLoader`/`EventLoader`/`CommandLoade
 `succeeded` или `failed`; `failed` (error) несёт объект `exception` и его `message`.
 `rolled_back` и `backup_created` — промежуточные маркеры на компенсирующих путях
 (backup/восстановление состояния/директории перед re-throw), а не терминалы.
+
+`{op}` соответствует Artisan-команде, которая запускает операцию:
+
+| `{op}` | Команда |
+|---|---|
+| `scaffold` | `make:module` |
+| `install` | `modules:install` |
+| `update` | `modules:update` |
+| `remove` | `modules:remove` |
+| `enable` | `modules:enable` |
+| `disable` | `modules:disable` |
+| `optimize` | `modules:optimize` |
+| `clear_cache` | `modules:optimize-clear` |
+
+> **Парные категории — by design.** Одна физическая команда может породить события
+> из двух категорий: `modules:optimize` пишет `lifecycle.optimize.*` **и**
+> `cache.written`; `modules:optimize-clear` — `lifecycle.clear_cache.*` **и** (если
+> файл существовал) `cache.cleared`. Это намеренно: `lifecycle.*` описывает ход
+> операции, `cache.*` — её эффект на кэш-файл. Корреляция — по совпадению времени.
+
+> **Семантика `clear_cache.succeeded`.** `succeeded` означает «операция завершилась
+> штатно», а не «кэш-файл удалён». Удаление подтверждает отдельное `cache.cleared`;
+> если на момент удаления файла уже нет, `forget()` делает ранний выход без
+> `cache.cleared`, но `clear_cache.succeeded` всё равно пишется. (Сама команда
+> сначала проверяет наличие кэша, поэтому в типичном сценарии оба события идут в
+> паре; расхождение возможно только при гонке.)
 
 ## Гарантия whitelist
 

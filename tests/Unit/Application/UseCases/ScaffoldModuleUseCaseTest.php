@@ -18,6 +18,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
 use Illuminate\Filesystem\Filesystem;
 use Mockery;
@@ -277,10 +278,26 @@ final class ScaffoldModuleUseCaseTest extends TestCase
         $diagnostics->shouldNotHaveReceived('lifecycleSucceeded');
     }
 
+    #[Test]
+    public function emitsStartedThenSucceededOnceOnTheHappyPath(): void
+    {
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = $this->makeUseCaseWithRoots(['app/Modules'], $diagnostics);
+
+        $useCase->execute(new ScaffoldModuleConfig(name: 'blog'));
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Scaffold, 'blog');
+        $diagnostics->shouldHaveReceived('lifecycleSucceeded')->once()->with(LifecycleOperation::Scaffold, 'blog');
+        $diagnostics->shouldNotHaveReceived('lifecycleFailed');
+        $diagnostics->shouldNotHaveReceived('lifecycleRolledBack');
+    }
+
     /**
      * @param array<int, string> $roots
      */
-    private function makeUseCaseWithRoots(array $roots): ScaffoldModuleUseCase
+    private function makeUseCaseWithRoots(array $roots, ?ModuleDiagnosticsInterface $diagnostics = null): ScaffoldModuleUseCase
     {
         $config = $this->lifecycleConfig(directories: $roots);
         $stateRepo = $this->lifecycleStateRepository($config);
@@ -300,7 +317,8 @@ final class ScaffoldModuleUseCaseTest extends TestCase
             invalidator: $this->lifecycleInvalidator($cache, $registry),
             skeletonBuilder: new ModuleSkeletonBuilder(new LocalFilesystem(new Filesystem()), new AtomicFileWriter(), \dirname(__DIR__, 4) . '/stubs'),
             directoryOps: $directoryOps,
-            rollback: new \DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback($directoryOps, $stateRepo),
+            rollback: new PartialModuleRollback($directoryOps, $stateRepo),
+            diagnostics: $diagnostics ?? new NullModuleDiagnostics(),
         );
     }
 

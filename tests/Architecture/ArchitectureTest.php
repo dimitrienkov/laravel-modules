@@ -78,7 +78,18 @@ arch('diagnostics implementations are final and implement the contract')
     ->expect('DimitrienkoV\LaravelModules\Support\Logging')
     ->classes()
     ->toBeFinal()
-    ->toImplement('DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface');
+    ->toImplement('DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface')
+    ->ignoring([
+        'DimitrienkoV\LaravelModules\Support\Logging\LogEvent',
+        'DimitrienkoV\LaravelModules\Support\Logging\LifecyclePhase',
+    ]);
+
+arch('logging event enums are string backed')
+    ->expect([
+        'DimitrienkoV\LaravelModules\Support\Logging\LogEvent',
+        'DimitrienkoV\LaravelModules\Support\Logging\LifecyclePhase',
+    ])
+    ->toBeStringBackedEnums();
 
 arch('loaders are final and implement LoaderInterface')
     ->expect('DimitrienkoV\LaravelModules\Loaders')

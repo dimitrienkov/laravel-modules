@@ -165,7 +165,7 @@ final class ModuleLoaderPipelineTest extends TestCase
     }
 
     #[Test]
-    public function emitsPipelineAndLoaderOutcomeDiagnostics(): void
+    public function emitsPipelineAndLoaderCompletedDiagnostics(): void
     {
         /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
         $calls = new \ArrayObject();
@@ -188,7 +188,7 @@ final class ModuleLoaderPipelineTest extends TestCase
         $pipeline->boot();
 
         $diagnostics->shouldHaveReceived('pipelineStarted')->once()->with(1, 1);
-        $diagnostics->shouldHaveReceived('loaderOutcome')->once();
+        $diagnostics->shouldHaveReceived('loaderCompleted')->once();
         $diagnostics->shouldHaveReceived('pipelineFinished')
             ->once()
             ->with(Mockery::on(

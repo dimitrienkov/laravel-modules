@@ -313,6 +313,11 @@ final class RemoveModuleUseCaseTest extends TestCase
         }
 
         $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Remove, 'blog');
+        // Permanent delete failed after the directory move, so state is restored
+        // and the rollback marker fires before the terminal `failed`.
+        $diagnostics->shouldHaveReceived('lifecycleRolledBack')
+            ->once()
+            ->with(LifecycleOperation::Remove, 'blog', 'directory_removal');
         $diagnostics->shouldHaveReceived('lifecycleFailed')->once()->with(
             LifecycleOperation::Remove,
             'blog',
@@ -343,6 +348,27 @@ final class RemoveModuleUseCaseTest extends TestCase
         // is not a started-and-failed operation, so it emits nothing.
         $diagnostics->shouldNotHaveReceived('lifecycleStarted');
         $diagnostics->shouldNotHaveReceived('lifecycleFailed');
+    }
+
+    #[Test]
+    public function emitsStartedBackupCreatedAndSucceededOnceOnTheHappyPath(): void
+    {
+        $this->createModule('blog');
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = $this->makeUseCase($diagnostics);
+
+        $useCase->execute('blog');
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Remove, 'blog');
+        $diagnostics->shouldHaveReceived('lifecycleBackupCreated')
+            ->once()
+            ->with(LifecycleOperation::Remove, 'blog', Mockery::type('string'));
+        $diagnostics->shouldHaveReceived('lifecycleSucceeded')->once()->with(LifecycleOperation::Remove, 'blog');
+        $diagnostics->shouldNotHaveReceived('lifecycleFailed');
+        $diagnostics->shouldNotHaveReceived('lifecycleRolledBack');
     }
 
     private function makeUseCase(?ModuleDiagnosticsInterface $diagnostics = null): RemoveModuleUseCase
