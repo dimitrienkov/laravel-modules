@@ -10,6 +10,11 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeAction;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeDto;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeQuery;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeUseCase;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeVo;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesDisableCommand;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesEnableCommand;
@@ -69,6 +74,8 @@ use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\ServiceProvider;
 use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
 
@@ -137,6 +144,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             ]);
 
             $this->app->register(ModuleGeneratorCommandsServiceProvider::class);
+            $this->registerArchitecturalGenerators();
 
             $this->optimizes(
                 optimize: 'modules:optimize',
@@ -413,6 +421,46 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             exceptionHandler: $this->app->make(ExceptionHandler::class),
             diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
         );
+    }
+
+    /**
+     * Register the package's architectural generators. They extend Laravel's
+     * GeneratorCommand (which only takes a Filesystem), so the package stub path
+     * is injected here at the composition root — keeping `file_exists()`-style
+     * stub resolution, a forbidden filesystem token, out of `src/`.
+     */
+    private function registerArchitecturalGenerators(): void
+    {
+        $stubsPath = \dirname(__DIR__, 2) . '/stubs';
+
+        $this->app->singleton(
+            MakeUseCase::class,
+            static fn (Application $app): MakeUseCase => new MakeUseCase($app->make(Filesystem::class), $stubsPath),
+        );
+        $this->app->singleton(
+            MakeAction::class,
+            static fn (Application $app): MakeAction => new MakeAction($app->make(Filesystem::class), $stubsPath),
+        );
+        $this->app->singleton(
+            MakeQuery::class,
+            static fn (Application $app): MakeQuery => new MakeQuery($app->make(Filesystem::class), $stubsPath),
+        );
+        $this->app->singleton(
+            MakeDto::class,
+            static fn (Application $app): MakeDto => new MakeDto($app->make(Filesystem::class), $stubsPath),
+        );
+        $this->app->singleton(
+            MakeVo::class,
+            static fn (Application $app): MakeVo => new MakeVo($app->make(Filesystem::class), $stubsPath),
+        );
+
+        $this->commands([
+            MakeUseCase::class,
+            MakeAction::class,
+            MakeQuery::class,
+            MakeDto::class,
+            MakeVo::class,
+        ]);
     }
 
     private function packageConfigPath(): string

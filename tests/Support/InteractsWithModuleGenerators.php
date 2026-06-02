@@ -74,6 +74,22 @@ trait InteractsWithModuleGenerators
         $this->app->make(Kernel::class)->registerCommand($this->app->make($commandClass));
     }
 
+    /**
+     * Architectural generators (make:use-case, make:vo, …) take an injected stub
+     * path on top of the Filesystem, so they're constructed explicitly here with
+     * the package's real stubs directory.
+     *
+     * @param class-string<\Illuminate\Console\GeneratorCommand> $commandClass
+     */
+    protected function registerArchitecturalGeneratorCommand(string $commandClass): void
+    {
+        $stubsPath = \dirname(__DIR__, 2) . '/stubs';
+
+        $this->app->make(Kernel::class)->registerCommand(
+            new $commandClass(new Filesystem(), $stubsPath),
+        );
+    }
+
     protected function appPath(string $relative = ''): string
     {
         return rtrim($this->generatorTempDir . '/app/' . ltrim($relative, '/'), '/');
