@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ModuleSegment;
 use Illuminate\Foundation\Console\ComponentMakeCommand;
 
 /**
@@ -21,7 +22,7 @@ final class MakeComponent extends ComponentMakeCommand
 
     protected function moduleSubNamespace(): string
     {
-        return 'View\\Components';
+        return ModuleSegment::Components->namespaceSegment();
     }
 
     /**

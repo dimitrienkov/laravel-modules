@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ModuleSegment;
 use Illuminate\Routing\Console\ControllerMakeCommand;
 
 /**
@@ -25,7 +26,7 @@ final class MakeController extends ControllerMakeCommand
 
     protected function moduleSubNamespace(): string
     {
-        return 'Http\\Controllers';
+        return ModuleSegment::Controllers->namespaceSegment();
     }
 
     /**
@@ -48,7 +49,7 @@ final class MakeController extends ControllerMakeCommand
         // request token; the request files themselves already land in the module
         // via the trait's call() override, so the only fix is to repoint that one
         // namespace at the module's request namespace (single source of truth).
-        $hostRequestsNamespace = $this->rootNamespace() . 'Http\\Requests';
+        $hostRequestsNamespace = $this->rootNamespace() . ModuleSegment::Requests->namespaceSegment();
         $moduleRequestsNamespace = $this->moduleLayout()->requestsNamespace($module);
 
         return array_map(

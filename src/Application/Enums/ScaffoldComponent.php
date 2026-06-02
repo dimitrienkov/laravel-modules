@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\Enums;
 
 use DimitrienkoV\LaravelModules\Support\ModuleLayer;
+use DimitrienkoV\LaravelModules\Support\ModuleSegment;
 use InvalidArgumentException;
 
 /**
@@ -59,12 +60,16 @@ enum ScaffoldComponent: string
                 ModuleLayer::Dtos->relativeDirectory(),
             ],
             self::Config => ['Config'],
-            self::Console => ['Console/Commands'],
-            self::Database => ['Database/Factories', 'Database/Migrations', 'Database/Seeders'],
-            self::Domain => ['Domain/Models', ModuleLayer::ValueObjects->relativeDirectory()],
-            self::Http => ['Http/Controllers', 'Http/Middleware'],
+            self::Console => [ModuleSegment::Commands->relativeDirectory()],
+            self::Database => [
+                ModuleSegment::Factories->relativeDirectory(),
+                ModuleSegment::Migrations->relativeDirectory(),
+                ModuleSegment::Seeders->relativeDirectory(),
+            ],
+            self::Domain => [ModuleSegment::Models->relativeDirectory(), ModuleLayer::ValueObjects->relativeDirectory()],
+            self::Http => [ModuleSegment::Controllers->relativeDirectory(), ModuleSegment::Middleware->relativeDirectory()],
             self::Routes => ['Routes'],
-            self::Views => ['Resources/views'],
+            self::Views => [ModuleSegment::Views->relativeDirectory()],
         };
     }
 
@@ -98,7 +103,6 @@ enum ScaffoldComponent: string
     public static function fromValues(array $values): array
     {
         $components = [];
-        $seen = [];
 
         foreach ($values as $value) {
             $component = self::tryFrom($value);
@@ -111,11 +115,10 @@ enum ScaffoldComponent: string
                 ));
             }
 
-            if (\in_array($component->value, $seen, true)) {
+            if (\in_array($component, $components, true)) {
                 throw new InvalidArgumentException(\sprintf('Duplicate module component [%s].', $value));
             }
 
-            $seen[] = $component->value;
             $components[] = $component;
         }
 

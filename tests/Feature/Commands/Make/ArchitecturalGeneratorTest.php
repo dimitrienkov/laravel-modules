@@ -110,6 +110,9 @@ final class ArchitecturalGeneratorTest extends TestCase
             ->assertFailed()
             ->expectsOutputToContain('Module [ghost] was not found');
 
+        // Neither the host application layer nor a stray ghost-module directory
+        // may be touched when resolution fails up front.
         $this->assertFileDoesNotExist($this->appPath('Application/UseCases/PublishUseCase.php'));
+        $this->assertDirectoryDoesNotExist($this->modulePath('', 'ghost'));
     }
 }

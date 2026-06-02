@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Concerns;
 
+use DimitrienkoV\LaravelModules\Console\Support\ModuleOption;
 use DimitrienkoV\LaravelModules\Console\Support\ModuleResolver;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Support\Str;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputOption;
 
 /**
  * Turns a native Laravel `GeneratorCommand` subclass into a module-aware one.
@@ -21,15 +21,25 @@ use Symfony\Component\Console\Input\InputOption;
  * under `app/`, the inherited `getPath()` already writes the file inside the
  * module without any path remap for namespace-only generators).
  *
- * The module is resolved exclusively through the {@see ModuleRegistryInterface}
- * contract and cached per invocation. Matching-test options are rejected up front
- * in module mode so module artifacts never spill host test files.
+ * The module is resolved exclusively through the
+ * {@see \DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface} contract
+ * and cached per invocation. Matching-test options are rejected up front in
+ * module mode so module artifacts never spill host test files.
  *
  * Each consuming command declares its home through {@see moduleSubNamespace()}.
  */
 trait ModuleAwareGenerator
 {
-    private bool $moduleResolved = false;
+    /**
+     * The matching-test options a module artifact must never spill: rejected up
+     * front in module mode (see handle()) and stripped from every nested
+     * sub-generator (see call()).
+     *
+     * @var array<int, string>
+     */
+    private const array MATCHING_TEST_OPTIONS = ['test', 'pest', 'phpunit'];
+
+    private bool $isModuleResolved = false;
 
     private ?Module $resolvedModule = null;
 
@@ -38,7 +48,7 @@ trait ModuleAwareGenerator
      */
     public function handle()
     {
-        $this->moduleResolved = false;
+        $this->isModuleResolved = false;
         $this->resolvedModule = null;
 
         try {
@@ -57,10 +67,13 @@ trait ModuleAwareGenerator
             return self::FAILURE;
         }
 
-        // Native generators signal failure (reserved name, class exists) by
-        // printing and returning a falsy value that the kernel casts to exit 0,
-        // so deferring to a fixed SUCCESS here preserves their exit semantics
-        // while keeping the unknown-module path the only non-zero outcome.
+        // GeneratorCommand::handle() is `@return bool|null`: it prints and
+        // returns `false` for a soft failure (reserved name, class already
+        // exists) that the kernel casts to exit 0. Mapping that falsy parent
+        // result to a fixed SUCCESS is the deliberate host-parity contract —
+        // native generators exit 0 in those cases too — and keeps the
+        // unknown-module path the only non-zero outcome. The parent contract
+        // never yields an int, so there is nothing else to forward here.
         parent::handle();
 
         return self::SUCCESS;
@@ -77,9 +90,18 @@ trait ModuleAwareGenerator
      */
     public function call($command, array $arguments = [])
     {
-        if (\is_string($command) && str_starts_with($command, 'make:') && $this->module() instanceof Module) {
-            $arguments = $this->withModuleOption($arguments);
-            unset($arguments['--test'], $arguments['--pest'], $arguments['--phpunit']);
+        $isNestedModuleMake = \is_string($command)
+            && str_starts_with($command, 'make:')
+            && $this->module() instanceof Module;
+
+        if (! $isNestedModuleMake) {
+            return parent::call($command, $arguments);
+        }
+
+        $arguments = $this->withModuleOption($arguments);
+
+        foreach (self::MATCHING_TEST_OPTIONS as $option) {
+            unset($arguments['--' . $option]);
         }
 
         return parent::call($command, $arguments);
@@ -100,11 +122,11 @@ trait ModuleAwareGenerator
      */
     protected function module(): ?Module
     {
-        if ($this->moduleResolved) {
+        if ($this->isModuleResolved) {
             return $this->resolvedModule;
         }
 
-        $this->moduleResolved = true;
+        $this->isModuleResolved = true;
 
         $option = $this->hasOption('module') ? $this->option('module') : null;
 
@@ -180,7 +202,7 @@ trait ModuleAwareGenerator
     protected function getOptions()
     {
         $options = parent::getOptions();
-        $options[] = ['module', null, InputOption::VALUE_REQUIRED, 'Generate the class inside the given module'];
+        $options[] = ModuleOption::make('Generate the class inside the given module');
 
         return $options;
     }
@@ -218,7 +240,7 @@ trait ModuleAwareGenerator
 
     private function shouldGenerateMatchingTest(): bool
     {
-        foreach (['test', 'pest', 'phpunit'] as $option) {
+        foreach (self::MATCHING_TEST_OPTIONS as $option) {
             if ($this->hasOption($option) && $this->option($option) === true) {
                 return true;
             }

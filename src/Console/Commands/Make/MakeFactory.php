@@ -7,6 +7,7 @@ namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ClassName;
+use DimitrienkoV\LaravelModules\Support\ModuleSegment;
 use Illuminate\Database\Console\Factories\FactoryMakeCommand;
 use Illuminate\Support\Str;
 
@@ -24,7 +25,7 @@ final class MakeFactory extends FactoryMakeCommand
 
     protected function moduleSubNamespace(): string
     {
-        return 'Database\\Factories';
+        return ModuleSegment::Factories->namespaceSegment();
     }
 
     protected function getPath($name)
@@ -40,7 +41,7 @@ final class MakeFactory extends FactoryMakeCommand
             'Factory',
         );
 
-        return $this->moduleLayout()->factoriesDir($module) . '/' . str_replace('\\', '/', $relative) . '.php';
+        return $this->moduleLayout()->classFilePath($this->moduleLayout()->factoriesDir($module), $relative);
     }
 
     protected function buildClass($name)

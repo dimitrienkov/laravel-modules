@@ -248,6 +248,31 @@ final class MakeModuleCommandTest extends TestCase
         $this->assertDirectoryDoesNotExist($base . '/Config');
     }
 
+    #[Test]
+    public function interactiveEmptySelectionScaffoldsMandatoryOnly(): void
+    {
+        $choices = [];
+
+        foreach (ScaffoldComponent::cases() as $case) {
+            $choices[$case->value] = $case->label();
+        }
+
+        // Deselecting everything in the multiselect is a valid choice: it yields
+        // an empty (not null) selection, so only the mandatory root + Providers
+        // skeleton is created — no optional directories.
+        $this->artisanCommand('make:module blog')
+            ->expectsChoice('Which components should the module include?', [], $choices)
+            ->assertSuccessful();
+
+        $base = $this->tempDir . '/app/Modules/Blog';
+        $this->assertDirectoryExists($base . '/Providers');
+        $this->assertFileExists($base . '/module.json');
+
+        $this->assertDirectoryDoesNotExist($base . '/Config');
+        $this->assertDirectoryDoesNotExist($base . '/Routes');
+        $this->assertDirectoryDoesNotExist($base . '/Domain/Models');
+    }
+
     private function registerMakeCommand(): void
     {
         $services = $this->registerCoreLifecycleServices();

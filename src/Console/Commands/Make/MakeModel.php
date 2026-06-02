@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ModuleSegment;
 use Illuminate\Foundation\Console\ModelMakeCommand;
 use Illuminate\Support\Str;
 
@@ -24,7 +25,7 @@ final class MakeModel extends ModelMakeCommand
 
     protected function moduleSubNamespace(): string
     {
-        return 'Domain\\Models';
+        return ModuleSegment::Models->namespaceSegment();
     }
 
     /**

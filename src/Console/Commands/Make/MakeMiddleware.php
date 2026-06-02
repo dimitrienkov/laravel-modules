@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
+use DimitrienkoV\LaravelModules\Support\ModuleSegment;
 use Illuminate\Routing\Console\MiddlewareMakeCommand;
 
 final class MakeMiddleware extends MiddlewareMakeCommand
@@ -13,6 +14,6 @@ final class MakeMiddleware extends MiddlewareMakeCommand
 
     protected function moduleSubNamespace(): string
     {
-        return 'Http\\Middleware';
+        return ModuleSegment::Middleware->namespaceSegment();
     }
 }

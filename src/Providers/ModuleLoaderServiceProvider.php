@@ -142,7 +142,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         ], 'modules-config');
 
         $this->publishes([
-            __DIR__ . '/../../stubs' => base_path('stubs/modules'),
+            $this->packageStubsPath() => base_path('stubs/modules'),
         ], 'modules-stubs');
 
         if ($this->app->runningInConsole()) {
@@ -363,7 +363,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
             return new ModuleSkeletonBuilder(
                 $this->app->make(LocalFilesystem::class),
                 $this->app->make(AtomicFileWriter::class),
-                stubsPath: \dirname(__DIR__, 2) . '/stubs',
+                stubsPath: $this->packageStubsPath(),
             );
         });
     }
@@ -446,7 +446,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
      */
     private function registerArchitecturalGenerators(): void
     {
-        $stubsPath = \dirname(__DIR__, 2) . '/stubs';
+        $stubsPath = $this->packageStubsPath();
 
         foreach (self::ARCHITECTURAL_GENERATORS as $generator) {
             $this->app->singleton(
@@ -461,5 +461,10 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     private function packageConfigPath(): string
     {
         return __DIR__ . '/../../config/modules.php';
+    }
+
+    private function packageStubsPath(): string
+    {
+        return \dirname(__DIR__, 2) . '/stubs';
     }
 }

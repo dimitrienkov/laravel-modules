@@ -7,6 +7,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Feature\Commands\Make;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeComponent;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeController;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeFactory;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeListener;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeMail;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeMigration;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeModel;
@@ -15,6 +16,7 @@ use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeSeeder;
 use DimitrienkoV\LaravelModules\Tests\Support\InteractsWithModuleGenerators;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\Console\ListenerMakeCommand;
 use Illuminate\Foundation\Console\ModelMakeCommand;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -42,6 +44,7 @@ final class ModuleAwareNativeGeneratorTest extends TestCase
         $this->registerGeneratorCommand(MakeMail::class);
         $this->registerGeneratorCommand(MakeController::class);
         $this->registerGeneratorCommand(MakeRequest::class);
+        $this->registerGeneratorCommand(MakeListener::class);
 
         // make:migration's parent needs the framework's MigrationCreator (which
         // carries a stub path) and Composer — the same deps the rebind provider
@@ -164,6 +167,33 @@ final class ModuleAwareNativeGeneratorTest extends TestCase
     }
 
     #[Test]
+    public function factoryPinsEveryModuleTokenAgainstNativeDrift(): void
+    {
+        // MakeFactory::buildClass reimplements the parent's token substitution:
+        // the parent derives {{ factoryNamespace }} from the host root namespace
+        // via replaceFirst, which double-mangles once getDefaultNamespace points
+        // at the module. This pins the full token set so a future native stub or
+        // token-name change can't silently drift the generated factory.
+        $this->artisan('make:factory', [
+            'name' => 'PostFactory',
+            '--module' => 'blog',
+            '--model' => 'Post',
+        ])->assertSuccessful();
+
+        $contents = (string) file_get_contents($this->modulePath('Database/Factories/PostFactory.php'));
+
+        $this->assertStringContainsString('namespace App\\Modules\\Blog\\Database\\Factories;', $contents);
+        $this->assertStringContainsString('use App\\Modules\\Blog\\Domain\\Models\\Post;', $contents);
+        $this->assertStringContainsString('@extends Factory<Post>', $contents);
+        $this->assertStringContainsString('class PostFactory extends Factory', $contents);
+
+        // No placeholder token or host-namespace residue survived substitution.
+        $this->assertStringNotContainsString('{{', $contents);
+        $this->assertStringNotContainsString('Dummy', $contents);
+        $this->assertStringNotContainsString('namespace Database\\Factories;', $contents);
+    }
+
+    #[Test]
     public function seederDirectlyTargetsTheModule(): void
     {
         $this->artisan('make:seeder', ['name' => 'PostSeeder', '--module' => 'blog'])
@@ -192,6 +222,25 @@ final class ModuleAwareNativeGeneratorTest extends TestCase
     }
 
     #[Test]
+    public function migrationWithModuleAndExplicitPathFailsWithoutWriting(): void
+    {
+        // --module already pins the migration to the module's directory, so an
+        // explicit --path is a conflicting instruction; it must fail loudly
+        // rather than silently overwrite the user's --path.
+        $this->artisan('make:migration', [
+            'name' => 'create_posts_table',
+            '--module' => 'blog',
+            '--path' => 'foo',
+        ])
+            ->assertFailed()
+            ->expectsOutputToContain('--path option cannot be combined with --module');
+
+        $migrations = glob($this->modulePath('Database/Migrations') . '/*_create_posts_table.php') ?: [];
+        $this->assertCount(0, $migrations);
+        $this->assertDirectoryDoesNotExist($this->generatorTempDir . '/foo');
+    }
+
+    #[Test]
     public function componentWritesClassAndViewInsideTheModule(): void
     {
         $this->artisan('make:component', ['name' => 'Alert', '--module' => 'blog'])
@@ -208,6 +257,11 @@ final class ModuleAwareNativeGeneratorTest extends TestCase
         // The class body must reference the module-namespaced view, otherwise the
         // component resolves against the host views the loader never registered.
         $this->assertStringContainsString("view('blog::components.alert')", $classContents);
+
+        // The host reference must be fully repointed, not just shadowed: if a
+        // future Laravel renamed the stub's view literal the str_replace would
+        // become a silent no-op, and this negative side would catch it.
+        $this->assertStringNotContainsString("view('components.alert')", $classContents);
 
         $this->assertFileExists($this->modulePath('Resources/views/components/alert.blade.php'));
 
@@ -233,8 +287,77 @@ final class ModuleAwareNativeGeneratorTest extends TestCase
         // Blade path itself stays on the clean relative view (no `::` leak).
         $this->assertStringContainsString("markdown: 'blog::mail.digest'", $classContents);
 
+        // Both sides of the repoint are pinned: the host reference is gone, so a
+        // changed Laravel stub literal turning the replace into a no-op fails here
+        // instead of silently shipping a host-resolving mailable.
+        $this->assertStringNotContainsString("markdown: 'mail.digest'", $classContents);
+
         $this->assertFileExists($this->modulePath('Resources/views/mail/digest.blade.php'));
         $this->assertFileDoesNotExist($this->generatorTempDir . '/resources/views/mail/digest.blade.php');
+    }
+
+    #[Test]
+    public function listenerWithModuleEventReferencesTheModuleEvent(): void
+    {
+        $this->artisan('make:listener', [
+            'name' => 'PaymentListener',
+            '--event' => 'PaymentReceived',
+            '--module' => 'blog',
+        ])->assertSuccessful();
+
+        $file = $this->modulePath('Domain/Listeners/PaymentListener.php');
+        $this->assertFileExists($file);
+        $contents = (string) file_get_contents($file);
+
+        $this->assertStringContainsString('namespace App\\Modules\\Blog\\Domain\\Listeners;', $contents);
+
+        // The bare --event is auto-qualified by the parent against the host
+        // App\Events namespace; module mode must repoint that import (and the
+        // type-hint resolves to it) at the module's own Domain\Events.
+        $this->assertStringContainsString('use App\\Modules\\Blog\\Domain\\Events\\PaymentReceived;', $contents);
+        $this->assertStringContainsString('handle(PaymentReceived $event)', $contents);
+
+        // The host event import must never leak into a module listener.
+        $this->assertStringNotContainsString('use App\\Events\\PaymentReceived;', $contents);
+    }
+
+    #[Test]
+    public function listenerWithFullyQualifiedEventIsNotRepointed(): void
+    {
+        // An --event already rooted in the app namespace is one the parent leaves
+        // untouched (no auto-qualification), so we must leave it untouched too —
+        // the developer asked for that exact event, module mode or not.
+        $this->artisan('make:listener', [
+            'name' => 'AuditListener',
+            '--event' => 'App\\Domain\\Custom\\ThingHappened',
+            '--module' => 'blog',
+        ])->assertSuccessful();
+
+        $file = $this->modulePath('Domain/Listeners/AuditListener.php');
+        $this->assertFileExists($file);
+        $contents = (string) file_get_contents($file);
+
+        $this->assertStringContainsString('use App\\Domain\\Custom\\ThingHappened;', $contents);
+        $this->assertStringNotContainsString('App\\Modules\\Blog\\Domain\\Events\\ThingHappened', $contents);
+    }
+
+    #[Test]
+    public function hostModeMakeListenerIsByteForByteIdenticalToNative(): void
+    {
+        // The buildClass override must be inert without --module: a host-mode
+        // listener (the path most likely to drift) has to match the parent
+        // byte-for-byte, event repoint included.
+        $this->artisan('make:listener', ['name' => 'PaymentListener', '--event' => 'PaymentReceived'])
+            ->assertSuccessful();
+        $shadowed = (string) file_get_contents($this->appPath('Listeners/PaymentListener.php'));
+        unlink($this->appPath('Listeners/PaymentListener.php'));
+
+        $this->app->make(Kernel::class)->registerCommand(new ListenerMakeCommand(new Filesystem()));
+        $this->artisan('make:listener', ['name' => 'PaymentListener', '--event' => 'PaymentReceived'])
+            ->assertSuccessful();
+        $native = (string) file_get_contents($this->appPath('Listeners/PaymentListener.php'));
+
+        self::assertSame($native, $shadowed);
     }
 
     #[Test]
@@ -359,5 +482,58 @@ final class ModuleAwareNativeGeneratorTest extends TestCase
         $this->assertCount(1, $migrations);
 
         $this->assertDirectoryDoesNotExist($this->generatorTempDir . '/tests');
+    }
+
+    #[Test]
+    public function pathOverridingGeneratorsResolveModuleCaseInsensitively(): void
+    {
+        // make:model's case-insensitivity is covered above; the path-overriding
+        // generators (their own getPath / --path remap) must normalise the name
+        // through the same resolver, so `Blog` still lands in the `blog` module.
+        $this->artisan('make:factory', ['name' => 'PostFactory', '--module' => 'Blog', '--model' => 'Post'])
+            ->assertSuccessful();
+        $this->assertFileExists($this->modulePath('Database/Factories/PostFactory.php'));
+
+        $this->artisan('make:migration', ['name' => 'create_tags_table', '--module' => 'Blog'])
+            ->assertSuccessful();
+        $migrations = glob($this->modulePath('Database/Migrations') . '/*_create_tags_table.php') ?: [];
+        $this->assertCount(1, $migrations);
+    }
+
+    #[Test]
+    public function matchingTestOptionsAreRejectedAcrossGeneratorsAndFlags(): void
+    {
+        // Every matching-test flag, on a representative spread of generators,
+        // must fail before any artifact is written and never spill a host test.
+        $this->artisan('make:model', ['name' => 'Post', '--module' => 'blog', '--pest' => true])
+            ->assertFailed()
+            ->expectsOutputToContain('do not create matching tests');
+        $this->assertFileDoesNotExist($this->modulePath('Domain/Models/Post.php'));
+
+        $this->artisan('make:component', ['name' => 'Alert', '--module' => 'blog', '--phpunit' => true])
+            ->assertFailed()
+            ->expectsOutputToContain('do not create matching tests');
+        $this->assertFileDoesNotExist($this->modulePath('View/Components/Alert.php'));
+
+        $this->artisan('make:mail', ['name' => 'Digest', '--module' => 'blog', '--test' => true])
+            ->assertFailed()
+            ->expectsOutputToContain('do not create matching tests');
+        $this->assertFileDoesNotExist($this->modulePath('Mail/Digest.php'));
+
+        $this->assertDirectoryDoesNotExist($this->generatorTempDir . '/tests');
+    }
+
+    #[Test]
+    public function repeatedGeneratorsIntoTheSameModuleDirectorySucceed(): void
+    {
+        // makeDirectory must be idempotent: generating a second factory into an
+        // already-created module sub-directory must not fail on the existing dir.
+        $this->artisan('make:factory', ['name' => 'PostFactory', '--module' => 'blog', '--model' => 'Post'])
+            ->assertSuccessful();
+        $this->artisan('make:factory', ['name' => 'CommentFactory', '--module' => 'blog', '--model' => 'Comment'])
+            ->assertSuccessful();
+
+        $this->assertFileExists($this->modulePath('Database/Factories/PostFactory.php'));
+        $this->assertFileExists($this->modulePath('Database/Factories/CommentFactory.php'));
     }
 }

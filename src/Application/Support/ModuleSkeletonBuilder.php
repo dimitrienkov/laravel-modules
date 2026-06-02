@@ -9,6 +9,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
 use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModulePermissions;
+use DimitrienkoV\LaravelModules\Support\ModuleSegment;
 use Throwable;
 
 final readonly class ModuleSkeletonBuilder
@@ -57,11 +58,11 @@ final readonly class ModuleSkeletonBuilder
         return [
             $targetPath,
             $targetPath . '/Config',
-            $targetPath . '/Console/Commands',
-            $targetPath . '/Database/Factories',
-            $targetPath . '/Database/Migrations',
-            $targetPath . '/Domain/Models',
-            $targetPath . '/Http/Middleware',
+            $targetPath . '/' . ModuleSegment::Commands->relativeDirectory(),
+            $targetPath . '/' . ModuleSegment::Factories->relativeDirectory(),
+            $targetPath . '/' . ModuleSegment::Migrations->relativeDirectory(),
+            $targetPath . '/' . ModuleSegment::Models->relativeDirectory(),
+            $targetPath . '/' . ModuleSegment::Middleware->relativeDirectory(),
             $targetPath . '/Providers',
             $targetPath . '/Routes',
         ];

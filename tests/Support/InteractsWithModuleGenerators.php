@@ -26,8 +26,15 @@ trait InteractsWithModuleGenerators
 
     protected FakeModuleRegistry $moduleRegistry;
 
+    private string $originalBasePath = '';
+
     protected function bootModuleGeneratorEnvironment(): void
     {
+        // Capture the suite's real base path so teardown can restore it: the
+        // override below is global to the container, and a symmetric restore
+        // keeps the temp path from leaking into any later test on this app.
+        $this->originalBasePath = $this->app->basePath();
+
         $this->generatorTempDir = sys_get_temp_dir() . '/maw_gen_' . bin2hex(random_bytes(6));
         mkdir($this->generatorTempDir . '/app/Modules', 0755, true);
 
@@ -49,6 +56,10 @@ trait InteractsWithModuleGenerators
     protected function cleanModuleGeneratorEnvironment(): void
     {
         (new Filesystem())->deleteDirectory($this->generatorTempDir);
+
+        if ($this->originalBasePath !== '') {
+            $this->app->setBasePath($this->originalBasePath);
+        }
     }
 
     protected function registerModuleForGenerators(string $name = 'blog'): Module

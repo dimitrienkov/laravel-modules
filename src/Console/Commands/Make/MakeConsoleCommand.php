@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
+use DimitrienkoV\LaravelModules\Support\ModuleSegment;
 use Illuminate\Foundation\Console\ConsoleMakeCommand;
 
 final class MakeConsoleCommand extends ConsoleMakeCommand
@@ -13,6 +14,6 @@ final class MakeConsoleCommand extends ConsoleMakeCommand
 
     protected function moduleSubNamespace(): string
     {
-        return 'Console\\Commands';
+        return ModuleSegment::Commands->namespaceSegment();
     }
 }

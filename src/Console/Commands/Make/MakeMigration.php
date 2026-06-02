@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
+use DimitrienkoV\LaravelModules\Console\Support\ModuleOption;
 use DimitrienkoV\LaravelModules\Console\Support\ModuleResolver;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
@@ -11,7 +12,6 @@ use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Database\Console\Migrations\MigrateMakeCommand;
 use Illuminate\Database\Migrations\MigrationCreator;
 use Illuminate\Support\Composer;
-use Symfony\Component\Console\Input\InputOption;
 
 /**
  * Module-aware `make:migration`.
@@ -30,7 +30,7 @@ final class MakeMigration extends MigrateMakeCommand
         parent::__construct($creator, $composer);
 
         $this->getDefinition()->addOption(
-            new InputOption('module', null, InputOption::VALUE_REQUIRED, 'Generate the migration inside the given module'),
+            ModuleOption::make('Generate the migration inside the given module'),
         );
     }
 
@@ -48,12 +48,37 @@ final class MakeMigration extends MigrateMakeCommand
         }
 
         if ($module instanceof Module) {
+            if ($this->userProvidedPath()) {
+                $this->components->error(
+                    'The --path option cannot be combined with --module; a module migration is always '
+                    . "written to the module's Database/Migrations directory.",
+                );
+
+                return self::FAILURE;
+            }
+
             $this->input->setOption('path', $this->laravel->make(ModuleLayout::class)->migrationsDir($module));
             $this->input->setOption('realpath', true);
         }
 
+        // MigrateMakeCommand::handle() returns void (the kernel casts it to exit
+        // 0), so a fixed SUCCESS preserves host parity. A duplicate-name clash
+        // surfaces as MigrationCreator's uncaught InvalidArgumentException —
+        // intentionally left unhandled, exactly as the native command leaves it.
         parent::handle();
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Whether the developer passed an explicit `--path`. In module mode that
+     * collides with the module's own migration directory, so we refuse rather
+     * than silently overwrite the option.
+     */
+    private function userProvidedPath(): bool
+    {
+        $path = $this->option('path');
+
+        return \is_string($path) && trim($path) !== '';
     }
 }

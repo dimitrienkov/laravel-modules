@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ModuleSegment;
 use Illuminate\Database\Console\Seeds\SeederMakeCommand;
 use Illuminate\Support\Str;
 
@@ -23,7 +24,7 @@ final class MakeSeeder extends SeederMakeCommand
 
     protected function moduleSubNamespace(): string
     {
-        return 'Database\\Seeders';
+        return ModuleSegment::Seeders->namespaceSegment();
     }
 
     protected function rootNamespace()
@@ -45,6 +46,6 @@ final class MakeSeeder extends SeederMakeCommand
 
         $relative = Str::replaceFirst($this->moduleLayout()->seedersNamespace($module) . '\\', '', $name);
 
-        return $this->moduleLayout()->seedersDir($module) . '/' . str_replace('\\', '/', $relative) . '.php';
+        return $this->moduleLayout()->classFilePath($this->moduleLayout()->seedersDir($module), $relative);
     }
 }

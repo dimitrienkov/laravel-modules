@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
+use DimitrienkoV\LaravelModules\Support\ModuleSegment;
 use Illuminate\Foundation\Console\PolicyMakeCommand;
 
 final class MakePolicy extends PolicyMakeCommand
@@ -13,6 +14,6 @@ final class MakePolicy extends PolicyMakeCommand
 
     protected function moduleSubNamespace(): string
     {
-        return 'Domain\\Policies';
+        return ModuleSegment::Policies->namespaceSegment();
     }
 }

@@ -52,7 +52,11 @@ trait ArchitecturalGenerator
         $name = parent::getNameInput();
         $suffix = $this->classSuffix();
 
-        return $suffix !== '' && ! Str::endsWith($name, $suffix) ? $name . $suffix : $name;
+        if ($suffix === '' || Str::endsWith($name, $suffix)) {
+            return $name;
+        }
+
+        return $name . $suffix;
     }
 
     protected function getDefaultNamespace($rootNamespace)
