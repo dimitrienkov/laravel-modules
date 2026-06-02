@@ -136,6 +136,8 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 ModulesRemoveCommand::class,
             ]);
 
+            $this->app->register(ModuleGeneratorCommandsServiceProvider::class);
+
             $this->optimizes(
                 optimize: 'modules:optimize',
                 clear: 'modules:optimize-clear',

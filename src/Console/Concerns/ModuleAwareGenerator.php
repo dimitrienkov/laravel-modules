@@ -66,6 +66,25 @@ trait ModuleAwareGenerator
     }
 
     /**
+     * Route every internally dispatched `make:*` generator into the same module
+     * and strip matching-test options, so a module artifact (e.g. `make:model`
+     * with `-mfs`, or `make:controller --requests`) never spawns host factories,
+     * migrations, seeders, form requests, or test files. Host mode is untouched.
+     *
+     * @param \Symfony\Component\Console\Command\Command|string $command
+     * @param array<string, mixed>                              $arguments
+     */
+    public function call($command, array $arguments = [])
+    {
+        if (\is_string($command) && str_starts_with($command, 'make:') && $this->module() instanceof Module) {
+            $arguments = $this->withModuleOption($arguments);
+            unset($arguments['--test'], $arguments['--pest'], $arguments['--phpunit']);
+        }
+
+        return parent::call($command, $arguments);
+    }
+
+    /**
      * The module-relative sub-namespace the generated class belongs to,
      * e.g. `Http\Controllers` or `Domain\Models`.
      */
@@ -116,6 +135,29 @@ trait ModuleAwareGenerator
         return $module->namespace . '\\' . $this->moduleSubNamespace();
     }
 
+    /**
+     * Redirect generated views (make:component, make:mail markdown/view) into the
+     * module's `Resources/views` instead of the host `resources/views`. The native
+     * relative path (`components/alert.blade.php`, `mail/digest.blade.php`) is kept
+     * intact, so only the base directory changes.
+     *
+     * @param string $path
+     *
+     * @return string
+     */
+    protected function viewPath($path = '')
+    {
+        $module = $this->module();
+
+        if (! $module instanceof Module) {
+            return parent::viewPath($path);
+        }
+
+        $base = $this->moduleLayout()->viewsDir($module);
+
+        return $base . ($path !== '' ? \DIRECTORY_SEPARATOR . $path : '');
+    }
+
     protected function qualifyModel(string $model)
     {
         $module = $this->module();
@@ -149,8 +191,7 @@ trait ModuleAwareGenerator
     }
 
     /**
-     * Merge `--module` into the arguments of an internally dispatched generator
-     * (`$this->call('make:factory', $this->withModuleOption([...]))`).
+     * Merge `--module` into the arguments of an internally dispatched generator.
      *
      * @param array<string, mixed> $arguments
      *
