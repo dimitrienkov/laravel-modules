@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use PhpCsFixer\Runner\Parallel\ParallelConfigFactory;
+
 $finder = Symfony\Component\Finder\Finder::create()
     ->in([
         __DIR__ . '/src',
@@ -17,36 +19,38 @@ if (is_dir(__DIR__ . '/stubs')) {
 }
 
 return (new PhpCsFixer\Config())
+    ->setParallelConfig(ParallelConfigFactory::detect())
     ->setRules([
-        '@PSR12' => true,
+        // PER Coding Style 3.0 is the modern successor to the frozen PSR-12.
+        // The ":risky" companion set is standalone (only the risky-specific rules),
+        // so both entries are required to get the full ruleset.
+        '@PER-CS3x0' => true,
+        '@PER-CS3x0:risky' => true,
+        // Rules below are NOT part of @PER-CS3x0 — kept on purpose.
+        // (array_syntax, ordered_imports, ordered_class_elements, binary/unary
+        //  operator spaces, concat_space, method_argument_space,
+        //  single_trait_insert_per_statement and trailing_comma_in_multiline are
+        //  already provided by @PER-CS3x0 and were dropped from here.)
         'declare_strict_types' => true,
         'native_function_invocation' => true,
-        'array_syntax' => ['syntax' => 'short'],
         'single_quote' => true,
-        'ordered_imports' => ['sort_algorithm' => 'alpha'],
-        'ordered_class_elements' => true,
         'no_unused_imports' => true,
+        'global_namespace_import' => [
+            'import_classes' => true,
+            'import_constants' => false,
+            'import_functions' => false,
+        ],
+        'fully_qualified_strict_types' => true,
         'not_operator_with_successor_space' => true,
-        'trailing_comma_in_multiline' => true,
         'phpdoc_scalar' => true,
         'phpdoc_align' => true,
         'phpdoc_separation' => true,
         'phpdoc_single_line_var_spacing' => true,
         'phpdoc_var_without_name' => true,
-        'unary_operator_spaces' => true,
-        'binary_operator_spaces' => true,
         'void_return' => true,
         'nullable_type_declaration_for_default_null_value' => true,
         'blank_line_before_statement' => [
             'statements' => ['break', 'continue', 'declare', 'return', 'throw', 'try'],
-        ],
-        'method_argument_space' => [
-            'on_multiline' => 'ensure_fully_multiline',
-            'keep_multiple_spaces_after_comma' => true,
-        ],
-        'single_trait_insert_per_statement' => true,
-        'concat_space' => [
-            'spacing' => 'one',
         ],
     ])
     ->setFinder($finder)

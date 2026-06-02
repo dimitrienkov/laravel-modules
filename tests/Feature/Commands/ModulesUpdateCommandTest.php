@@ -15,6 +15,7 @@ use Illuminate\Filesystem\Filesystem;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use stdClass;
 
 #[Group('feature')]
 final class ModulesUpdateCommandTest extends TestCase
@@ -86,8 +87,8 @@ final class ModulesUpdateCommandTest extends TestCase
 
     private function installModule(string $name, string $version): void
     {
-        $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, $version, schema: new \stdClass());
-        $this->writeModuleState($this->stateRoot, $name, true, values: new \stdClass());
+        $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, $version, schema: new stdClass());
+        $this->writeModuleState($this->stateRoot, $name, true, values: new stdClass());
     }
 
     private function createSourceZip(string $name, string $version): string

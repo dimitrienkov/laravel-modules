@@ -50,7 +50,7 @@ final class LangLoaderTest extends TestCase
         $fileLoader = new FileLoader(new Filesystem(), $langDir);
         $translator = new Translator($fileLoader, 'en');
         $app = new Application($this->tempDir);
-        $app->singleton('translator', static fn (): Translator => $translator);
+        $app->singleton('translator', static fn(): Translator => $translator);
 
         $report = $this->loader($app)
             ->load(ModuleFactory::make(name: 'blog', path: $modulePath));
@@ -90,7 +90,7 @@ final class LangLoaderTest extends TestCase
         $fileLoader = new FileLoader(new Filesystem(), $this->tempDir);
         $translator = new Translator($fileLoader, 'en');
         $app = new Application($this->tempDir);
-        $app->singleton('translator', static fn (): Translator => $translator);
+        $app->singleton('translator', static fn(): Translator => $translator);
 
         $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));

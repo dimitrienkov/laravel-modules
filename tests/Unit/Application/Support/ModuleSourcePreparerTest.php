@@ -183,7 +183,7 @@ final class ModuleSourcePreparerTest extends TestCase
 
         // deleteDirectory still removes the temp dir (no leak) but then throws,
         // simulating a cleanup double-fault that must not mask the primary error.
-        $cleanupFails = new LocalFilesystem(new class () extends Filesystem {
+        $cleanupFails = new LocalFilesystem(new class extends Filesystem {
             public function deleteDirectory($directory, $preserve = false): void
             {
                 parent::deleteDirectory($directory, $preserve);

@@ -20,8 +20,7 @@ final readonly class PreparedSource
         public ?string $temporaryRoot,
         public ModuleSourceKind $sourceKind,
         public Checksum $checksum,
-    ) {
-    }
+    ) {}
 
     public function moduleName(): string
     {

@@ -50,7 +50,7 @@ final readonly class ModuleFactory
                     array_combine(
                         array_keys($dependencies),
                         array_map(
-                            static fn (string $constraint, string $name): ModuleDependency => new ModuleDependency($name, $constraint),
+                            static fn(string $constraint, string $name): ModuleDependency => new ModuleDependency($name, $constraint),
                             $dependencies,
                             array_keys($dependencies),
                         ),

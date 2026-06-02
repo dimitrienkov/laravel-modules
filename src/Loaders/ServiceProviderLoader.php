@@ -20,8 +20,7 @@ final readonly class ServiceProviderLoader implements LoaderInterface
         private Application $app,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
-    ) {
-    }
+    ) {}
 
     /**
      * Unlike the convention loaders, an absent Providers directory is not a
@@ -56,7 +55,7 @@ final readonly class ServiceProviderLoader implements LoaderInterface
             return [];
         }
 
-        $files = $this->filesystem->glob($providersDir . '/*ServiceProvider.php') ?: [];
+        $files = $this->filesystem->glob($providersDir . '/*ServiceProvider.php');
         $providers = [];
 
         foreach ($files as $file) {

@@ -21,6 +21,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 #[CoversClass(MigrationLoader::class)]
 #[Group('loaders')]
@@ -50,7 +51,7 @@ final class MigrationLoaderTest extends TestCase
         mkdir($migrationPath, 0755, true);
         $migrator = new Migrator(new NullMigrationRepository(), new NullConnectionResolver(), new Filesystem());
         $app = new Application($this->tempDir);
-        $app->singleton('migrator', static fn (): Migrator => $migrator);
+        $app->singleton('migrator', static fn(): Migrator => $migrator);
 
         $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $modulePath));
@@ -86,7 +87,7 @@ final class MigrationLoaderTest extends TestCase
     {
         $migrator = new Migrator(new NullMigrationRepository(), new NullConnectionResolver(), new Filesystem());
         $app = new Application($this->tempDir);
-        $app->singleton('migrator', static fn (): Migrator => $migrator);
+        $app->singleton('migrator', static fn(): Migrator => $migrator);
 
         $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Blog'));
@@ -106,17 +107,11 @@ final class MigrationLoaderTest extends TestCase
 
 final class NullMigrationRepository implements MigrationRepositoryInterface
 {
-    public function createRepository(): void
-    {
-    }
+    public function createRepository(): void {}
 
-    public function delete($migration): void
-    {
-    }
+    public function delete($migration): void {}
 
-    public function deleteRepository(): void
-    {
-    }
+    public function deleteRepository(): void {}
 
     public function getLast(): array
     {
@@ -148,25 +143,21 @@ final class NullMigrationRepository implements MigrationRepositoryInterface
         return [];
     }
 
-    public function log($file, $batch): void
-    {
-    }
+    public function log($file, $batch): void {}
 
     public function repositoryExists(): bool
     {
         return true;
     }
 
-    public function setSource($name): void
-    {
-    }
+    public function setSource($name): void {}
 }
 
 final class NullConnectionResolver implements ConnectionResolverInterface
 {
     public function connection($name = null): ConnectionInterface
     {
-        throw new \RuntimeException('Connection is not needed by MigrationLoaderTest.');
+        throw new RuntimeException('Connection is not needed by MigrationLoaderTest.');
     }
 
     public function getDefaultConnection(): string
@@ -174,7 +165,5 @@ final class NullConnectionResolver implements ConnectionResolverInterface
         return 'testing';
     }
 
-    public function setDefaultConnection($name): void
-    {
-    }
+    public function setDefaultConnection($name): void {}
 }

@@ -22,6 +22,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
+use stdClass;
 
 #[CoversClass(UpdateModuleUseCase::class)]
 #[Group('lifecycle')]
@@ -174,7 +175,7 @@ final class UpdateModuleUseCaseTest extends TestCase
 
         $result = $useCase->execute('blog', $sourceDir);
 
-        $skippedKeys = array_map(fn ($s) => $s->key, $result->skippedValues);
+        $skippedKeys = array_map(fn($s) => $s->key, $result->skippedValues);
         $this->assertContains('old_feature', $skippedKeys);
     }
 
@@ -187,12 +188,12 @@ final class UpdateModuleUseCaseTest extends TestCase
         $originalManifest = json_decode(file_get_contents($this->tempDir . '/app/Modules/Blog/module.json'), true);
         $originalState = json_decode(file_get_contents($this->stateRoot . '/blog/state.json'), true);
 
-        $failingManifests = $this->createMock(\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface::class);
+        $failingManifests = $this->createMock(ModuleManifestRepositoryInterface::class);
         $failingManifests->method('load')->willReturnCallback(
-            fn (string $path) => $this->makeRealManifestRepo()->load($path),
+            fn(string $path) => $this->makeRealManifestRepo()->load($path),
         );
         $failingManifests->method('writeManifest')->willThrowException(
-            new \DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException('simulated write failure'),
+            new ManifestWriteException('simulated write failure'),
         );
 
         $useCase = $this->makeUseCase(manifestRepository: $failingManifests);
@@ -202,7 +203,7 @@ final class UpdateModuleUseCaseTest extends TestCase
             $this->fail('Expected ModuleUpdateException');
         } catch (ModuleUpdateException $e) {
             $this->assertStringContainsString('restored from backup', $e->getMessage());
-            $this->assertInstanceOf(\DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException::class, $e->getPrevious());
+            $this->assertInstanceOf(ManifestWriteException::class, $e->getPrevious());
         }
 
         $restoredManifest = json_decode(file_get_contents($this->tempDir . '/app/Modules/Blog/module.json'), true);
@@ -217,9 +218,9 @@ final class UpdateModuleUseCaseTest extends TestCase
         $this->createInstalledModule('blog', '1.0.0');
         $sourceDir = $this->createSourceZip('blog', '2.0.0');
 
-        $failingManifests = $this->createMock(\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface::class);
+        $failingManifests = $this->createMock(ModuleManifestRepositoryInterface::class);
         $failingManifests->method('load')->willReturnCallback(
-            fn (string $path) => $this->makeRealManifestRepo()->load($path),
+            fn(string $path) => $this->makeRealManifestRepo()->load($path),
         );
         $failingManifests->method('writeManifest')->willReturnCallback(function (): void {
             $backupDirs = glob($this->tempDir . '/backups/blog-*');
@@ -227,12 +228,12 @@ final class UpdateModuleUseCaseTest extends TestCase
                 $this->filesystem->deleteDirectory($dir);
             }
 
-            throw new \DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException('simulated write failure');
+            throw new ManifestWriteException('simulated write failure');
         });
 
         $useCase = $this->makeUseCase(manifestRepository: $failingManifests);
 
-        set_error_handler(static fn (): bool => true, E_WARNING);
+        set_error_handler(static fn(): bool => true, E_WARNING);
 
         try {
             $useCase->execute('blog', $sourceDir);
@@ -240,7 +241,7 @@ final class UpdateModuleUseCaseTest extends TestCase
         } catch (ModuleUpdateException $e) {
             $this->assertStringContainsString('restore also failed', $e->getMessage());
             $this->assertStringContainsString('Backup remains at', $e->getMessage());
-            $this->assertInstanceOf(\DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException::class, $e->getPrevious());
+            $this->assertInstanceOf(ManifestWriteException::class, $e->getPrevious());
         } finally {
             restore_error_handler();
         }
@@ -336,7 +337,7 @@ final class UpdateModuleUseCaseTest extends TestCase
 
         $failingManifests = $this->createMock(ModuleManifestRepositoryInterface::class);
         $failingManifests->method('load')->willReturnCallback(
-            fn (string $path) => $this->makeRealManifestRepo()->load($path),
+            fn(string $path) => $this->makeRealManifestRepo()->load($path),
         );
         $failingManifests->method('writeManifest')->willThrowException(
             new ManifestWriteException('simulated write failure'),
@@ -368,7 +369,7 @@ final class UpdateModuleUseCaseTest extends TestCase
         $diagnostics->shouldHaveReceived('lifecycleFailed')->once()->with(
             LifecycleOperation::Update,
             'blog',
-            Mockery::on(static fn (Throwable $e): bool => $e instanceof ModuleUpdateException
+            Mockery::on(static fn(Throwable $e): bool => $e instanceof ModuleUpdateException
                 && $e->getPrevious() instanceof ManifestWriteException),
         );
         $diagnostics->shouldNotHaveReceived('lifecycleSucceeded');
@@ -443,9 +444,9 @@ final class UpdateModuleUseCaseTest extends TestCase
             $this->tempDir . '/app/Modules',
             $name,
             $version,
-            schema: $schema ?: new \stdClass(),
+            schema: $schema ?: new stdClass(),
         );
-        $this->writeModuleState($this->stateRoot, $name, $enabled, $installedAt, $values ?: new \stdClass(), $source);
+        $this->writeModuleState($this->stateRoot, $name, $enabled, $installedAt, $values ?: new stdClass(), $source);
     }
 
     /**
@@ -455,7 +456,7 @@ final class UpdateModuleUseCaseTest extends TestCase
     {
         return $this->zipModuleSource(
             $this->tempDir . '/sources/' . $name . '-' . $version . '.zip',
-            $this->moduleManifestArray($name, $version, schema: $schema ?: new \stdClass()),
+            $this->moduleManifestArray($name, $version, schema: $schema ?: new stdClass()),
         );
     }
 }

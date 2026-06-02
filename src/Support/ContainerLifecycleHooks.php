@@ -11,8 +11,7 @@ final readonly class ContainerLifecycleHooks
 {
     public function __construct(
         private Application $app,
-    ) {
-    }
+    ) {}
 
     public function callAfterResolving(string $abstract, Closure $callback): void
     {

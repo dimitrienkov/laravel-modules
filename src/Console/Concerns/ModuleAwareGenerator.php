@@ -43,10 +43,7 @@ trait ModuleAwareGenerator
 
     private ?Module $resolvedModule = null;
 
-    /**
-     * @return int|bool|null
-     */
-    public function handle()
+    public function handle(): int
     {
         $this->isModuleResolved = false;
         $this->resolvedModule = null;
@@ -88,7 +85,7 @@ trait ModuleAwareGenerator
      * @param Command|string       $command
      * @param array<string, mixed> $arguments
      */
-    public function call($command, array $arguments = [])
+    public function call($command, array $arguments = []): int
     {
         $isNestedModuleMake = \is_string($command)
             && str_starts_with($command, 'make:')
@@ -133,7 +130,7 @@ trait ModuleAwareGenerator
         return $this->resolvedModule = $this->moduleResolver()->resolve($option);
     }
 
-    protected function getDefaultNamespace($rootNamespace)
+    protected function getDefaultNamespace($rootNamespace): string
     {
         $module = $this->module();
 
@@ -159,10 +156,8 @@ trait ModuleAwareGenerator
      * intact, so only the base directory changes.
      *
      * @param string $path
-     *
-     * @return string
      */
-    protected function viewPath($path = '')
+    protected function viewPath($path = ''): string
     {
         $module = $this->module();
 
@@ -175,7 +170,10 @@ trait ModuleAwareGenerator
         return $base . ($path !== '' ? \DIRECTORY_SEPARATOR . $path : '');
     }
 
-    protected function qualifyModel(string $model)
+    /**
+     * @return class-string
+     */
+    protected function qualifyModel(string $model): string
     {
         $module = $this->module();
 
@@ -199,7 +197,7 @@ trait ModuleAwareGenerator
      *
      * @return array<int|string, mixed>
      */
-    protected function getOptions()
+    protected function getOptions(): array
     {
         $options = parent::getOptions();
         $options[] = ModuleOption::make('Generate the class inside the given module');
@@ -209,7 +207,7 @@ trait ModuleAwareGenerator
 
     /**
      * Merge `--module` into the arguments of an internally dispatched generator,
-     * normalised through the same resolver as {@see module()} so the sub-generator
+     * normalised through the same resolver as {@see Module()} so the sub-generator
      * receives the canonical module name.
      *
      * @param array<string, mixed> $arguments

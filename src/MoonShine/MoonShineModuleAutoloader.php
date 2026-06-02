@@ -11,8 +11,7 @@ final readonly class MoonShineModuleAutoloader
 {
     public function __construct(
         private ModuleRegistryInterface $registry,
-    ) {
-    }
+    ) {}
 
     public function autoload(CoreContract $core): void
     {

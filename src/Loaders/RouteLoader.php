@@ -22,8 +22,7 @@ final readonly class RouteLoader implements LoaderInterface
         private Repository $config,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {
@@ -96,7 +95,7 @@ final readonly class RouteLoader implements LoaderInterface
         }
 
         /** @var array<string, array<string, mixed>> */
-        return array_filter($types, 'is_array');
+        return array_filter($types, is_array(...));
     }
 
     /**
@@ -123,6 +122,11 @@ final readonly class RouteLoader implements LoaderInterface
 
     private function inertiaAvailable(): bool
     {
+        // Soft dependency: Inertia is optional, so the class names stay string
+        // literals. Importing them (or using ::class) would couple this loader to
+        // an absent package and trip the "loaders do not depend on optional UI
+        // integrations" architecture test. Hence the StringClassNameToClassConstant
+        // skip for this file in rector.php.
         return class_exists('Inertia\\Inertia') || class_exists('Inertia\\ServiceProvider');
     }
 }

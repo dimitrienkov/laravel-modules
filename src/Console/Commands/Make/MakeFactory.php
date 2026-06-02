@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
+use Override;
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ClassName;
@@ -28,7 +29,8 @@ final class MakeFactory extends FactoryMakeCommand
         return ModuleSegment::Factories->namespaceSegment();
     }
 
-    protected function getPath($name)
+    #[Override]
+    protected function getPath($name): string
     {
         $module = $this->module();
 
@@ -44,7 +46,8 @@ final class MakeFactory extends FactoryMakeCommand
         return $this->moduleLayout()->classFilePath($this->moduleLayout()->factoriesDir($module), $relative);
     }
 
-    protected function buildClass($name)
+    #[Override]
+    protected function buildClass($name): string
     {
         $module = $this->module();
 

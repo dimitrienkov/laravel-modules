@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
+use Override;
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleSegment;
@@ -31,11 +32,12 @@ final class MakeModel extends ModelMakeCommand
     /**
      * @return array<string, string>
      */
-    protected function buildFactoryReplacements()
+    #[Override]
+    protected function buildFactoryReplacements(): array
     {
         $module = $this->module();
 
-        if (! $module instanceof Module || (! $this->option('factory') && ! $this->option('all'))) {
+        if (! $module instanceof Module || (! (bool) $this->option('factory') && ! (bool) $this->option('all'))) {
             return parent::buildFactoryReplacements();
         }
 

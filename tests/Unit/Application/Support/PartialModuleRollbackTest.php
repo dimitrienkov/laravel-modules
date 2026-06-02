@@ -18,6 +18,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 #[CoversClass(PartialModuleRollback::class)]
 #[Group('lifecycle')]
@@ -66,7 +67,7 @@ final class PartialModuleRollbackTest extends TestCase
         /** @var ModuleStateRepositoryInterface&Mockery\MockInterface $stateRepo */
         $stateRepo = Mockery::mock(ModuleStateRepositoryInterface::class);
         $stateRepo->shouldReceive('delete')
-            ->andThrow(new \RuntimeException('state delete failed'));
+            ->andThrow(new RuntimeException('state delete failed'));
 
         $rollback = new PartialModuleRollback($this->makeDirectoryOps(), $stateRepo);
 

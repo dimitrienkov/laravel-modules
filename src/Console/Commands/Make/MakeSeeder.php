@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
+use Override;
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleSegment;
@@ -27,7 +28,8 @@ final class MakeSeeder extends SeederMakeCommand
         return ModuleSegment::Seeders->namespaceSegment();
     }
 
-    protected function rootNamespace()
+    #[Override]
+    protected function rootNamespace(): string
     {
         if (! $this->module() instanceof Module) {
             return parent::rootNamespace();
@@ -36,7 +38,8 @@ final class MakeSeeder extends SeederMakeCommand
         return $this->laravel->getNamespace();
     }
 
-    protected function getPath($name)
+    #[Override]
+    protected function getPath($name): string
     {
         $module = $this->module();
 

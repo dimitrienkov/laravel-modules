@@ -13,6 +13,5 @@ final readonly class ListModulesResult
      */
     public function __construct(
         public array $modules,
-    ) {
-    }
+    ) {}
 }

@@ -20,8 +20,7 @@ final readonly class ModuleState
         public bool $enabled,
         public ?string $installedAt,
         public ?string $updatedAt = null,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<string, mixed> $state

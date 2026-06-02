@@ -12,8 +12,7 @@ final readonly class ModuleStatePaths
     public function __construct(
         private Repository $config,
         private string $basePath,
-    ) {
-    }
+    ) {}
 
     public function root(): string
     {

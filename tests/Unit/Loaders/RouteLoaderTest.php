@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Closure;
 
 #[CoversClass(RouteLoader::class)]
 #[Group('loaders')]
@@ -148,13 +149,11 @@ final class RecordingRouter extends Router
      */
     public array $groups = [];
 
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 
     /**
-     * @param array<string, mixed>         $attributes
-     * @param \Closure|array<mixed>|string $routes
+     * @param array<string, mixed>        $attributes
+     * @param Closure|array<mixed>|string $routes
      *
      * @return $this
      */

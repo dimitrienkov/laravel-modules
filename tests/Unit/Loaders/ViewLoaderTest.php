@@ -52,7 +52,7 @@ final class ViewLoaderTest extends TestCase
         $finder = new FileViewFinder(new Filesystem(), []);
         $factory = new ViewFactory(new EngineResolver(), $finder, new Dispatcher());
         $app = new Application($this->tempDir);
-        $app->singleton('view', static fn (): ViewFactory => $factory);
+        $app->singleton('view', static fn(): ViewFactory => $factory);
 
         $report = $this->loader($app)
             ->load(ModuleFactory::make(name: 'blog', path: $modulePath));
@@ -94,7 +94,7 @@ final class ViewLoaderTest extends TestCase
         $finder = new FileViewFinder(new Filesystem(), []);
         $factory = new ViewFactory(new EngineResolver(), $finder, new Dispatcher());
         $app = new Application($this->tempDir);
-        $app->singleton('view', static fn (): ViewFactory => $factory);
+        $app->singleton('view', static fn(): ViewFactory => $factory);
 
         $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
@@ -120,7 +120,7 @@ final class ViewLoaderTest extends TestCase
         $finder = new FileViewFinder(new Filesystem(), []);
         $factory = new ViewFactory(new EngineResolver(), $finder, new Dispatcher());
         $app = new Application($this->tempDir);
-        $app->singleton('view', static fn (): ViewFactory => $factory);
+        $app->singleton('view', static fn(): ViewFactory => $factory);
 
         $loader = $this->loader($app);
         $loader->load(ModuleFactory::make(name: 'blog', path: $blogPath));

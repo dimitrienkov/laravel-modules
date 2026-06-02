@@ -24,8 +24,7 @@ final readonly class EnableModuleUseCase
         private ModuleDependencyGuard $dependencyGuard,
         private LifecycleRegistryInvalidator $invalidator,
         private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
-    ) {
-    }
+    ) {}
 
     public function execute(string $moduleName): Module
     {
@@ -43,7 +42,7 @@ final readonly class EnableModuleUseCase
 
             $allModules = $this->registry->all();
             $candidateGraph = array_map(
-                static fn (Module $m): Module => $m->name === $moduleName ? $candidate : $m,
+                static fn(Module $m): Module => $m->name === $moduleName ? $candidate : $m,
                 $allModules,
             );
 

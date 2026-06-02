@@ -46,7 +46,7 @@ final class BladeComponentLoaderTest extends TestCase
         mkdir($modulePath . '/View/Components', 0755, true);
         $blade = new BladeCompiler(new Filesystem(), $this->tempDir);
         $app = new Application($this->tempDir);
-        $app->singleton(BladeCompiler::class, static fn (): BladeCompiler => $blade);
+        $app->singleton(BladeCompiler::class, static fn(): BladeCompiler => $blade);
 
         $report = $this->loader($app)
             ->load(ModuleFactory::make(name: 'blog', path: $modulePath, namespace: 'App\\Modules\\Blog'));
@@ -85,7 +85,7 @@ final class BladeComponentLoaderTest extends TestCase
     {
         $blade = new BladeCompiler(new Filesystem(), $this->tempDir);
         $app = new Application($this->tempDir);
-        $app->singleton(BladeCompiler::class, static fn (): BladeCompiler => $blade);
+        $app->singleton(BladeCompiler::class, static fn(): BladeCompiler => $blade);
 
         $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));

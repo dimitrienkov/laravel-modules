@@ -39,8 +39,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
         private ModuleStatePaths $paths,
         private AtomicJsonWriter $writer,
         private LocalFilesystem $filesystem,
-    ) {
-    }
+    ) {}
 
     public function read(string $moduleName, Module $module): ModuleStateDocument
     {
@@ -309,7 +308,7 @@ final readonly class ModuleStateRepository implements ModuleStateRepositoryInter
     {
         return StringKeyedObject::toStringKeyedObject(
             $value,
-            static fn (): InvalidModuleStateException => InvalidModuleStateException::forPath($statePath, $message),
+            static fn(): InvalidModuleStateException => InvalidModuleStateException::forPath($statePath, $message),
         );
     }
 }

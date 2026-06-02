@@ -19,8 +19,7 @@ final readonly class ModuleRegistryCachePayload
         public int $version,
         public array $modules,
         public array $loadOrder,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<int, Module> $loadOrder

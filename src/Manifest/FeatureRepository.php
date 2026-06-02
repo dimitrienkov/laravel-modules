@@ -20,8 +20,7 @@ final class FeatureRepository implements FeatureRepositoryInterface
     public function __construct(
         private readonly ModuleRegistryInterface $registry,
         private readonly ModuleStateRepositoryInterface $stateRepository,
-    ) {
-    }
+    ) {}
 
     public function getBool(string $moduleName, string $key): bool
     {

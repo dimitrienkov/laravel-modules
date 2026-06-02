@@ -11,9 +11,7 @@ final class CommandRecordingKernel extends ConsoleKernel
     /** @var list<string> */
     public array $addedCommandPaths = [];
 
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 
     /**
      * @param list<string> $paths

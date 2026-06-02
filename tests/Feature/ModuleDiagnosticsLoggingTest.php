@@ -20,6 +20,7 @@ use Monolog\LogRecord;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 
 #[Group('feature')]
 final class ModuleDiagnosticsLoggingTest extends TestCase
@@ -84,7 +85,7 @@ final class ModuleDiagnosticsLoggingTest extends TestCase
         self::assertInstanceOf(ModuleLogger::class, $diagnostics);
 
         $pipeline = new ModuleLoaderPipeline(
-            registry: new class () implements ModuleRegistryInterface {
+            registry: new class implements ModuleRegistryInterface {
                 public function all(): array
                 {
                     return [];
@@ -92,7 +93,7 @@ final class ModuleDiagnosticsLoggingTest extends TestCase
 
                 public function find(string $name): Module
                 {
-                    throw new \RuntimeException('not used by this test');
+                    throw new RuntimeException('not used by this test');
                 }
 
                 public function has(string $name): bool
@@ -100,9 +101,7 @@ final class ModuleDiagnosticsLoggingTest extends TestCase
                     return false;
                 }
 
-                public function reset(): void
-                {
-                }
+                public function reset(): void {}
             },
             loaders: [],
             exceptionHandler: $this->app->make(ExceptionHandler::class),
@@ -162,7 +161,7 @@ final class ModuleDiagnosticsLoggingTest extends TestCase
         foreach ($monolog->getHandlers() as $handler) {
             if ($handler instanceof TestHandler) {
                 return array_map(
-                    static fn (LogRecord $record): string => $record->message,
+                    static fn(LogRecord $record): string => $record->message,
                     $handler->getRecords(),
                 );
             }
@@ -180,6 +179,6 @@ final class ThrowingLogHandler extends AbstractProcessingHandler
 {
     protected function write(LogRecord $record): void
     {
-        throw new \RuntimeException('log channel is broken');
+        throw new RuntimeException('log channel is broken');
     }
 }

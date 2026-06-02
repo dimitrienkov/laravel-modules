@@ -18,8 +18,7 @@ final readonly class OptimizeModulesUseCase
         private ModuleRegistrySnapshotBuilder $builder,
         private ModuleRegistryCacheInterface $cache,
         private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
-    ) {
-    }
+    ) {}
 
     public function execute(): OptimizeModulesResult
     {

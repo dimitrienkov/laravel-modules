@@ -40,6 +40,8 @@ final readonly class PathNormalizer
             $result[] = $segment;
         }
 
-        return implode('/', $result) ?: '/';
+        $joined = implode('/', $result);
+
+        return $joined === '' ? '/' : $joined;
     }
 }

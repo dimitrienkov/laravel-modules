@@ -20,6 +20,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 #[CoversClass(DisableModuleUseCase::class)]
 #[Group('lifecycle')]
@@ -194,6 +195,6 @@ final class DisableModuleUseCaseTest extends TestCase
         ?string $installedAt = null,
     ): void {
         $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, dependencies: $dependencies);
-        $this->writeModuleState($this->stateRoot, $name, $enabled, $installedAt, new \stdClass());
+        $this->writeModuleState($this->stateRoot, $name, $enabled, $installedAt, new stdClass());
     }
 }

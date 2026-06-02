@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Support;
 
+use ZipArchive;
+
 trait CreatesSourceArchive
 {
     /**
@@ -23,8 +25,8 @@ trait CreatesSourceArchive
             mkdir($directory, 0755, true);
         }
 
-        $zip = new \ZipArchive();
-        $zip->open($zipPath, \ZipArchive::CREATE);
+        $zip = new ZipArchive();
+        $zip->open($zipPath, ZipArchive::CREATE);
         $zip->addFromString(
             'module.json',
             json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE),

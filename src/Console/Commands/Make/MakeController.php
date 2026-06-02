@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
+use Override;
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleSegment;
@@ -35,13 +36,14 @@ final class MakeController extends ControllerMakeCommand
      *
      * @return array<array-key, mixed>
      */
-    protected function buildFormRequestReplacements(array $replace, $modelClass)
+    #[Override]
+    protected function buildFormRequestReplacements(array $replace, $modelClass): array
     {
         $replace = parent::buildFormRequestReplacements($replace, $modelClass);
 
         $module = $this->module();
 
-        if (! $module instanceof Module || ! $this->option('requests')) {
+        if (! $module instanceof Module || ! (bool) $this->option('requests')) {
             return $replace;
         }
 
@@ -53,7 +55,7 @@ final class MakeController extends ControllerMakeCommand
         $moduleRequestsNamespace = $this->moduleLayout()->requestsNamespace($module);
 
         return array_map(
-            static fn (mixed $value): mixed => \is_string($value)
+            static fn(mixed $value): mixed => \is_string($value)
                 ? str_replace($hostRequestsNamespace, $moduleRequestsNamespace, $value)
                 : $value,
             $replace,

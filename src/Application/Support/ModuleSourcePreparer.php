@@ -21,8 +21,7 @@ final readonly class ModuleSourcePreparer
         private ManifestValidatorInterface $validator,
         private ZipExtractor $zipExtractor,
         private LocalFilesystem $filesystem,
-    ) {
-    }
+    ) {}
 
     public function prepare(string $sourcePath): PreparedSource
     {

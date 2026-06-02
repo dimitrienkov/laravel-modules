@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 #[CoversClass(ConsoleRouteLoader::class)]
 #[Group('loaders')]
@@ -53,7 +54,7 @@ final class ConsoleRouteLoaderTest extends TestCase
         $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $modulePath));
 
-        $app->singleton(ConsoleKernelContract::class, static fn (): RecordingConsoleKernel => $kernel);
+        $app->singleton(ConsoleKernelContract::class, static fn(): RecordingConsoleKernel => $kernel);
         $app->make(ConsoleKernelContract::class);
 
         self::assertSame([], $kernel->addedRoutePaths);
@@ -115,7 +116,7 @@ final class ConsoleRouteLoaderTest extends TestCase
         $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Blog'));
 
-        $app->singleton(ConsoleKernelContract::class, static fn (): RecordingConsoleKernel => $kernel);
+        $app->singleton(ConsoleKernelContract::class, static fn(): RecordingConsoleKernel => $kernel);
         $app->make(ConsoleKernelContract::class);
         $app->boot();
 
@@ -132,14 +133,14 @@ final class ConsoleRouteLoaderTest extends TestCase
         mkdir(\dirname($consoleRoutesFile), 0755, true);
         file_put_contents($consoleRoutesFile, '<?php // console routes');
         $app = new Application($this->tempDir);
-        $reflection = new \ReflectionProperty(Application::class, 'isRunningInConsole');
+        $reflection = new ReflectionProperty(Application::class, 'isRunningInConsole');
         $reflection->setValue($app, false);
         $kernel = new RecordingConsoleKernel();
 
         $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $modulePath));
 
-        $app->singleton(ConsoleKernelContract::class, static fn (): RecordingConsoleKernel => $kernel);
+        $app->singleton(ConsoleKernelContract::class, static fn(): RecordingConsoleKernel => $kernel);
         $app->make(ConsoleKernelContract::class);
         $app->boot();
 

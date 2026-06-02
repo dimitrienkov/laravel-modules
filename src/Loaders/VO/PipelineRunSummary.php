@@ -26,8 +26,7 @@ final readonly class PipelineRunSummary
         public int $skipped,
         public int $failed,
         public float $durationMs,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, int|float>

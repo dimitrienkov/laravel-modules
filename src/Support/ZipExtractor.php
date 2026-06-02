@@ -12,8 +12,7 @@ final readonly class ZipExtractor
 {
     public function __construct(
         private LocalFilesystem $filesystem,
-    ) {
-    }
+    ) {}
 
     public function extract(string $zipPath, string $targetDir): void
     {
@@ -81,7 +80,7 @@ final readonly class ZipExtractor
                 str_contains($entryName, "\0")
                 || str_contains($normalized, '../')
                 || str_starts_with($normalized, '/')
-                || preg_match('/^[A-Za-z]:/', $normalized)
+                || preg_match('/^[A-Za-z]:/', $normalized) === 1
             ) {
                 throw ModuleArchiveException::zipSlip($zipPath, $entryName);
             }

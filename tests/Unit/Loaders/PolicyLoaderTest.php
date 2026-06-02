@@ -64,7 +64,7 @@ final class PolicyLoaderTest extends TestCase
         );
         $this->registerAutoloader($modelsDir . '/Post.php', 'App\\Modules\\Blog\\Domain\\Models\\Post');
         $this->registerAutoloader($policiesDir . '/PostPolicy.php', 'App\\Modules\\Blog\\Domain\\Policies\\PostPolicy');
-        $gate = new Gate(new Container(), static fn () => null);
+        $gate = new Gate(new Container(), static fn() => null);
 
         $report = (new PolicyLoader($gate, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
@@ -87,7 +87,7 @@ final class PolicyLoaderTest extends TestCase
             '<?php namespace App\\Modules\\Blog\\Domain\\Policies; class CommentPolicy {}',
         );
         $this->registerAutoloader($policiesDir . '/CommentPolicy.php', 'App\\Modules\\Blog\\Domain\\Policies\\CommentPolicy');
-        $gate = new Gate(new Container(), static fn () => null);
+        $gate = new Gate(new Container(), static fn() => null);
 
         (new PolicyLoader($gate, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
@@ -109,7 +109,7 @@ final class PolicyLoaderTest extends TestCase
         );
         $this->registerAutoloader($modelsDir . '/Tag.php', 'App\\Modules\\Blog\\Domain\\Models\\Tag');
         file_put_contents($policiesDir . '/TagPolicy.php', '<?php // no class defined');
-        $gate = new Gate(new Container(), static fn () => null);
+        $gate = new Gate(new Container(), static fn() => null);
 
         (new PolicyLoader($gate, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
@@ -120,7 +120,7 @@ final class PolicyLoaderTest extends TestCase
     #[Test]
     public function returnsEarlyWhenPoliciesDirectoryIsMissing(): void
     {
-        $gate = new Gate(new Container(), static fn () => null);
+        $gate = new Gate(new Container(), static fn() => null);
 
         $report = (new PolicyLoader($gate, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
@@ -135,7 +135,7 @@ final class PolicyLoaderTest extends TestCase
     {
         $modulePath = $this->tempDir . '/Blog';
         mkdir($modulePath . '/Domain/Policies', 0755, true);
-        $gate = new Gate(new Container(), static fn () => null);
+        $gate = new Gate(new Container(), static fn() => null);
 
         $report = (new PolicyLoader($gate, new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));

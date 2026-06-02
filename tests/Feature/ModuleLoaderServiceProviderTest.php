@@ -25,6 +25,9 @@ use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use ArrayObject;
+use RuntimeException;
+use stdClass;
 
 #[Group('feature')]
 final class ModuleLoaderServiceProviderTest extends TestCase
@@ -67,8 +70,8 @@ final class ModuleLoaderServiceProviderTest extends TestCase
         $provider = $this->provider();
         $provider->register();
         $app = $this->application();
-        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
-        $calls = new \ArrayObject();
+        /** @var ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new ArrayObject();
 
         $app->instance(ModuleRegistryInterface::class, new FakeRegistry([
             ModuleFactory::make(name: 'enabled'),
@@ -100,7 +103,7 @@ final class ModuleLoaderServiceProviderTest extends TestCase
         $app = $this->application();
 
         $loaderClasses = array_map(
-            static fn (object $loader): string => $loader::class,
+            static fn(object $loader): string => $loader::class,
             iterator_to_array($app->tagged(ModuleLoaderServiceProvider::LOADER_TAG)),
         );
 
@@ -137,7 +140,7 @@ final class ModuleLoaderServiceProviderTest extends TestCase
         $provider->boot();
 
         $loaderClasses = array_map(
-            static fn (object $loader): string => $loader::class,
+            static fn(object $loader): string => $loader::class,
             iterator_to_array($this->application()->tagged(ModuleLoaderServiceProvider::LOADER_TAG)),
         );
 
@@ -151,7 +154,7 @@ final class ModuleLoaderServiceProviderTest extends TestCase
         $provider->register();
         $app = $this->application();
         $app->instance(ModuleRegistryInterface::class, new FakeRegistry([]));
-        $app->instance('loader.invalid', new \stdClass());
+        $app->instance('loader.invalid', new stdClass());
         $app->tag(['loader.invalid'], ModuleLoaderServiceProvider::LOADER_TAG);
 
         $this->expectException(InvalidConfigurationException::class);
@@ -178,14 +181,13 @@ final class ModuleLoaderServiceProviderTest extends TestCase
 final class RecordingLoader implements LoaderInterface
 {
     /**
-     * @param \ArrayObject<int, array{0: string, 1: string}> $calls
+     * @param ArrayObject<int, array{0: string, 1: string}> $calls
      */
     public function __construct(
-        private readonly \ArrayObject $calls,
+        private readonly ArrayObject $calls,
         private readonly int $priority,
         private readonly string $name,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {
@@ -207,8 +209,7 @@ final readonly class FakeRegistry implements ModuleRegistryInterface
      */
     public function __construct(
         private array $modules,
-    ) {
-    }
+    ) {}
 
     public function all(): array
     {
@@ -223,7 +224,7 @@ final readonly class FakeRegistry implements ModuleRegistryInterface
             }
         }
 
-        throw new \RuntimeException("Module [{$name}] was not registered in fake registry.");
+        throw new RuntimeException("Module [{$name}] was not registered in fake registry.");
     }
 
     public function has(string $name): bool
@@ -237,8 +238,6 @@ final readonly class FakeRegistry implements ModuleRegistryInterface
         return false;
     }
 
-    public function reset(): void
-    {
-    }
+    public function reset(): void {}
 
 }

@@ -20,8 +20,7 @@ final class ModuleRegistry implements ModuleRegistryInterface
         private readonly ModuleRegistrySnapshotBuilder $builder,
         private readonly ModuleRegistryCacheInterface $cache,
         private readonly ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<int, Module>

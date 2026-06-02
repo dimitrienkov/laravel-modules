@@ -22,7 +22,7 @@ final class StringKeyedObjectTest extends TestCase
 
         $result = StringKeyedObject::toStringKeyedObject(
             $input,
-            static fn (): RuntimeException => new RuntimeException('should not be called'),
+            static fn(): RuntimeException => new RuntimeException('should not be called'),
         );
 
         self::assertSame($input, $result);

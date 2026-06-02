@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
+use Override;
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use Illuminate\Foundation\Console\MailMakeCommand;
@@ -34,10 +35,9 @@ final class MakeMail extends MailMakeCommand
      * untouched so the template still writes to `Resources/views/...`.
      *
      * @param string $name
-     *
-     * @return string
      */
-    protected function buildClass($name)
+    #[Override]
+    protected function buildClass($name): string
     {
         $class = parent::buildClass($name);
         $module = $this->module();

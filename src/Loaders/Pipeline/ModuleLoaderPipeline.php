@@ -23,8 +23,7 @@ final readonly class ModuleLoaderPipeline
         private iterable $loaders,
         private ExceptionHandler $exceptionHandler,
         private ModuleDiagnosticsInterface $diagnostics,
-    ) {
-    }
+    ) {}
 
     public function boot(): void
     {
@@ -32,7 +31,7 @@ final readonly class ModuleLoaderPipeline
 
         $sorted = $this->sortedLoaders();
         $modules = $this->registry->all();
-        $enabledCount = \count(array_filter($modules, static fn (Module $module): bool => $module->isEnabled()));
+        $enabledCount = \count(array_filter($modules, static fn(Module $module): bool => $module->isEnabled()));
         $loaderCount = \count($sorted);
 
         $this->diagnostics->pipelineStarted($enabledCount, $loaderCount);
@@ -92,8 +91,13 @@ final readonly class ModuleLoaderPipeline
 
         usort(
             $indexed,
-            static fn (array $left, array $right): int => $left['loader']->priority() <=> $right['loader']->priority()
-                ?: $left['position'] <=> $right['position'],
+            static function (array $left, array $right): int {
+                $byPriority = $left['loader']->priority() <=> $right['loader']->priority();
+
+                return $byPriority !== 0
+                    ? $byPriority
+                    : $left['position'] <=> $right['position'];
+            },
         );
 
         return array_column($indexed, 'loader');

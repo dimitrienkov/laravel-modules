@@ -21,8 +21,7 @@ final readonly class ModuleDirectoryScanner
         private string $basePath,
         private string $appPath,
         private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<int, string>

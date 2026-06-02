@@ -47,7 +47,7 @@ trait ArchitecturalGenerator
         return $this->stubsPath . '/' . $this->stubName();
     }
 
-    protected function getNameInput()
+    protected function getNameInput(): string
     {
         $name = parent::getNameInput();
         $suffix = $this->classSuffix();
@@ -59,7 +59,7 @@ trait ArchitecturalGenerator
         return $name . $suffix;
     }
 
-    protected function getDefaultNamespace($rootNamespace)
+    protected function getDefaultNamespace($rootNamespace): string
     {
         $module = $this->module();
 

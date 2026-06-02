@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Support;
 
+use stdClass;
+
 trait CreatesModuleFiles
 {
     /**
@@ -32,7 +34,7 @@ trait CreatesModuleFiles
         string $name,
         string $version = '1.0.0',
         array $dependencies = [],
-        array|object $schema = new \stdClass(),
+        array|object $schema = new stdClass(),
         string $kind = 'module',
         ?string $group = null,
     ): array {
@@ -69,7 +71,7 @@ trait CreatesModuleFiles
         string $name,
         string $version = '1.0.0',
         array $dependencies = [],
-        array|object $schema = new \stdClass(),
+        array|object $schema = new stdClass(),
         string $kind = 'module',
         ?string $group = null,
     ): string {

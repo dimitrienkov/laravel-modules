@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
+use Override;
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleSegment;
@@ -32,10 +33,9 @@ final class MakeListener extends ListenerMakeCommand
 
     /**
      * @param string $name
-     *
-     * @return string
      */
-    protected function buildClass($name)
+    #[Override]
+    protected function buildClass($name): string
     {
         $class = parent::buildClass($name);
         $module = $this->module();

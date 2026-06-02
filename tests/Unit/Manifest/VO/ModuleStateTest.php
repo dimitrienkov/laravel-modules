@@ -10,6 +10,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use DateTimeImmutable;
+use DateTimeInterface;
 
 #[CoversClass(ModuleState::class)]
 #[Group('manifest')]
@@ -80,9 +82,9 @@ final class ModuleStateTest extends TestCase
     #[Test]
     public function initialStateReturnsEnabledWithTimestamps(): void
     {
-        $before = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
+        $before = (new DateTimeImmutable())->format(DateTimeInterface::ATOM);
         $state = ModuleState::initialState();
-        $after = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
+        $after = (new DateTimeImmutable())->format(DateTimeInterface::ATOM);
 
         self::assertTrue($state->enabled);
         self::assertNotNull($state->installedAt);

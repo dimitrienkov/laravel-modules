@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
+use Override;
 use DimitrienkoV\LaravelModules\Console\Support\ModuleOption;
 use DimitrienkoV\LaravelModules\Console\Support\ModuleResolver;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
@@ -34,10 +35,8 @@ final class MakeMigration extends MigrateMakeCommand
         );
     }
 
-    /**
-     * @return int
-     */
-    public function handle()
+    #[Override]
+    public function handle(): int
     {
         try {
             $module = $this->laravel->make(ModuleResolver::class)->resolve($this->option('module'));

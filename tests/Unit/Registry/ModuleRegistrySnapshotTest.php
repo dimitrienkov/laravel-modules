@@ -39,7 +39,7 @@ final class ModuleRegistrySnapshotTest extends TestCase
         $snapshot = new ModuleRegistrySnapshot([$b, $a, $c]);
 
         self::assertSame(['beta', 'alpha', 'gamma'], array_map(
-            static fn ($m): string => $m->name,
+            static fn($m): string => $m->name,
             $snapshot->all(),
         ));
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Providers;
 
+use Override;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeCast;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeChannel;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeComponent;
@@ -97,6 +98,7 @@ final class ModuleGeneratorCommandsServiceProvider extends ServiceProvider
         SeederMakeCommand::class => MakeSeeder::class,
     ];
 
+    #[Override]
     public function register(): void
     {
         $this->shadowGenerators();
@@ -115,8 +117,6 @@ final class ModuleGeneratorCommandsServiceProvider extends ServiceProvider
             $this->app->singleton($native, $moduleAware);
         }
 
-        $this->app->singleton(MigrateMakeCommand::class, static function (Application $app): MakeMigration {
-            return new MakeMigration($app->make('migration.creator'), $app->make(Composer::class));
-        });
+        $this->app->singleton(MigrateMakeCommand::class, static fn(Application $app): MakeMigration => new MakeMigration($app->make('migration.creator'), $app->make(Composer::class)));
     }
 }

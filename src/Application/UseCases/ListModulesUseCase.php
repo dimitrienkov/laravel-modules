@@ -14,8 +14,7 @@ final readonly class ListModulesUseCase
 {
     public function __construct(
         private ModuleRegistryInterface $registry,
-    ) {
-    }
+    ) {}
 
     public function execute(?bool $enabledFilter = null, ?ModuleKind $kindFilter = null, ?ModuleGroup $groupFilter = null): ListModulesResult
     {
@@ -24,21 +23,21 @@ final readonly class ListModulesUseCase
         if ($enabledFilter !== null) {
             $modules = array_filter(
                 $modules,
-                static fn (Module $m): bool => $m->isEnabled() === $enabledFilter,
+                static fn(Module $m): bool => $m->isEnabled() === $enabledFilter,
             );
         }
 
         if ($kindFilter instanceof ModuleKind) {
             $modules = array_filter(
                 $modules,
-                static fn (Module $m): bool => $m->meta->kind === $kindFilter,
+                static fn(Module $m): bool => $m->meta->kind === $kindFilter,
             );
         }
 
         if ($groupFilter instanceof ModuleGroup) {
             $modules = array_filter(
                 $modules,
-                static fn (Module $m): bool => $groupFilter->equals($m->meta->group),
+                static fn(Module $m): bool => $groupFilter->equals($m->meta->group),
             );
         }
 

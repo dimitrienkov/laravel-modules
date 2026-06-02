@@ -21,8 +21,7 @@ final readonly class ManifestValidator implements ManifestValidatorInterface
 
     public function __construct(
         private ManifestSettingsValidator $settingsValidator,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<string, mixed> $manifest

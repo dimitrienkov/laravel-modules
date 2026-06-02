@@ -13,6 +13,5 @@ final readonly class InstallModuleResult
         public string $path,
         public bool $enabled,
         public ModuleSourceKind $sourceKind,
-    ) {
-    }
+    ) {}
 }

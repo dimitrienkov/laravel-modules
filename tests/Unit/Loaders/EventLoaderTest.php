@@ -16,6 +16,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
+use Traversable;
 
 #[CoversClass(EventLoader::class)]
 #[Group('loaders')]
@@ -32,7 +34,7 @@ final class EventLoaderTest extends TestCase
 
     protected function tearDown(): void
     {
-        $reflection = new \ReflectionProperty(EventServiceProvider::class, 'eventDiscoveryPaths');
+        $reflection = new ReflectionProperty(EventServiceProvider::class, 'eventDiscoveryPaths');
         $reflection->setValue(null, null);
 
         $this->deleteTempDirectory();
@@ -50,10 +52,10 @@ final class EventLoaderTest extends TestCase
         $report = (new EventLoader(new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath));
 
-        $reflection = new \ReflectionProperty(EventServiceProvider::class, 'eventDiscoveryPaths');
+        $reflection = new ReflectionProperty(EventServiceProvider::class, 'eventDiscoveryPaths');
         /** @var iterable<int, string> $paths */
         $paths = $reflection->getValue(null);
-        $pathsArray = $paths instanceof \Traversable ? iterator_to_array($paths) : (array) $paths;
+        $pathsArray = $paths instanceof Traversable ? iterator_to_array($paths) : (array) $paths;
 
         self::assertContains($listenersDir, $pathsArray);
         self::assertTrue($report->wasApplied());
@@ -66,7 +68,7 @@ final class EventLoaderTest extends TestCase
         $report = (new EventLoader(new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));
 
-        $reflection = new \ReflectionProperty(EventServiceProvider::class, 'eventDiscoveryPaths');
+        $reflection = new ReflectionProperty(EventServiceProvider::class, 'eventDiscoveryPaths');
         $paths = $reflection->getValue(null);
 
         self::assertNull($paths);

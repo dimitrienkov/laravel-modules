@@ -9,6 +9,7 @@ use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 #[Group('support')]
 final class CreatesModuleFilesTest extends TestCase
@@ -119,7 +120,7 @@ final class CreatesModuleFilesTest extends TestCase
     #[Test]
     public function writeModuleStateWithEmptyValuesObject(): void
     {
-        $this->writeModuleState($this->tempDir, 'blog', values: new \stdClass());
+        $this->writeModuleState($this->tempDir, 'blog', values: new stdClass());
 
         $state = json_decode(
             (string) file_get_contents($this->tempDir . '/blog/state.json'),

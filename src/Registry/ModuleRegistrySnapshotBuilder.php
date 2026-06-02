@@ -18,8 +18,7 @@ final readonly class ModuleRegistrySnapshotBuilder
         private ModuleManifestRepositoryInterface $manifests,
         private TopologicalSorter $sorter,
         private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
-    ) {
-    }
+    ) {}
 
     public function build(): ModuleRegistrySnapshot
     {
@@ -33,7 +32,7 @@ final readonly class ModuleRegistrySnapshotBuilder
 
         $sorted = $this->sorter->sort($modules);
 
-        $enabled = \count(array_filter($modules, static fn (Module $module): bool => $module->isEnabled()));
+        $enabled = \count(array_filter($modules, static fn(Module $module): bool => $module->isEnabled()));
         $this->diagnostics->discoveryCompleted(\count($modules), $enabled, \count($modules) - $enabled);
 
         return new ModuleRegistrySnapshot($sorted);

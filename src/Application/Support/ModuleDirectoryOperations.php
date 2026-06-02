@@ -14,8 +14,7 @@ final readonly class ModuleDirectoryOperations
     public function __construct(
         private LocalFilesystem $filesystem,
         private ModuleDirectoryPaths $paths,
-    ) {
-    }
+    ) {}
 
     public function exists(string $path): bool
     {

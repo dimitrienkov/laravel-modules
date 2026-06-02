@@ -19,8 +19,7 @@ final readonly class MiddlewareLoader implements LoaderInterface
         private Router $router,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {
@@ -30,7 +29,7 @@ final readonly class MiddlewareLoader implements LoaderInterface
             return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
-        $files = $this->filesystem->glob($middlewareDir . '/*.php') ?: [];
+        $files = $this->filesystem->glob($middlewareDir . '/*.php');
         sort($files);
 
         $middleware = [];

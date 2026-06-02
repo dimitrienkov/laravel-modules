@@ -23,6 +23,5 @@ final readonly class ScaffoldModuleConfig
         public ?ModuleKind $kind = null,
         public ?ModuleGroup $group = null,
         public ?array $components = null,
-    ) {
-    }
+    ) {}
 }

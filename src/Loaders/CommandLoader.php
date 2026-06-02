@@ -22,8 +22,7 @@ final readonly class CommandLoader implements LoaderInterface
         private ContainerLifecycleHooks $hooks,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {
@@ -46,7 +45,7 @@ final readonly class CommandLoader implements LoaderInterface
                     return;
                 }
 
-                $app->booted(static fn () => $kernel->addCommandPaths([$commandsDir]));
+                $app->booted(static fn() => $kernel->addCommandPaths([$commandsDir]));
             },
         );
 

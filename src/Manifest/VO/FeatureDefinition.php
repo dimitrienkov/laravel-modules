@@ -23,8 +23,7 @@ final readonly class FeatureDefinition
         public ?string $label = null,
         public ?string $description = null,
         public ?string $group = null,
-    ) {
-    }
+    ) {}
 
     public function normalize(mixed $value, string $manifestPath): bool|int|string
     {

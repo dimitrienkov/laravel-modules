@@ -16,6 +16,7 @@ use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 
 #[Group('feature')]
 final class OptionalMoonShineBootTest extends TestCase
@@ -59,7 +60,7 @@ final class OptionalMoonShineBootTest extends TestCase
             ModuleFactory::make(name: 'disabled', enabled: false),
         ]));
 
-        $app->singleton(CoreContract::class, static fn () => $core);
+        $app->singleton(CoreContract::class, static fn() => $core);
         $provider->boot();
 
         $app->make(CoreContract::class);
@@ -85,7 +86,7 @@ final class OptionalMoonShineBootTest extends TestCase
             ModuleFactory::make(name: 'disabled', enabled: false),
         ]));
 
-        $app->singleton(CoreContract::class, static fn () => $core);
+        $app->singleton(CoreContract::class, static fn() => $core);
         $app->make(CoreContract::class);
 
         $provider->boot();
@@ -100,7 +101,7 @@ final class OptionalMoonShineBootTest extends TestCase
         $provider->boot();
 
         $loaderClasses = array_map(
-            static fn (object $loader): string => $loader::class,
+            static fn(object $loader): string => $loader::class,
             iterator_to_array($this->application()->tagged(ModuleLoaderServiceProvider::LOADER_TAG)),
         );
 
@@ -129,8 +130,7 @@ final readonly class MoonShineFakeRegistry implements ModuleRegistryInterface
      */
     public function __construct(
         private array $modules = [],
-    ) {
-    }
+    ) {}
 
     public function all(): array
     {
@@ -139,7 +139,7 @@ final readonly class MoonShineFakeRegistry implements ModuleRegistryInterface
 
     public function find(string $name): Module
     {
-        throw new \RuntimeException("Module [{$name}] was not registered in fake registry.");
+        throw new RuntimeException("Module [{$name}] was not registered in fake registry.");
     }
 
     public function has(string $name): bool
@@ -147,8 +147,6 @@ final readonly class MoonShineFakeRegistry implements ModuleRegistryInterface
         return false;
     }
 
-    public function reset(): void
-    {
-    }
+    public function reset(): void {}
 
 }

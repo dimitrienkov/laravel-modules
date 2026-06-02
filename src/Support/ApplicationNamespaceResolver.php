@@ -16,8 +16,7 @@ final class ApplicationNamespaceResolver implements NamespaceResolverInterface
 
     public function __construct(
         private readonly Application $app,
-    ) {
-    }
+    ) {}
 
     public function resolve(string $modulePath): string
     {

@@ -18,8 +18,7 @@ final readonly class ObserverLoader implements LoaderInterface
     public function __construct(
         private Filesystem $filesystem,
         private ModuleLayout $layout,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {
@@ -29,7 +28,7 @@ final readonly class ObserverLoader implements LoaderInterface
             return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
-        $files = $this->filesystem->glob($observersDir . '/*Observer.php') ?: [];
+        $files = $this->filesystem->glob($observersDir . '/*Observer.php');
         sort($files);
 
         $observers = [];

@@ -76,7 +76,7 @@ final class MakeModuleCommand extends Command
         $config = new ScaffoldModuleConfig(
             name: $name,
             directory: $directory,
-            enabled: ! $this->option('disabled'),
+            enabled: ! (bool) $this->option('disabled'),
             force: (bool) $this->option('overwrite'),
             kind: $kind,
             group: $group,
@@ -144,6 +144,6 @@ final class MakeModuleCommand extends Command
             options: $options,
         );
 
-        return ScaffoldComponent::fromValues(array_map(static fn (int|string $value): string => (string) $value, $selected));
+        return ScaffoldComponent::fromValues(array_map(static fn(int|string $value): string => (string) $value, $selected));
     }
 }

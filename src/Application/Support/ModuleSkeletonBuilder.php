@@ -18,8 +18,7 @@ final readonly class ModuleSkeletonBuilder
         private LocalFilesystem $filesystem,
         private AtomicFileWriter $fileWriter,
         private string $stubsPath,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<int, ScaffoldComponent>|null $components Explicit component

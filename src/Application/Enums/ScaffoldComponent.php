@@ -85,8 +85,8 @@ enum ScaffoldComponent: string
     public static function fromOptionValue(string $raw): array
     {
         $tokens = array_filter(
-            array_map(static fn (string $token): string => trim($token), explode(',', $raw)),
-            static fn (string $token): bool => $token !== '',
+            array_map(trim(...), explode(',', $raw)),
+            static fn(string $token): bool => $token !== '',
         );
 
         return self::fromValues(array_values($tokens));
@@ -127,6 +127,6 @@ enum ScaffoldComponent: string
 
     public static function allowedValuesList(): string
     {
-        return implode(', ', array_map(static fn (self $case): string => $case->value, self::cases()));
+        return implode(', ', array_map(static fn(self $case): string => $case->value, self::cases()));
     }
 }

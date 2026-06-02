@@ -12,8 +12,7 @@ final readonly class ModuleStateDocument
         // `source` is the installed module's provenance (ModuleOrigin), matching
         // the state.json `source` key — not the staging ModuleSourceKind axis.
         public ?ModuleOrigin $source = null,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

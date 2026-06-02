@@ -22,6 +22,9 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ArrayObject;
+use RuntimeException;
+use Throwable;
 
 #[CoversClass(ModuleLoaderPipeline::class)]
 #[Group('loaders')]
@@ -32,8 +35,8 @@ final class ModuleLoaderPipelineTest extends TestCase
     #[Test]
     public function runsLoadersInPriorityOrder(): void
     {
-        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
-        $calls = new \ArrayObject();
+        /** @var ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new ArrayObject();
 
         $pipeline = new ModuleLoaderPipeline(
             registry: new PipelineFakeRegistry([
@@ -58,8 +61,8 @@ final class ModuleLoaderPipelineTest extends TestCase
     #[Test]
     public function preservesRegistrationOrderForEqualPriorities(): void
     {
-        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
-        $calls = new \ArrayObject();
+        /** @var ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new ArrayObject();
 
         $pipeline = new ModuleLoaderPipeline(
             registry: new PipelineFakeRegistry([
@@ -86,8 +89,8 @@ final class ModuleLoaderPipelineTest extends TestCase
     #[Test]
     public function skipsDisabledModules(): void
     {
-        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
-        $calls = new \ArrayObject();
+        /** @var ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new ArrayObject();
 
         $pipeline = new ModuleLoaderPipeline(
             registry: new PipelineFakeRegistry([
@@ -126,16 +129,16 @@ final class ModuleLoaderPipelineTest extends TestCase
     #[Test]
     public function continuesAfterLoaderExceptionAndReportsIt(): void
     {
-        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
-        $calls = new \ArrayObject();
-        $exception = new \RuntimeException('Loader failed');
+        /** @var ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new ArrayObject();
+        $exception = new RuntimeException('Loader failed');
 
         /** @var ExceptionHandler&Mockery\MockInterface $handler */
         $handler = Mockery::mock(ExceptionHandler::class);
         $handler->shouldReceive('report')
             ->once()
             ->with(Mockery::on(
-                static fn (object $reported): bool => $reported instanceof ModuleLoaderException
+                static fn(object $reported): bool => $reported instanceof ModuleLoaderException
                     && $reported->loaderClass === PipelineConditionallyThrowingLoader::class
                     && $reported->moduleName === 'blog'
                     && $reported->modulePath !== ''
@@ -167,8 +170,8 @@ final class ModuleLoaderPipelineTest extends TestCase
     #[Test]
     public function emitsPipelineAndLoaderCompletedDiagnostics(): void
     {
-        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
-        $calls = new \ArrayObject();
+        /** @var ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new ArrayObject();
 
         /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
         $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
@@ -192,7 +195,7 @@ final class ModuleLoaderPipelineTest extends TestCase
         $diagnostics->shouldHaveReceived('pipelineFinished')
             ->once()
             ->with(Mockery::on(
-                static fn (PipelineRunSummary $summary): bool => $summary->modulesEnabled === 1
+                static fn(PipelineRunSummary $summary): bool => $summary->modulesEnabled === 1
                     && $summary->loaders === 1
                     && $summary->applied === 1
                     && $summary->skipped === 0
@@ -204,9 +207,9 @@ final class ModuleLoaderPipelineTest extends TestCase
     #[Test]
     public function reportsLoaderFailureToDiagnosticsInAdditionToHandler(): void
     {
-        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
-        $calls = new \ArrayObject();
-        $exception = new \RuntimeException('boom');
+        /** @var ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new ArrayObject();
+        $exception = new RuntimeException('boom');
 
         /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
         $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
@@ -228,15 +231,15 @@ final class ModuleLoaderPipelineTest extends TestCase
         $diagnostics->shouldHaveReceived('pipelineFinished')
             ->once()
             ->with(Mockery::on(
-                static fn (PipelineRunSummary $summary): bool => $summary->failed === 1 && $summary->applied === 0,
+                static fn(PipelineRunSummary $summary): bool => $summary->failed === 1 && $summary->applied === 0,
             ));
     }
 
     #[Test]
     public function countsAppliedSkippedAndFailedAndMeasuresDuration(): void
     {
-        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
-        $calls = new \ArrayObject();
+        /** @var ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new ArrayObject();
 
         /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
         $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
@@ -248,7 +251,7 @@ final class ModuleLoaderPipelineTest extends TestCase
             loaders: [
                 new PipelineStaticReportLoader(LoadReport::applied(['x' => ['a']]), 10),
                 new PipelineStaticReportLoader(LoadReport::skipped(SkipReason::NoDirectory), 20),
-                new PipelineConditionallyThrowingLoader($calls, new \RuntimeException('boom'), 30, 'blog'),
+                new PipelineConditionallyThrowingLoader($calls, new RuntimeException('boom'), 30, 'blog'),
             ],
             exceptionHandler: $this->fakeExceptionHandler(),
             diagnostics: $diagnostics,
@@ -260,7 +263,7 @@ final class ModuleLoaderPipelineTest extends TestCase
         $diagnostics->shouldHaveReceived('pipelineFinished')
             ->once()
             ->with(Mockery::on(
-                static fn (PipelineRunSummary $summary): bool => $summary->applied === 1
+                static fn(PipelineRunSummary $summary): bool => $summary->applied === 1
                     && $summary->skipped === 1
                     && $summary->failed === 1
                     && $summary->durationMs >= 0.0,
@@ -282,8 +285,7 @@ final readonly class PipelineStaticReportLoader implements LoaderInterface
     public function __construct(
         private LoadReport $report,
         private int $priority,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {
@@ -299,14 +301,13 @@ final readonly class PipelineStaticReportLoader implements LoaderInterface
 final class PipelineRecordingLoader implements LoaderInterface
 {
     /**
-     * @param \ArrayObject<int, array{0: string, 1: string}> $calls
+     * @param ArrayObject<int, array{0: string, 1: string}> $calls
      */
     public function __construct(
-        private readonly \ArrayObject $calls,
+        private readonly ArrayObject $calls,
         private readonly int $priority,
         private readonly string $name,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {
@@ -324,15 +325,14 @@ final class PipelineRecordingLoader implements LoaderInterface
 final readonly class PipelineConditionallyThrowingLoader implements LoaderInterface
 {
     /**
-     * @param \ArrayObject<int, array{0: string, 1: string}> $calls
+     * @param ArrayObject<int, array{0: string, 1: string}> $calls
      */
     public function __construct(
-        private \ArrayObject $calls,
-        private \Throwable $exception,
+        private ArrayObject $calls,
+        private Throwable $exception,
         private int $priority,
         private string $moduleName,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {
@@ -358,8 +358,7 @@ final readonly class PipelineFakeRegistry implements ModuleRegistryInterface
      */
     public function __construct(
         private array $modules,
-    ) {
-    }
+    ) {}
 
     public function all(): array
     {
@@ -368,7 +367,7 @@ final readonly class PipelineFakeRegistry implements ModuleRegistryInterface
 
     public function find(string $name): Module
     {
-        throw new \RuntimeException("Module [{$name}] was not registered.");
+        throw new RuntimeException("Module [{$name}] was not registered.");
     }
 
     public function has(string $name): bool
@@ -382,7 +381,5 @@ final readonly class PipelineFakeRegistry implements ModuleRegistryInterface
         return false;
     }
 
-    public function reset(): void
-    {
-    }
+    public function reset(): void {}
 }

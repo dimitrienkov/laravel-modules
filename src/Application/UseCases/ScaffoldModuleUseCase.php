@@ -52,8 +52,7 @@ final readonly class ScaffoldModuleUseCase
         private ModuleDirectoryOperations $directoryOps,
         private PartialModuleRollback $rollback,
         private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
-    ) {
-    }
+    ) {}
 
     public function execute(ScaffoldModuleConfig $config): ScaffoldModuleResult
     {

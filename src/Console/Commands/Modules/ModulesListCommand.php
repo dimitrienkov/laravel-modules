@@ -25,7 +25,7 @@ final class ModulesListCommand extends Command
 
     public function handle(ListModulesUseCase $useCase, ModuleGroupLabelResolver $groupLabels): int
     {
-        if ($this->option('enabled') && $this->option('disabled')) {
+        if ((bool) $this->option('enabled') && (bool) $this->option('disabled')) {
             $this->components->error('Options --enabled and --disabled cannot be used together.');
 
             return self::FAILURE;
@@ -75,7 +75,7 @@ final class ModulesListCommand extends Command
                 return self::SUCCESS;
             }
 
-            $rows = array_map(static fn (Module $m): array => [
+            $rows = array_map(static fn(Module $m): array => [
                 $m->name,
                 $m->meta->kind->value,
                 $groupLabels->displayLabel($m->meta->group),

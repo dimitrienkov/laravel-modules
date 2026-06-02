@@ -24,9 +24,7 @@ use Illuminate\Support\Str;
  */
 final readonly class ModuleResolver
 {
-    public function __construct(private ModuleRegistryInterface $registry)
-    {
-    }
+    public function __construct(private ModuleRegistryInterface $registry) {}
 
     /**
      * Normalise a raw `--module` option to its canonical (snake_case) module

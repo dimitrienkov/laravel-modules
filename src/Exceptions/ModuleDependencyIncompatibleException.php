@@ -17,7 +17,7 @@ final class ModuleDependencyIncompatibleException extends RuntimeException imple
     ): self {
         return new self(
             "Module [{$moduleName}] requires dependency [{$dependencyName}] matching [{$requiredConstraint}], "
-            . "installed version is [{$installedVersion}]."
+            . "installed version is [{$installedVersion}].",
         );
     }
 }
