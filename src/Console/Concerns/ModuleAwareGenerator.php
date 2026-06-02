@@ -1,0 +1,185 @@
+<?php
+
+declare(strict_types=1);
+
+namespace DimitrienkoV\LaravelModules\Console\Concerns;
+
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use Illuminate\Support\Str;
+use Symfony\Component\Console\Input\InputOption;
+
+/**
+ * Turns a native Laravel `GeneratorCommand` subclass into a module-aware one.
+ *
+ * Without `--module` every hook delegates to the parent command, so the host
+ * behaviour stays byte-for-byte identical. With `--module=<name>` the generated
+ * class is redirected into the module's sub-namespace (and, because modules live
+ * under `app/`, the inherited `getPath()` already writes the file inside the
+ * module without any path remap for namespace-only generators).
+ *
+ * The module is resolved exclusively through the {@see ModuleRegistryInterface}
+ * contract and cached per invocation. Matching-test options are rejected up front
+ * in module mode so module artifacts never spill host test files.
+ *
+ * Each consuming command declares its home through {@see moduleSubNamespace()}.
+ */
+trait ModuleAwareGenerator
+{
+    private bool $moduleResolved = false;
+
+    private ?Module $resolvedModule = null;
+
+    /**
+     * @return int|bool|null
+     */
+    public function handle()
+    {
+        $this->moduleResolved = false;
+        $this->resolvedModule = null;
+
+        try {
+            $module = $this->module();
+        } catch (ModuleExceptionInterface $e) {
+            $this->components->error($e->getMessage());
+
+            return self::FAILURE;
+        }
+
+        if ($module instanceof Module && $this->wantsMatchingTest()) {
+            $this->components->error(
+                'Module-aware generators do not create matching tests; remove the --test, --pest, or --phpunit option.',
+            );
+
+            return self::FAILURE;
+        }
+
+        // Native generators signal failure (reserved name, class exists) by
+        // printing and returning a falsy value that the kernel casts to exit 0,
+        // so deferring to a fixed SUCCESS here preserves their exit semantics
+        // while keeping the unknown-module path the only non-zero outcome.
+        parent::handle();
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * The module-relative sub-namespace the generated class belongs to,
+     * e.g. `Http\Controllers` or `Domain\Models`.
+     */
+    abstract protected function moduleSubNamespace(): string;
+
+    /**
+     * Resolve the target module from `--module`, or `null` for host mode.
+     *
+     * The canonical (snake_case) name is looked up through the registry contract,
+     * so `--module=blog` and `--module=Blog` resolve to the same module. An
+     * unknown name surfaces as a {@see ModuleExceptionInterface}.
+     */
+    protected function module(): ?Module
+    {
+        if ($this->moduleResolved) {
+            return $this->resolvedModule;
+        }
+
+        $this->moduleResolved = true;
+
+        $name = $this->hasOption('module') ? $this->option('module') : null;
+
+        if (! \is_string($name) || trim($name) === '') {
+            return $this->resolvedModule = null;
+        }
+
+        return $this->resolvedModule = $this->laravel
+            ->make(ModuleRegistryInterface::class)
+            ->find(Str::snake(trim($name)));
+    }
+
+    protected function getDefaultNamespace($rootNamespace)
+    {
+        $module = $this->module();
+
+        if (! $module instanceof Module) {
+            return parent::getDefaultNamespace($rootNamespace);
+        }
+
+        return $this->moduleNamespace($module);
+    }
+
+    /**
+     * The fully-qualified namespace the generated class lands in for this module.
+     */
+    protected function moduleNamespace(Module $module): string
+    {
+        return $module->namespace . '\\' . $this->moduleSubNamespace();
+    }
+
+    protected function qualifyModel(string $model)
+    {
+        $module = $this->module();
+
+        if (! $module instanceof Module) {
+            return parent::qualifyModel($model);
+        }
+
+        $model = str_replace('/', '\\', ltrim($model, '\\/'));
+
+        $qualified = Str::startsWith($model, $this->rootNamespace())
+            ? $model
+            : $this->moduleLayout()->modelNamespace($module) . '\\' . $model;
+
+        /** @var class-string $qualified */
+        return $qualified;
+    }
+
+    /**
+     * Add `--module` to the parent command's option set. We only ever append, so
+     * the native signature stays intact.
+     *
+     * @return array<int|string, mixed>
+     */
+    protected function getOptions()
+    {
+        $options = parent::getOptions();
+        $options[] = ['module', null, InputOption::VALUE_REQUIRED, 'Generate the class inside the given module'];
+
+        return $options;
+    }
+
+    /**
+     * Merge `--module` into the arguments of an internally dispatched generator
+     * (`$this->call('make:factory', $this->withModuleOption([...]))`).
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array<string, mixed>
+     */
+    protected function withModuleOption(array $arguments): array
+    {
+        $name = $this->hasOption('module') ? $this->option('module') : null;
+
+        if (\is_string($name) && $name !== '') {
+            $arguments['--module'] = $name;
+        }
+
+        return $arguments;
+    }
+
+    private function moduleLayout(): ModuleLayout
+    {
+        return $this->laravel->make(ModuleLayout::class);
+    }
+
+    private function wantsMatchingTest(): bool
+    {
+        foreach (['test', 'pest', 'phpunit'] as $option) {
+            if ($this->hasOption($option) && $this->option($option) === true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}

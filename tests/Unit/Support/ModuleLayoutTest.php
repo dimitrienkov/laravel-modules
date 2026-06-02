@@ -69,4 +69,34 @@ final class ModuleLayoutTest extends TestCase
         self::assertSame('App\\Modules\\Blog\\Domain\\Observers', $layout->observerNamespace($module));
         self::assertSame('App\\Modules\\Blog\\Domain\\Policies', $layout->policyNamespace($module));
     }
+
+    #[Test]
+    public function resolvesArchitecturalLayerAndSeederSubpaths(): void
+    {
+        $module = ModuleFactory::make(path: '/app/Modules/Blog');
+        $layout = new ModuleLayout();
+
+        self::assertSame('/app/Modules/Blog/Application/UseCases', $layout->useCasesDir($module));
+        self::assertSame('/app/Modules/Blog/Application/Actions', $layout->actionsDir($module));
+        self::assertSame('/app/Modules/Blog/Application/Queries', $layout->queriesDir($module));
+        self::assertSame('/app/Modules/Blog/Application/DTOs', $layout->dtosDir($module));
+        self::assertSame('/app/Modules/Blog/Domain/VO', $layout->domainVoDir($module));
+        self::assertSame('/app/Modules/Blog/Database/Seeders', $layout->seedersDir($module));
+        self::assertSame('/app/Modules/Blog/Resources/views/components', $layout->viewComponentsDir($module));
+        self::assertSame('/app/Modules/Blog/Resources/views/mail', $layout->mailViewsDir($module));
+    }
+
+    #[Test]
+    public function resolvesArchitecturalLayerAndSeederNamespaces(): void
+    {
+        $module = ModuleFactory::make(path: '/app/Modules/Blog', namespace: 'App\\Modules\\Blog');
+        $layout = new ModuleLayout();
+
+        self::assertSame('App\\Modules\\Blog\\Application\\UseCases', $layout->useCasesNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Application\\Actions', $layout->actionsNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Application\\Queries', $layout->queriesNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Application\\DTOs', $layout->dtosNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Domain\\VO', $layout->domainVoNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Database\\Seeders', $layout->seederNamespace($module));
+    }
 }

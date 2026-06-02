@@ -8,6 +8,16 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 
 final readonly class ModuleLayout
 {
+    public function actionsDir(Module $module): string
+    {
+        return $module->path . '/Application/Actions';
+    }
+
+    public function actionsNamespace(Module $module): string
+    {
+        return $module->namespace . '\\Application\\Actions';
+    }
+
     public function bladeComponentNamespace(Module $module): string
     {
         return $module->namespace . '\\View\\Components';
@@ -38,6 +48,26 @@ final readonly class ModuleLayout
         return $module->path . '/Routes/console.php';
     }
 
+    public function domainVoDir(Module $module): string
+    {
+        return $module->path . '/Domain/VO';
+    }
+
+    public function domainVoNamespace(Module $module): string
+    {
+        return $module->namespace . '\\Domain\\VO';
+    }
+
+    public function dtosDir(Module $module): string
+    {
+        return $module->path . '/Application/DTOs';
+    }
+
+    public function dtosNamespace(Module $module): string
+    {
+        return $module->namespace . '\\Application\\DTOs';
+    }
+
     public function factoriesDir(Module $module): string
     {
         return $module->path . '/Database/Factories';
@@ -56,6 +86,11 @@ final readonly class ModuleLayout
     public function listenersDir(Module $module): string
     {
         return $module->path . '/Domain/Listeners';
+    }
+
+    public function mailViewsDir(Module $module): string
+    {
+        return $this->viewsDir($module) . '/mail';
     }
 
     public function manifestFile(Module $module): string
@@ -113,6 +148,16 @@ final readonly class ModuleLayout
         return $module->path . '/Providers';
     }
 
+    public function queriesDir(Module $module): string
+    {
+        return $module->path . '/Application/Queries';
+    }
+
+    public function queriesNamespace(Module $module): string
+    {
+        return $module->namespace . '\\Application\\Queries';
+    }
+
     /**
      * An artifact directory expressed relative to its module root. Callers pass
      * absolute paths this same layout produced, so `$absolutePath` always sits
@@ -131,6 +176,31 @@ final readonly class ModuleLayout
     public function routesDir(Module $module): string
     {
         return $module->path . '/Routes';
+    }
+
+    public function seederNamespace(Module $module): string
+    {
+        return $module->namespace . '\\Database\\Seeders';
+    }
+
+    public function seedersDir(Module $module): string
+    {
+        return $module->path . '/Database/Seeders';
+    }
+
+    public function useCasesDir(Module $module): string
+    {
+        return $module->path . '/Application/UseCases';
+    }
+
+    public function useCasesNamespace(Module $module): string
+    {
+        return $module->namespace . '\\Application\\UseCases';
+    }
+
+    public function viewComponentsDir(Module $module): string
+    {
+        return $this->viewsDir($module) . '/components';
     }
 
     public function viewsDir(Module $module): string
