@@ -14,6 +14,8 @@ use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeRequest;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeSeeder;
 use DimitrienkoV\LaravelModules\Tests\Support\InteractsWithModuleGenerators;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Foundation\Console\ModelMakeCommand;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -197,10 +199,15 @@ final class ModuleAwareNativeGeneratorTest extends TestCase
 
         $class = $this->modulePath('View/Components/Alert.php');
         $this->assertFileExists($class);
+        $classContents = (string) file_get_contents($class);
         $this->assertStringContainsString(
             'namespace App\\Modules\\Blog\\View\\Components;',
-            (string) file_get_contents($class),
+            $classContents,
         );
+
+        // The class body must reference the module-namespaced view, otherwise the
+        // component resolves against the host views the loader never registered.
+        $this->assertStringContainsString("view('blog::components.alert')", $classContents);
 
         $this->assertFileExists($this->modulePath('Resources/views/components/alert.blade.php'));
 
@@ -216,10 +223,15 @@ final class ModuleAwareNativeGeneratorTest extends TestCase
 
         $class = $this->modulePath('Mail/Digest.php');
         $this->assertFileExists($class);
+        $classContents = (string) file_get_contents($class);
         $this->assertStringContainsString(
             'namespace App\\Modules\\Blog\\Mail;',
-            (string) file_get_contents($class),
+            $classContents,
         );
+
+        // The mailable must reference the module-namespaced markdown view; the
+        // Blade path itself stays on the clean relative view (no `::` leak).
+        $this->assertStringContainsString("markdown: 'blog::mail.digest'", $classContents);
 
         $this->assertFileExists($this->modulePath('Resources/views/mail/digest.blade.php'));
         $this->assertFileDoesNotExist($this->generatorTempDir . '/resources/views/mail/digest.blade.php');
@@ -264,5 +276,88 @@ final class ModuleAwareNativeGeneratorTest extends TestCase
 
         // Nothing leaked into the host.
         $this->assertFileDoesNotExist($this->appPath('Http/Requests/StorePostRequest.php'));
+    }
+
+    #[Test]
+    public function unknownModuleFailsWithoutWritingFilesForPathOverridingGenerators(): void
+    {
+        // make:model already guards this; the path-overriding generators (their
+        // host leak is the more dangerous one) must fail just as cleanly.
+        $this->artisan('make:factory', ['name' => 'PostFactory', '--module' => 'ghost'])
+            ->assertFailed()
+            ->expectsOutputToContain('Module [ghost] was not found');
+
+        $this->artisan('make:seeder', ['name' => 'PostSeeder', '--module' => 'ghost'])
+            ->assertFailed()
+            ->expectsOutputToContain('Module [ghost] was not found');
+
+        $this->artisan('make:component', ['name' => 'Alert', '--module' => 'ghost'])
+            ->assertFailed()
+            ->expectsOutputToContain('Module [ghost] was not found');
+
+        $this->artisan('make:mail', ['name' => 'Digest', '--module' => 'ghost', '--markdown' => 'mail.digest'])
+            ->assertFailed()
+            ->expectsOutputToContain('Module [ghost] was not found');
+
+        $this->artisan('make:migration', ['name' => 'create_ghosts_table', '--module' => 'ghost'])
+            ->assertFailed()
+            ->expectsOutputToContain('Module [ghost] was not found');
+
+        // No artifact reached the (non-existent) ghost module …
+        $this->assertDirectoryDoesNotExist($this->modulePath('', 'ghost'));
+
+        // … and nothing leaked into the host either.
+        $this->assertDirectoryDoesNotExist($this->generatorTempDir . '/database/factories');
+        $this->assertDirectoryDoesNotExist($this->generatorTempDir . '/database/seeders');
+        $this->assertDirectoryDoesNotExist($this->generatorTempDir . '/database/migrations');
+        $this->assertDirectoryDoesNotExist($this->generatorTempDir . '/resources/views');
+        $this->assertFileDoesNotExist($this->appPath('Mail/Digest.php'));
+        $this->assertFileDoesNotExist($this->appPath('View/Components/Alert.php'));
+    }
+
+    #[Test]
+    public function hostModeMakeModelIsByteForByteIdenticalToNative(): void
+    {
+        mkdir($this->appPath('Models'), 0755, true);
+
+        // The shadow in host mode (no --module) must delegate to the parent
+        // byte-for-byte. Generate, capture, and remove so the native run can
+        // reuse the exact same destination path.
+        $this->artisan('make:model', ['name' => 'Widget'])->assertSuccessful();
+        $shadowed = (string) file_get_contents($this->appPath('Models/Widget.php'));
+        unlink($this->appPath('Models/Widget.php'));
+
+        // Re-register the genuine native command under make:model so the second
+        // run resolves to it instead of the shadow, then compare full contents.
+        $this->app->make(Kernel::class)->registerCommand(new ModelMakeCommand(new Filesystem()));
+        $this->artisan('make:model', ['name' => 'Widget'])->assertSuccessful();
+        $native = (string) file_get_contents($this->appPath('Models/Widget.php'));
+
+        self::assertSame($native, $shadowed);
+    }
+
+    #[Test]
+    public function nestedGeneratorsNeverLeakHostTestFiles(): void
+    {
+        // Top-level matching-test options are rejected outright (see
+        // matchingTestOptionIsRejectedInModuleMode). This guards the complementary
+        // path: the trait's call() override strips --test/--pest/--phpunit from
+        // every nested sub-generator, so a module's -mfs scaffolding can never
+        // spill a host tests/ file.
+        $this->artisan('make:model', [
+            'name' => 'Post',
+            '--module' => 'blog',
+            '--migration' => true,
+            '--factory' => true,
+            '--seed' => true,
+        ])->assertSuccessful();
+
+        $this->assertFileExists($this->modulePath('Domain/Models/Post.php'));
+        $this->assertFileExists($this->modulePath('Database/Factories/PostFactory.php'));
+        $this->assertFileExists($this->modulePath('Database/Seeders/PostSeeder.php'));
+        $migrations = glob($this->modulePath('Database/Migrations') . '/*_create_posts_table.php') ?: [];
+        $this->assertCount(1, $migrations);
+
+        $this->assertDirectoryDoesNotExist($this->generatorTempDir . '/tests');
     }
 }

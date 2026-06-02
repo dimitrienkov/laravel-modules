@@ -205,6 +205,16 @@ final class MakeModuleCommandTest extends TestCase
     }
 
     #[Test]
+    public function withOptionFailsFastOnDuplicateComponent(): void
+    {
+        $this->artisanCommand('make:module --no-interaction blog --with=routes,routes')
+            ->assertFailed()
+            ->expectsOutputToContain('Duplicate module component [routes]');
+
+        $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
+    }
+
+    #[Test]
     public function emptyWithScaffoldsMandatoryOnly(): void
     {
         $this->artisanCommand('make:module --no-interaction blog --with=')

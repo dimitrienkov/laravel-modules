@@ -58,7 +58,7 @@ final readonly class ObserverLoader implements LoaderInterface
     private function registerObserver(Module $module, string $file): void
     {
         $basename = basename($file, '.php');
-        $observerFqcn = $this->layout->observerNamespace($module) . '\\' . $basename;
+        $observerFqcn = $this->layout->observersNamespace($module) . '\\' . $basename;
         $modelName = substr($basename, 0, -\strlen('Observer'));
         $modelFqcn = $this->layout->modelNamespace($module) . '\\' . $modelName;
 

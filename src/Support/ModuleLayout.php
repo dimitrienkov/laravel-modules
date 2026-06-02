@@ -8,16 +8,6 @@ use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 
 final readonly class ModuleLayout
 {
-    public function actionsDir(Module $module): string
-    {
-        return $module->path . '/Application/Actions';
-    }
-
-    public function actionsNamespace(Module $module): string
-    {
-        return $module->namespace . '\\Application\\Actions';
-    }
-
     public function bladeComponentNamespace(Module $module): string
     {
         return $module->namespace . '\\View\\Components';
@@ -48,32 +38,12 @@ final readonly class ModuleLayout
         return $module->path . '/Routes/console.php';
     }
 
-    public function domainVoDir(Module $module): string
-    {
-        return $module->path . '/Domain/VO';
-    }
-
-    public function domainVoNamespace(Module $module): string
-    {
-        return $module->namespace . '\\Domain\\VO';
-    }
-
-    public function dtosDir(Module $module): string
-    {
-        return $module->path . '/Application/DTOs';
-    }
-
-    public function dtosNamespace(Module $module): string
-    {
-        return $module->namespace . '\\Application\\DTOs';
-    }
-
     public function factoriesDir(Module $module): string
     {
         return $module->path . '/Database/Factories';
     }
 
-    public function factoryNamespace(Module $module): string
+    public function factoriesNamespace(Module $module): string
     {
         return $module->namespace . '\\Database\\Factories';
     }
@@ -86,11 +56,6 @@ final readonly class ModuleLayout
     public function listenersDir(Module $module): string
     {
         return $module->path . '/Domain/Listeners';
-    }
-
-    public function mailViewsDir(Module $module): string
-    {
-        return $this->viewsDir($module) . '/mail';
     }
 
     public function manifestFile(Module $module): string
@@ -123,7 +88,7 @@ final readonly class ModuleLayout
         return $module->namespace . '\\Domain\\Models';
     }
 
-    public function observerNamespace(Module $module): string
+    public function observersNamespace(Module $module): string
     {
         return $module->namespace . '\\Domain\\Observers';
     }
@@ -138,7 +103,7 @@ final readonly class ModuleLayout
         return $module->path . '/Domain/Policies';
     }
 
-    public function policyNamespace(Module $module): string
+    public function policiesNamespace(Module $module): string
     {
         return $module->namespace . '\\Domain\\Policies';
     }
@@ -146,16 +111,6 @@ final readonly class ModuleLayout
     public function providersDir(Module $module): string
     {
         return $module->path . '/Providers';
-    }
-
-    public function queriesDir(Module $module): string
-    {
-        return $module->path . '/Application/Queries';
-    }
-
-    public function queriesNamespace(Module $module): string
-    {
-        return $module->namespace . '\\Application\\Queries';
     }
 
     /**
@@ -168,6 +123,11 @@ final readonly class ModuleLayout
         return substr($absolutePath, \strlen($module->path) + 1);
     }
 
+    public function requestsNamespace(Module $module): string
+    {
+        return $module->namespace . '\\Http\\Requests';
+    }
+
     public function routeFile(Module $module, string $type): string
     {
         return $this->routesDir($module) . "/{$type}.php";
@@ -178,7 +138,7 @@ final readonly class ModuleLayout
         return $module->path . '/Routes';
     }
 
-    public function seederNamespace(Module $module): string
+    public function seedersNamespace(Module $module): string
     {
         return $module->namespace . '\\Database\\Seeders';
     }
@@ -186,21 +146,6 @@ final readonly class ModuleLayout
     public function seedersDir(Module $module): string
     {
         return $module->path . '/Database/Seeders';
-    }
-
-    public function useCasesDir(Module $module): string
-    {
-        return $module->path . '/Application/UseCases';
-    }
-
-    public function useCasesNamespace(Module $module): string
-    {
-        return $module->namespace . '\\Application\\UseCases';
-    }
-
-    public function viewComponentsDir(Module $module): string
-    {
-        return $this->viewsDir($module) . '/components';
     }
 
     public function viewsDir(Module $module): string

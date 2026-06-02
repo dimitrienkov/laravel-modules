@@ -65,9 +65,11 @@ final class MakeModuleCommand extends Command
             }
         }
 
-        $components = $this->resolveComponents();
+        try {
+            $components = $this->resolveComponents();
+        } catch (InvalidArgumentException $e) {
+            $this->components->error($e->getMessage());
 
-        if ($components === false) {
             return self::FAILURE;
         }
 
@@ -103,22 +105,19 @@ final class MakeModuleCommand extends Command
      * `--with=` is parsed and validated fail-fast (an empty value is a valid,
      * mandatory-only selection). Without `--with`, an interactive run prompts via
      * a multiselect, while a non-interactive run returns `null` to keep the
-     * default minimal skeleton. `false` signals invalid input — the caller aborts.
+     * default minimal skeleton. An invalid `--with` value raises an
+     * {@see InvalidArgumentException}, which `handle()` turns into a clean failure.
      *
-     * @return array<int, ScaffoldComponent>|false|null
+     * @return array<int, ScaffoldComponent>|null
+     *
+     * @throws InvalidArgumentException on an invalid `--with` value
      */
-    private function resolveComponents(): array|false|null
+    private function resolveComponents(): ?array
     {
         $with = $this->option('with');
 
         if (\is_string($with)) {
-            try {
-                return ScaffoldComponent::parseList($with);
-            } catch (InvalidArgumentException $e) {
-                $this->components->error($e->getMessage());
-
-                return false;
-            }
+            return ScaffoldComponent::fromOptionValue($with);
         }
 
         if ($this->input->isInteractive()) {

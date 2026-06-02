@@ -136,7 +136,7 @@ php artisan modules:remove blog --force --delete-permanently
 
 ## Module-aware генераторы
 
-Опция `--module=<name>` добавляется к native Laravel-генераторам прозрачно: имя и signature команды не меняются, без `--module` поведение байт-в-байт совпадает с host. Имя модуля резолвится через registry-контракт и нечувствительно к регистру (`--module=blog` = `--module=Blog`); неизвестный модуль завершает команду failure-кодом, не создавая partial-файлов. Поскольку модули лежат под `app/` (namespace из `App\`), файл автоматически попадает внутрь модуля.
+Опция `--module=<name>` добавляется к native Laravel-генераторам прозрачно: имя и signature команды не меняются, без `--module` поведение байт-в-байт совпадает с host. Имя модуля резолвится через registry-контракт и нечувствительно к регистру (`--module=blog` = `--module=Blog`); неизвестный модуль завершает команду failure-кодом, не создавая partial-файлов. Поскольку модули лежат под `app/`, наследованный `getPath()` привязан к `app_path()`, а корневой namespace берётся из PSR-4-маппинга `composer.json` (через `rootNamespace()`) — обычно это `App\`, но не-`App\` корень тоже работает; файл автоматически попадает внутрь модуля.
 
 ```bash
 php artisan make:model Post --module=blog -mfs
@@ -174,6 +174,8 @@ php artisan make:component Alert --module=blog
 
 Под-генераторы наследуют `--module`: `make:model -mfs --module=blog` создаёт model, migration, factory и seeder только внутри модуля, а сгенерированная model ссылается на module factory namespace. `make:controller --requests` кладёт form requests в `Http/Requests` модуля. В module-aware режиме matching-test опции (`--test`, `--pest`, `--phpunit`) отклоняются fail-fast — поставляемые модули не несут host-тестов.
 
+`make:migration --module` транслирует `--module` в native `--path`/`--realpath`, поэтому каталог `Database/Migrations` модуля создаётся автоматически, если его ещё нет — даже когда модуль был отскаффолен без `--with=database`. Это осознанный framework-fit: рабочий путь «минимальный модуль → первая миграция» не требует предварительного `--with=database`, а миграция корректно подхватывается `MigrationLoader`.
+
 ### Архитектурные генераторы пакета
 
 `make:use-case`, `make:action`, `make:query`, `make:dto`, `make:vo` создают `final readonly`-классы в house-style. Без `--module` пишут в host (`app/Application/{UseCases,Actions,Queries,DTOs}`, `app/Domain/VO`), с `--module` — в соответствующий слой модуля.
@@ -181,7 +183,7 @@ php artisan make:component Alert --module=blog
 ```bash
 php artisan make:use-case PublishPost --module=blog   # Application/UseCases/PublishPostUseCase.php
 php artisan make:dto CreatePost --module=blog          # Application/DTOs/CreatePostDto.php
-php artisan make:vo Money --module=blog                # Domain/VO/Money.php (без суффикса)
+php artisan make:vo Money --module=blog                # <корень модуля>/Domain/VO/Money.php (без суффикса)
 ```
 
 Суффикс добавляется автоматически (`UseCase`/`Action`/`Query`/`Dto`) и не дублируется; `make:vo` сохраняет имя без суффикса, как VO ядра (`Version`, `Checksum`).

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Application\Enums;
 
+use DimitrienkoV\LaravelModules\Support\ModuleLayer;
 use InvalidArgumentException;
 
 /**
@@ -51,11 +52,16 @@ enum ScaffoldComponent: string
     public function relativeDirectories(): array
     {
         return match ($this) {
-            self::Application => ['Application/UseCases', 'Application/Actions', 'Application/Queries', 'Application/DTOs'],
+            self::Application => [
+                ModuleLayer::UseCases->relativeDirectory(),
+                ModuleLayer::Actions->relativeDirectory(),
+                ModuleLayer::Queries->relativeDirectory(),
+                ModuleLayer::Dtos->relativeDirectory(),
+            ],
             self::Config => ['Config'],
             self::Console => ['Console/Commands'],
             self::Database => ['Database/Factories', 'Database/Migrations', 'Database/Seeders'],
-            self::Domain => ['Domain/Models'],
+            self::Domain => ['Domain/Models', ModuleLayer::ValueObjects->relativeDirectory()],
             self::Http => ['Http/Controllers', 'Http/Middleware'],
             self::Routes => ['Routes'],
             self::Views => ['Resources/views'],
@@ -63,7 +69,7 @@ enum ScaffoldComponent: string
     }
 
     /**
-     * Parse a raw comma-separated `--with` value into a validated component list.
+     * Build a validated component list from a raw comma-separated `--with` value.
      *
      * An empty (or whitespace-only) string yields an empty selection — the
      * mandatory root/provider scaffold with no optional directories. Unknown or
@@ -71,7 +77,7 @@ enum ScaffoldComponent: string
      *
      * @return array<int, self>
      */
-    public static function parseList(string $raw): array
+    public static function fromOptionValue(string $raw): array
     {
         $tokens = array_filter(
             array_map(static fn (string $token): string => trim($token), explode(',', $raw)),

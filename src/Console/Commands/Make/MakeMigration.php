@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
+use DimitrienkoV\LaravelModules\Console\Support\ModuleResolver;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
-use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Database\Console\Migrations\MigrateMakeCommand;
 use Illuminate\Database\Migrations\MigrationCreator;
 use Illuminate\Support\Composer;
-use Illuminate\Support\Str;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
@@ -20,7 +20,8 @@ use Symfony\Component\Console\Input\InputOption;
  * (MigrationCreator + Composer), so instead of subclassing the GeneratorCommand
  * pipeline we translate `--module` into the native `--path`/`--realpath` options
  * (Variant B), pointing the creator at the module's `Database/Migrations`. This
- * is resilient to signature differences between Laravel 12 and 13.
+ * is resilient to signature differences between Laravel 12 and 13. Module
+ * normalisation/resolution is shared with the trait via {@see ModuleResolver}.
  */
 final class MakeMigration extends MigrateMakeCommand
 {
@@ -38,17 +39,15 @@ final class MakeMigration extends MigrateMakeCommand
      */
     public function handle()
     {
-        $name = $this->option('module');
+        try {
+            $module = $this->laravel->make(ModuleResolver::class)->resolve($this->option('module'));
+        } catch (ModuleExceptionInterface $e) {
+            $this->components->error($e->getMessage());
 
-        if (\is_string($name) && trim($name) !== '') {
-            try {
-                $module = $this->laravel->make(ModuleRegistryInterface::class)->find(Str::snake(trim($name)));
-            } catch (ModuleExceptionInterface $e) {
-                $this->components->error($e->getMessage());
+            return self::FAILURE;
+        }
 
-                return self::FAILURE;
-            }
-
+        if ($module instanceof Module) {
             $this->input->setOption('path', $this->laravel->make(ModuleLayout::class)->migrationsDir($module));
             $this->input->setOption('realpath', true);
         }

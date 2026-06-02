@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Console\Concerns;
 
+use DimitrienkoV\LaravelModules\Console\Support\ModuleResolver;
 use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
-use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Support\Str;
@@ -49,7 +49,7 @@ trait ModuleAwareGenerator
             return self::FAILURE;
         }
 
-        if ($module instanceof Module && $this->wantsMatchingTest()) {
+        if ($module instanceof Module && $this->shouldGenerateMatchingTest()) {
             $this->components->error(
                 'Module-aware generators do not create matching tests; remove the --test, --pest, or --phpunit option.',
             );
@@ -94,9 +94,9 @@ trait ModuleAwareGenerator
     /**
      * Resolve the target module from `--module`, or `null` for host mode.
      *
-     * The canonical (snake_case) name is looked up through the registry contract,
-     * so `--module=blog` and `--module=Blog` resolve to the same module. An
-     * unknown name surfaces as a {@see ModuleExceptionInterface}.
+     * Normalisation and the registry lookup live in the shared
+     * {@see ModuleResolver}, so `--module=blog` and `--module=Blog` resolve to
+     * the same module and an unknown name surfaces as a {@see ModuleExceptionInterface}.
      */
     protected function module(): ?Module
     {
@@ -106,15 +106,9 @@ trait ModuleAwareGenerator
 
         $this->moduleResolved = true;
 
-        $name = $this->hasOption('module') ? $this->option('module') : null;
+        $option = $this->hasOption('module') ? $this->option('module') : null;
 
-        if (! \is_string($name) || trim($name) === '') {
-            return $this->resolvedModule = null;
-        }
-
-        return $this->resolvedModule = $this->laravel
-            ->make(ModuleRegistryInterface::class)
-            ->find(Str::snake(trim($name)));
+        return $this->resolvedModule = $this->moduleResolver()->resolve($option);
     }
 
     protected function getDefaultNamespace($rootNamespace)
@@ -192,7 +186,9 @@ trait ModuleAwareGenerator
     }
 
     /**
-     * Merge `--module` into the arguments of an internally dispatched generator.
+     * Merge `--module` into the arguments of an internally dispatched generator,
+     * normalised through the same resolver as {@see module()} so the sub-generator
+     * receives the canonical module name.
      *
      * @param array<string, mixed> $arguments
      *
@@ -200,13 +196,19 @@ trait ModuleAwareGenerator
      */
     protected function withModuleOption(array $arguments): array
     {
-        $name = $this->hasOption('module') ? $this->option('module') : null;
+        $option = $this->hasOption('module') ? $this->option('module') : null;
+        $name = $this->moduleResolver()->normalize($option);
 
-        if (\is_string($name) && $name !== '') {
+        if ($name !== null) {
             $arguments['--module'] = $name;
         }
 
         return $arguments;
+    }
+
+    private function moduleResolver(): ModuleResolver
+    {
+        return $this->laravel->make(ModuleResolver::class);
     }
 
     private function moduleLayout(): ModuleLayout
@@ -214,7 +216,7 @@ trait ModuleAwareGenerator
         return $this->laravel->make(ModuleLayout::class);
     }
 
-    private function wantsMatchingTest(): bool
+    private function shouldGenerateMatchingTest(): bool
     {
         foreach (['test', 'pest', 'phpunit'] as $option) {
             if ($this->hasOption($option) && $this->option($option) === true) {

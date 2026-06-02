@@ -104,6 +104,21 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         BroadcastLoader::class,
     ];
 
+    /**
+     * The package's architectural generators. One source for both the singleton
+     * factory bindings (they need the injected stub path) and the `commands()`
+     * registration, so a new generator is declared in exactly one place.
+     *
+     * @var array<int, class-string>
+     */
+    private const array ARCHITECTURAL_GENERATORS = [
+        MakeUseCase::class,
+        MakeAction::class,
+        MakeQuery::class,
+        MakeDto::class,
+        MakeVo::class,
+    ];
+
     private const string MOONSHINE_CORE_CONTRACT = 'MoonShine\\Contracts\\Core\\DependencyInjection\\CoreContract';
 
     public function register(): void
@@ -433,34 +448,14 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     {
         $stubsPath = \dirname(__DIR__, 2) . '/stubs';
 
-        $this->app->singleton(
-            MakeUseCase::class,
-            static fn (Application $app): MakeUseCase => new MakeUseCase($app->make(Filesystem::class), $stubsPath),
-        );
-        $this->app->singleton(
-            MakeAction::class,
-            static fn (Application $app): MakeAction => new MakeAction($app->make(Filesystem::class), $stubsPath),
-        );
-        $this->app->singleton(
-            MakeQuery::class,
-            static fn (Application $app): MakeQuery => new MakeQuery($app->make(Filesystem::class), $stubsPath),
-        );
-        $this->app->singleton(
-            MakeDto::class,
-            static fn (Application $app): MakeDto => new MakeDto($app->make(Filesystem::class), $stubsPath),
-        );
-        $this->app->singleton(
-            MakeVo::class,
-            static fn (Application $app): MakeVo => new MakeVo($app->make(Filesystem::class), $stubsPath),
-        );
+        foreach (self::ARCHITECTURAL_GENERATORS as $generator) {
+            $this->app->singleton(
+                $generator,
+                static fn (Application $app): object => new $generator($app->make(Filesystem::class), $stubsPath),
+            );
+        }
 
-        $this->commands([
-            MakeUseCase::class,
-            MakeAction::class,
-            MakeQuery::class,
-            MakeDto::class,
-            MakeVo::class,
-        ]);
+        $this->commands(self::ARCHITECTURAL_GENERATORS);
     }
 
     private function packageConfigPath(): string

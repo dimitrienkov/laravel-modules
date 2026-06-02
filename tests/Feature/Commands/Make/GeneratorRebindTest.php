@@ -4,26 +4,15 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Feature\Commands\Make;
 
-use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeComponent;
-use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeController;
-use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeFactory;
-use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeMail;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeMigration;
-use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeModel;
-use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeSeeder;
 use DimitrienkoV\LaravelModules\Providers\ModuleGeneratorCommandsServiceProvider;
 use DimitrienkoV\LaravelModules\Tests\Support\InteractsWithModuleGenerators;
 use Illuminate\Contracts\Console\Kernel;
-use Illuminate\Database\Console\Factories\FactoryMakeCommand;
 use Illuminate\Database\Console\Migrations\MigrateMakeCommand;
-use Illuminate\Database\Console\Seeds\SeederMakeCommand;
-use Illuminate\Foundation\Console\ComponentMakeCommand;
-use Illuminate\Foundation\Console\MailMakeCommand;
-use Illuminate\Foundation\Console\ModelMakeCommand;
-use Illuminate\Routing\Console\ControllerMakeCommand;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClass;
 
 #[Group('feature')]
 final class GeneratorRebindTest extends TestCase
@@ -46,20 +35,20 @@ final class GeneratorRebindTest extends TestCase
     }
 
     #[Test]
-    public function rebindsNativeGeneratorFqcnsToModuleAwareSubclasses(): void
+    public function rebindsEveryNativeGeneratorFqcnToItsModuleAwareSubclass(): void
     {
         // Boot the console application so Console\Application::starting fires (and
         // the deferred ArtisanServiceProvider loads) — the moment the rebind
         // targets, mirroring how `php artisan make:*` actually resolves commands.
         $this->app->make(Kernel::class)->call('list');
 
-        self::assertInstanceOf(MakeModel::class, $this->app->make(ModelMakeCommand::class));
-        self::assertInstanceOf(MakeFactory::class, $this->app->make(FactoryMakeCommand::class));
-        self::assertInstanceOf(MakeSeeder::class, $this->app->make(SeederMakeCommand::class));
-        self::assertInstanceOf(MakeMigration::class, $this->app->make(MigrateMakeCommand::class));
-        self::assertInstanceOf(MakeController::class, $this->app->make(ControllerMakeCommand::class));
-        self::assertInstanceOf(MakeComponent::class, $this->app->make(ComponentMakeCommand::class));
-        self::assertInstanceOf(MakeMail::class, $this->app->make(MailMakeCommand::class));
+        foreach ($this->shadowedGenerators() as $nativeFqcn => $moduleAwareFqcn) {
+            self::assertInstanceOf(
+                $moduleAwareFqcn,
+                $this->app->make($nativeFqcn),
+                "Resolving [{$nativeFqcn}] must yield the module-aware shadow; the rebind silently stopped winning.",
+            );
+        }
     }
 
     #[Test]
@@ -98,5 +87,23 @@ final class GeneratorRebindTest extends TestCase
     protected function getPackageProviders($app): array
     {
         return [ModuleGeneratorCommandsServiceProvider::class];
+    }
+
+    /**
+     * Every native => module-aware pairing the package shadows, sourced from the
+     * provider's own GENERATORS constant (so a newly shadowed command is covered
+     * automatically and can never silently drift), plus make:migration, which is
+     * rebound outside that table through its own constructor wiring.
+     *
+     * @return array<class-string, class-string>
+     */
+    private function shadowedGenerators(): array
+    {
+        /** @var array<class-string, class-string> $generators */
+        $generators = (new ReflectionClass(ModuleGeneratorCommandsServiceProvider::class))->getConstant('GENERATORS');
+
+        $generators[MigrateMakeCommand::class] = MakeMigration::class;
+
+        return $generators;
     }
 }

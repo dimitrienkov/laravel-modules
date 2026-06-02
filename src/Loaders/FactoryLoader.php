@@ -45,7 +45,7 @@ final class FactoryLoader implements LoaderInterface
         }
 
         $this->factoryNamespacesByModelNamespace[$this->layout->modelNamespace($module) . '\\'] =
-            $this->layout->factoryNamespace($module) . '\\';
+            $this->layout->factoriesNamespace($module) . '\\';
 
         // The global resolver is registered once, but the namespace mapping is
         // recorded for every module with a Factories directory — so an

@@ -41,7 +41,7 @@ final class MakeModel extends ModelMakeCommand
         /** @var string $name */
         $name = $this->argument('name');
         $modelPath = Str::of($name)->studly()->replace('/', '\\')->toString();
-        $factoryClass = '\\' . $this->moduleLayout()->factoryNamespace($module) . '\\' . $modelPath . 'Factory';
+        $factoryClass = '\\' . $this->moduleLayout()->factoriesNamespace($module) . '\\' . $modelPath . 'Factory';
 
         return [
             '{{ factory }}' => "/** @use HasFactory<{$factoryClass}> */\n    use HasFactory;",

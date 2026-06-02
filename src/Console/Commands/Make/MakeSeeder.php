@@ -43,7 +43,7 @@ final class MakeSeeder extends SeederMakeCommand
             return parent::getPath($name);
         }
 
-        $relative = Str::replaceFirst($this->moduleLayout()->seederNamespace($module) . '\\', '', $name);
+        $relative = Str::replaceFirst($this->moduleLayout()->seedersNamespace($module) . '\\', '', $name);
 
         return $this->moduleLayout()->seedersDir($module) . '/' . str_replace('\\', '/', $relative) . '.php';
     }

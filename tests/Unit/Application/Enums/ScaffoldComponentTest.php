@@ -18,7 +18,7 @@ final class ScaffoldComponentTest extends TestCase
     #[Test]
     public function parsesValidCommaSeparatedValues(): void
     {
-        $components = ScaffoldComponent::parseList('routes,views,domain,application,database');
+        $components = ScaffoldComponent::fromOptionValue('routes,views,domain,application,database');
 
         self::assertSame(
             [
@@ -35,7 +35,7 @@ final class ScaffoldComponentTest extends TestCase
     #[Test]
     public function trimsWhitespaceAroundTokens(): void
     {
-        $components = ScaffoldComponent::parseList(' routes ,  http ');
+        $components = ScaffoldComponent::fromOptionValue(' routes ,  http ');
 
         self::assertSame([ScaffoldComponent::Routes, ScaffoldComponent::Http], $components);
     }
@@ -43,9 +43,9 @@ final class ScaffoldComponentTest extends TestCase
     #[Test]
     public function emptyStringYieldsEmptySelection(): void
     {
-        self::assertSame([], ScaffoldComponent::parseList(''));
-        self::assertSame([], ScaffoldComponent::parseList('   '));
-        self::assertSame([], ScaffoldComponent::parseList(', ,'));
+        self::assertSame([], ScaffoldComponent::fromOptionValue(''));
+        self::assertSame([], ScaffoldComponent::fromOptionValue('   '));
+        self::assertSame([], ScaffoldComponent::fromOptionValue(', ,'));
     }
 
     #[Test]
@@ -54,7 +54,7 @@ final class ScaffoldComponentTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Unknown module component [moonshine]');
 
-        ScaffoldComponent::parseList('routes,moonshine');
+        ScaffoldComponent::fromOptionValue('routes,moonshine');
     }
 
     #[Test]
@@ -63,7 +63,7 @@ final class ScaffoldComponentTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Duplicate module component [routes]');
 
-        ScaffoldComponent::parseList('routes,views,routes');
+        ScaffoldComponent::fromOptionValue('routes,views,routes');
     }
 
     #[Test]

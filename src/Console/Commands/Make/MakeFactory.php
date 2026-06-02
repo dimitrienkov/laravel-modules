@@ -36,7 +36,7 @@ final class MakeFactory extends FactoryMakeCommand
         }
 
         $relative = Str::finish(
-            Str::replaceFirst($this->moduleLayout()->factoryNamespace($module) . '\\', '', $name),
+            Str::replaceFirst($this->moduleLayout()->factoriesNamespace($module) . '\\', '', $name),
             'Factory',
         );
 
@@ -52,21 +52,28 @@ final class MakeFactory extends FactoryMakeCommand
         }
 
         $modelOption = $this->option('model');
-        $namespaceModel = \is_string($modelOption) && $modelOption !== ''
-            ? $this->qualifyModel($modelOption)
-            : $this->qualifyModel($this->guessModelName($name));
+        $rawModel = \is_string($modelOption) && $modelOption !== ''
+            ? $modelOption
+            : $this->guessModelName($name);
 
+        $namespaceModel = $this->qualifyModel($rawModel);
         $model = ClassName::short($namespaceModel);
         $factory = ClassName::short(Str::ucfirst(str_replace('Factory', '', $name)));
 
+        // Each model/factory value is emitted in both the spaced (`{{ x }}`) and
+        // unspaced (`{{x}}`) Blade-token notations, plus the legacy `Dummy*`
+        // placeholders, so the substitution covers every published stub variant.
         $replace = [
-            '{{ factoryNamespace }}' => $this->moduleLayout()->factoryNamespace($module),
+            '{{ factoryNamespace }}' => $this->moduleLayout()->factoriesNamespace($module),
+
             'NamespacedDummyModel' => $namespaceModel,
             '{{ namespacedModel }}' => $namespaceModel,
             '{{namespacedModel}}' => $namespaceModel,
+
             'DummyModel' => $model,
             '{{ model }}' => $model,
             '{{model}}' => $model,
+
             '{{ factory }}' => $factory,
             '{{factory}}' => $factory,
         ];

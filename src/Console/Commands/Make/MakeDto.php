@@ -6,6 +6,7 @@ namespace DimitrienkoV\LaravelModules\Console\Commands\Make;
 
 use DimitrienkoV\LaravelModules\Console\Concerns\ArchitecturalGenerator;
 use DimitrienkoV\LaravelModules\Console\Concerns\ModuleAwareGenerator;
+use DimitrienkoV\LaravelModules\Support\ModuleLayer;
 use Illuminate\Console\GeneratorCommand;
 
 final class MakeDto extends GeneratorCommand
@@ -23,7 +24,7 @@ final class MakeDto extends GeneratorCommand
 
     protected function moduleSubNamespace(): string
     {
-        return 'Application\\DTOs';
+        return ModuleLayer::Dtos->namespaceSegment();
     }
 
     protected function classSuffix(): string
