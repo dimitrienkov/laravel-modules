@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\UseCases;
 
 use DimitrienkoV\LaravelModules\Application\DTOs\ScaffoldModuleConfig;
+use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
 use DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback;
 use DimitrienkoV\LaravelModules\Application\UseCases\ScaffoldModuleUseCase;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
+use DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyExistsException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleScaffoldException;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
@@ -224,6 +228,53 @@ final class ScaffoldModuleUseCaseTest extends TestCase
         $this->expectException(ModuleAlreadyExistsException::class);
 
         $useCase2->execute(new ScaffoldModuleConfig(name: 'blog', directory: 'app/OtherModules', force: true));
+    }
+
+    #[Test]
+    public function emitsLifecycleFailedWhenPersistenceFailsAfterStart(): void
+    {
+        $config = $this->lifecycleConfig();
+        $paths = $this->lifecycleDirectoryPaths($config);
+        $directoryOps = $this->lifecycleDirectoryOps($paths);
+        $stateRepo = $this->lifecycleStateRepository($config);
+        $registry = $this->lifecycleRegistry($this->lifecycleManifestRepository($stateRepo), $stateRepo, $config);
+        $cache = $this->lifecycleRegistryCache($stateRepo);
+
+        $failingManifests = $this->createMock(ModuleManifestRepositoryInterface::class);
+        $failingManifests->method('writeManifest')->willThrowException(
+            new ManifestWriteException('simulated write failure'),
+        );
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $useCase = new ScaffoldModuleUseCase(
+            registry: $registry,
+            manifestRepository: $failingManifests,
+            stateRepository: $stateRepo,
+            namespaceResolver: $this->lifecycleNamespaceResolver(),
+            paths: $paths,
+            invalidator: $this->lifecycleInvalidator($cache, $registry),
+            skeletonBuilder: new ModuleSkeletonBuilder(new LocalFilesystem(new Filesystem()), new AtomicFileWriter(), \dirname(__DIR__, 4) . '/stubs'),
+            directoryOps: $directoryOps,
+            rollback: new PartialModuleRollback($directoryOps, $stateRepo),
+            diagnostics: $diagnostics,
+        );
+
+        try {
+            $useCase->execute(new ScaffoldModuleConfig(name: 'blog'));
+            $this->fail('Expected ModuleScaffoldException');
+        } catch (ModuleScaffoldException) {
+            // expected
+        }
+
+        $diagnostics->shouldHaveReceived('lifecycleStarted')->once()->with(LifecycleOperation::Scaffold, 'blog');
+        $diagnostics->shouldHaveReceived('lifecycleFailed')->once()->with(
+            LifecycleOperation::Scaffold,
+            'blog',
+            Mockery::type(ModuleScaffoldException::class),
+        );
+        $diagnostics->shouldNotHaveReceived('lifecycleSucceeded');
     }
 
     /**

@@ -18,13 +18,13 @@ use Throwable;
  * unconditionally — no `if ($logging)` branches in discovery, cache, pipeline or
  * lifecycle code. Stateless, so it is Octane-safe as a singleton.
  */
-final class NullModuleDiagnostics implements ModuleDiagnosticsInterface
+final readonly class NullModuleDiagnostics implements ModuleDiagnosticsInterface
 {
-    public function discoveryRootMissing(string $root): void
+    public function discoveryRootMissing(string $directory): void
     {
     }
 
-    public function discoveryRootRejected(string $root, string $reason): void
+    public function discoveryRootRejected(string $directory, string $reason): void
     {
     }
 
@@ -52,7 +52,7 @@ final class NullModuleDiagnostics implements ModuleDiagnosticsInterface
     {
     }
 
-    public function cacheInvalid(string $reason): void
+    public function cacheInvalid(string $reason, ?Throwable $exception = null): void
     {
     }
 
@@ -77,6 +77,10 @@ final class NullModuleDiagnostics implements ModuleDiagnosticsInterface
     }
 
     public function lifecycleSucceeded(LifecycleOperation $operation, ?string $module = null): void
+    {
+    }
+
+    public function lifecycleFailed(LifecycleOperation $operation, ?string $module = null, ?Throwable $exception = null): void
     {
     }
 

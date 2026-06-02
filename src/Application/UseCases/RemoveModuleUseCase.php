@@ -39,19 +39,25 @@ final readonly class RemoveModuleUseCase
 
         $this->diagnostics->lifecycleStarted(LifecycleOperation::Remove, $moduleName);
 
-        $backupPath = $strategy === RemoveStrategy::Permanent
-            ? $this->removePermanently($module)
-            : $this->removeWithBackup($module);
+        try {
+            $backupPath = $strategy === RemoveStrategy::Permanent
+                ? $this->removePermanently($module)
+                : $this->removeWithBackup($module);
 
-        $this->invalidator->flushAndReset();
+            $this->invalidator->flushAndReset();
 
-        $this->diagnostics->lifecycleSucceeded(LifecycleOperation::Remove, $moduleName);
+            $this->diagnostics->lifecycleSucceeded(LifecycleOperation::Remove, $moduleName);
 
-        return new RemoveModuleResult(
-            name: $moduleName,
-            removedPath: $module->path,
-            backupPath: $backupPath,
-        );
+            return new RemoveModuleResult(
+                name: $moduleName,
+                removedPath: $module->path,
+                backupPath: $backupPath,
+            );
+        } catch (Throwable $e) {
+            $this->diagnostics->lifecycleFailed(LifecycleOperation::Remove, $moduleName, $e);
+
+            throw $e;
+        }
     }
 
     private function removePermanently(Module $module): null

@@ -50,7 +50,12 @@ final readonly class ModuleLoaderPipeline
                 try {
                     $report = $loader->load($module);
                     $this->diagnostics->loaderOutcome($module, $loader, $report);
-                    $report->wasApplied() ? $applied++ : $skipped++;
+
+                    if ($report->wasApplied()) {
+                        $applied++;
+                    } else {
+                        $skipped++;
+                    }
                 } catch (Throwable $exception) {
                     $failed++;
                     // Diagnostics are emitted in addition to — never instead of —

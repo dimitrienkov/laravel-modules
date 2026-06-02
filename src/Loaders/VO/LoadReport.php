@@ -12,9 +12,9 @@ use InvalidArgumentException;
  * Returned by every {@see \DimitrienkoV\LaravelModules\Contracts\LoaderInterface}
  * so the pipeline can centralise diagnostics: an applied report carries the
  * artifacts the loader contributed; a skipped report carries the reason a
- * precondition was missing. The value object is a pure data carrier — it holds
- * no module reference, feature values, or secrets, so {@see toArray()} is always
- * safe to log.
+ * precondition was missing. The value object is a pure data carrier whose
+ * {@see toArray()} projection is safe to log — see the whitelist guarantee on
+ * {@see \DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface}.
  *
  * Invariants (enforced in the constructor):
  * - Applied  ⇒ reason is null; artifacts MAY be empty (a no-op loader such as
@@ -71,9 +71,8 @@ final readonly class LoadReport
     }
 
     /**
-     * Whitelisted scalar projection — safe to write to a log channel. Contains
-     * only the status string, the optional skip reason value, and artifact
-     * basenames/paths. Never a Module, feature values, or secrets.
+     * Whitelisted scalar projection — the status string, the optional skip reason
+     * value, and artifact basenames/paths. Safe to write to a log channel.
      *
      * @return array{status: string, reason?: string, artifacts: array<string, list<string>>}
      */

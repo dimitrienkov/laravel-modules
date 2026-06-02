@@ -37,7 +37,7 @@ final readonly class LangLoader implements LoaderInterface
             },
         );
 
-        return LoadReport::applied(['lang' => [substr($langDir, \strlen($module->path) + 1)]]);
+        return LoadReport::applied(['lang' => [$this->layout->relativeToModule($module, $langDir)]]);
     }
 
     public function priority(): int

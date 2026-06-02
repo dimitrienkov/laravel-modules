@@ -14,6 +14,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyEnabledException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
+use Throwable;
 
 final readonly class EnableModuleUseCase
 {
@@ -36,22 +37,28 @@ final readonly class EnableModuleUseCase
 
         $this->diagnostics->lifecycleStarted(LifecycleOperation::Enable, $moduleName);
 
-        $candidateState = ModuleState::updatedFrom($module->state)->withEnabled(true);
-        $candidate = $module->withState($candidateState);
+        try {
+            $candidateState = ModuleState::updatedFrom($module->state)->withEnabled(true);
+            $candidate = $module->withState($candidateState);
 
-        $allModules = $this->registry->all();
-        $candidateGraph = array_map(
-            static fn (Module $m): Module => $m->name === $moduleName ? $candidate : $m,
-            $allModules,
-        );
+            $allModules = $this->registry->all();
+            $candidateGraph = array_map(
+                static fn (Module $m): Module => $m->name === $moduleName ? $candidate : $m,
+                $allModules,
+            );
 
-        $this->dependencyGuard->assertGraphValid($candidateGraph);
+            $this->dependencyGuard->assertGraphValid($candidateGraph);
 
-        $updated = $this->stateRepository->writeState($module, $candidateState);
-        $this->invalidator->flushAndReset();
+            $updated = $this->stateRepository->writeState($module, $candidateState);
+            $this->invalidator->flushAndReset();
 
-        $this->diagnostics->lifecycleSucceeded(LifecycleOperation::Enable, $moduleName);
+            $this->diagnostics->lifecycleSucceeded(LifecycleOperation::Enable, $moduleName);
 
-        return $updated;
+            return $updated;
+        } catch (Throwable $e) {
+            $this->diagnostics->lifecycleFailed(LifecycleOperation::Enable, $moduleName, $e);
+
+            throw $e;
+        }
     }
 }

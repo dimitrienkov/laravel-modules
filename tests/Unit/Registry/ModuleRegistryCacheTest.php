@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Unit\Registry;
 
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidModuleCacheException;
 use DimitrienkoV\LaravelModules\Manifest\ManifestSettingsValidator;
 use DimitrienkoV\LaravelModules\Manifest\ManifestValidator;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Filesystem\Filesystem;
+use Mockery;
+use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -22,6 +26,8 @@ use PHPUnit\Framework\TestCase;
 #[Group('registry')]
 final class ModuleRegistryCacheTest extends TestCase
 {
+    use MockeryPHPUnitIntegration;
+
     private string $tempDir;
 
     protected function setUp(): void
@@ -232,7 +238,46 @@ final class ModuleRegistryCacheTest extends TestCase
         $cache->load();
     }
 
-    private function cache(): ModuleRegistryCache
+    #[Test]
+    public function reportsCacheInvalidWithTheCaughtExceptionToDiagnostics(): void
+    {
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+        $cache = $this->cache($diagnostics);
+        file_put_contents($cache->cachePath(), '<?php return ' . var_export([
+            'version' => 99,
+            'modules' => [],
+            'load_order' => [],
+        ], true) . ';');
+
+        try {
+            $cache->load();
+            self::fail('Expected InvalidModuleCacheException');
+        } catch (InvalidModuleCacheException) {
+            // expected
+        }
+
+        $diagnostics->shouldHaveReceived('cacheInvalid')->once()->with(
+            Mockery::type('string'),
+            Mockery::type(InvalidModuleCacheException::class),
+        );
+    }
+
+    #[Test]
+    public function reportsCacheWrittenAndClearedToDiagnostics(): void
+    {
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+        $cache = $this->cache($diagnostics);
+
+        $cache->write([ModuleFactory::make(name: 'blog')]);
+        $cache->forget();
+
+        $diagnostics->shouldHaveReceived('cacheWritten')->once()->with(1, Mockery::type('string'));
+        $diagnostics->shouldHaveReceived('cacheCleared')->once();
+    }
+
+    private function cache(?ModuleDiagnosticsInterface $diagnostics = null): ModuleRegistryCache
     {
         $stateRepo = $this->createMock(ModuleStateRepositoryInterface::class);
         $stateRepo->method('readState')->willReturn(ModuleState::defaultDisabled());
@@ -242,6 +287,7 @@ final class ModuleRegistryCacheTest extends TestCase
             layout: new ModuleLayout(),
             stateRepository: $stateRepo,
             basePath: $this->tempDir,
+            diagnostics: $diagnostics ?? new NullModuleDiagnostics(),
         );
     }
 

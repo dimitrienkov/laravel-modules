@@ -55,6 +55,7 @@ final class LoadReportTest extends TestCase
     public function constructorRejectsAnAppliedReportThatCarriesAReason(): void
     {
         $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('An applied LoadReport must not carry a skip reason.');
 
         new LoadReport(LoadStatus::Applied, [], SkipReason::NoDirectory);
     }
@@ -63,6 +64,7 @@ final class LoadReportTest extends TestCase
     public function constructorRequiresASkippedReportToCarryAReason(): void
     {
         $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('A skipped LoadReport must carry a skip reason.');
 
         new LoadReport(LoadStatus::Skipped);
     }
@@ -71,6 +73,7 @@ final class LoadReportTest extends TestCase
     public function constructorRejectsArtifactsOnASkippedReport(): void
     {
         $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('A skipped LoadReport must not carry artifacts.');
 
         new LoadReport(LoadStatus::Skipped, ['config' => ['settings.php']], SkipReason::NoDirectory);
     }

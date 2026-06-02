@@ -37,8 +37,6 @@ final readonly class RouteLoader implements LoaderInterface
             return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
-        // RouteLoader inspects specific per-type files (not a glob), so it knows
-        // whether any applicable route file existed without adding directory I/O.
         // A missing inertia integration only omits the inertia file, never skips.
         $loaded = [];
 

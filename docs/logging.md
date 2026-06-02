@@ -1,4 +1,4 @@
-[← CLI](cli.md) · [Back to README](../README.MD) · [Configuration →](configuration.md)
+[← Feature Toggles](feature-toggles.md) · [Back to README](../README.MD) · [CLI →](cli.md)
 
 # Diagnostic Logging
 
@@ -48,10 +48,15 @@ MODULES_LOG_LEVEL=debug       # глобальный порог уровня (п
 - **`enabled`** — мастер-тумблер. При `false` контейнер биндит `NullModuleDiagnostics`
   (нулевые накладные расходы), при `true` — `ModuleLogger` поверх выбранного канала.
 - **`channel`** — имя канала хоста. Пакет канал не создаёт и не навязывает: он лишь
-  использует канал по имени через `Log::channel($name)`. `null` → канал по умолчанию.
+  использует канал по имени через лог-менеджер хоста (`$app->make('log')->channel($name)`).
+  `null` → канал по умолчанию.
 - **`level`** — глобальный порог: события с уровнем ниже порога не пишутся.
 - **`events`** — тумблеры категорий. Категория проверяется **до** порога и **до**
   построения context.
+
+> **Octane:** секция `modules.logging` читается на boot / старте воркера. Рантайм-
+> переключение `modules.logging.*` под Octane не подхватывается на лету — нужен
+> `php artisan octane:reload` (или перезапуск воркеров).
 
 ## Отдельный лог-канал
 
@@ -91,14 +96,24 @@ MODULES_LOG_CHANNEL=modules
 Каждое событие гейтится своим тумблером `events.*` и глобальным порогом. Context —
 только whitelisted-скаляры (см. гарантию ниже).
 
+> **Ошибки не глушатся категорией.** События уровня `error` и выше
+> (`pipeline.loader.failed`, `lifecycle.{op}.failed`) обходят per-category
+> тумблер: `events.pipeline=false` приглушит DEBUG-шум pipeline, но **не**
+> ошибку loader'а. Их подавляет только глобальный порог `level` (например,
+> `MODULES_LOG_LEVEL=emergency`).
+
 ### `events.discovery`
 
 | Событие | Уровень | Context |
 |---|---|---|
-| `discovery.root.missing` | warning | `root` |
-| `discovery.root.rejected` | warning | `root`, `reason` |
+| `discovery.root.missing` | warning | `directory` |
+| `discovery.root.rejected` | warning | `directory`, `reason` |
 | `discovery.module.found` | debug | `module`, `path` |
 | `discovery.completed` | debug | `total`, `enabled`, `disabled` |
+
+`directory` на `discovery.root.*` — относительная директория из
+`modules.paths.directories`; `path` на `discovery.module.found` — абсолютный путь
+найденного модуля.
 
 ### `events.cache`
 
@@ -108,7 +123,7 @@ MODULES_LOG_CHANNEL=modules
 | `cache.miss` | debug | — |
 | `cache.written` | info | `count`, `path` |
 | `cache.cleared` | info | — |
-| `cache.invalid` | warning | `reason` |
+| `cache.invalid` | warning | `reason`, `exception`? |
 
 ### `events.pipeline`
 
@@ -120,12 +135,15 @@ MODULES_LOG_CHANNEL=modules
 | `pipeline.loader.applied` | debug | `module`, `loader`, `artifacts` |
 | `pipeline.loader.skipped` | debug | `module`, `loader`, `reason` |
 | `pipeline.loader.failed` | error | `module`, `loader`, `exception`, `message` |
-| `pipeline.finished` | debug | `modules_enabled`, `loaders`, `applied`, `skipped`, `failed`, `duration_ms` |
+| `pipeline.finished` | debug / warning | `modules_enabled`, `loaders`, `applied`, `skipped`, `failed`, `duration_ms` |
 
 `pipeline.loader.failed` логируется **дополнительно** к `ExceptionHandler::report()` —
-host-трекер ошибок по-прежнему получает полное исключение. `duration_ms` (через
-`hrtime(true)`) считается только на `pipeline.finished`, без шума на каждой паре
-loader × module.
+host-трекер ошибок по-прежнему получает полное исключение. В context кладётся сам
+объект `Throwable` (ключ `exception`), чтобы канал отрендерил stack-trace и цепочку
+`$previous`; `message` дублирует его текст для plain-text форматтеров. `duration_ms`
+(через `hrtime(true)`) считается только на `pipeline.finished`, без шума на каждой
+паре loader × module; при `failed > 0` `pipeline.finished` поднимается с `debug` до
+`warning`.
 
 **`reason`** на `pipeline.loader.skipped` — одно из значений `SkipReason`:
 
@@ -152,19 +170,24 @@ path-registering лоадеров (`MigrationLoader`/`EventLoader`/`CommandLoade
 |---|---|---|
 | `lifecycle.{op}.started` | info | `module`?, `source`? |
 | `lifecycle.{op}.succeeded` | info | `module`? |
-| `lifecycle.{op}.rolledBack` | warning | `module`, `stage` |
-| `lifecycle.backup.created` | warning | `operation`, `module`, `backup` |
+| `lifecycle.{op}.failed` | error | `module`?, `exception`?, `message`? |
+| `lifecycle.{op}.rolled_back` | warning | `module`, `stage` |
+| `lifecycle.{op}.backup_created` | info | `module`, `backup` |
 
 `module` отсутствует у глобальных операций (`optimize`, `clear_cache`). `source` —
-вид источника (`zip`/`local`) для `install`/`update`. `rolledBack` пишется на
-компенсирующих путях (восстановление состояния/директории перед re-throw).
+вид источника (`zip`) для `install`/`update` (единственный поддерживаемый вид входа).
+Каждый путь, эмитнувший `started`, закрывается **ровно одним** терминалом —
+`succeeded` или `failed`; `failed` (error) несёт объект `exception` и его `message`.
+`rolled_back` и `backup_created` — промежуточные маркеры на компенсирующих путях
+(backup/восстановление состояния/директории перед re-throw), а не терминалы.
 
 ## Гарантия whitelist
 
 `ModuleLogger` собирает context вручную из типизированных входов и пишет **только**
-whitelisted-скаляры: имя модуля, относительный путь, shortname лоадера, счётчики,
-`SkipReason->value`, basename'ы артефактов, вид источника. В context **никогда** не
-попадают:
+whitelisted-скаляры: имя модуля, относительную директорию discovery-roots,
+абсолютный путь найденного модуля, относительные пути/basename'ы артефактов,
+shortname лоадера, счётчики, `SkipReason->value`, вид источника, объект `Throwable`
+на ошибках. В context **никогда** не попадают:
 
 - значения фичетоглов (`settings.values`);
 - секреты;

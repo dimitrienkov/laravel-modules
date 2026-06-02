@@ -25,7 +25,7 @@ final readonly class ServiceProviderLoader implements LoaderInterface
     /**
      * Unlike the convention loaders, an absent Providers directory is not a
      * missing precondition here: registering zero providers is a valid applied
-     * outcome with no artifacts (§2.1), never a skip.
+     * outcome with no artifacts, never a skip.
      */
     public function load(Module $module): LoadReport
     {

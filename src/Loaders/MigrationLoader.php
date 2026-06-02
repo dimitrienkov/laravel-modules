@@ -37,7 +37,7 @@ final readonly class MigrationLoader implements LoaderInterface
             },
         );
 
-        return LoadReport::applied(['migrations' => [substr($migrationsDir, \strlen($module->path) + 1)]]);
+        return LoadReport::applied(['migrations' => [$this->layout->relativeToModule($module, $migrationsDir)]]);
     }
 
     public function priority(): int

@@ -30,7 +30,7 @@ final readonly class EventLoader implements LoaderInterface
 
         EventServiceProvider::addEventDiscoveryPaths($listenersDir);
 
-        return LoadReport::applied(['listeners' => [substr($listenersDir, \strlen($module->path) + 1)]]);
+        return LoadReport::applied(['listeners' => [$this->layout->relativeToModule($module, $listenersDir)]]);
     }
 
     public function priority(): int

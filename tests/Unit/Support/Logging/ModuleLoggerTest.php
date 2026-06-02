@@ -7,6 +7,7 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Support\Logging;
 use DimitrienkoV\LaravelModules\Application\Enums\LifecycleOperation;
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\PipelineRunSummary;
 use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\Enums\FeatureType;
 use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
@@ -78,25 +79,28 @@ final class ModuleLoggerTest extends TestCase
     }
 
     #[Test]
-    public function loaderFailureLogsExceptionClassAndMessageWithoutModuleInternals(): void
+    public function loaderFailureLogsTheThrowableObjectAndMessageWithoutModuleInternals(): void
     {
         $logger = new RecordingPsrLogger();
         $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
 
+        $exception = new \RuntimeException('boom');
+
         $moduleLogger->loaderFailed(
             $this->moduleCarryingSecrets(),
             new WhitelistFakeLoader(),
-            new \RuntimeException('boom'),
+            $exception,
         );
 
         self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
         self::assertSame('pipeline.loader.failed', $logger->records[0]['message']);
-        self::assertSame([
-            'module' => 'blog',
-            'loader' => 'WhitelistFakeLoader',
-            'exception' => \RuntimeException::class,
-            'message' => 'boom',
-        ], $logger->records[0]['context']);
+
+        $context = $logger->records[0]['context'];
+        self::assertSame('blog', $context['module']);
+        self::assertSame('WhitelistFakeLoader', $context['loader']);
+        // The object itself is logged so the channel can render trace + $previous.
+        self::assertSame($exception, $context['exception']);
+        self::assertSame('boom', $context['message']);
         self::assertStringNotContainsString(self::FEATURE_SECRET, $this->encode($logger));
     }
 
@@ -110,6 +114,197 @@ final class ModuleLoggerTest extends TestCase
 
         self::assertSame('lifecycle.install.started', $logger->records[0]['message']);
         self::assertSame(['module' => 'blog', 'source' => 'zip'], $logger->records[0]['context']);
+    }
+
+    #[Test]
+    public function lifecycleStartedForAGlobalOperationLogsAnEmptyContext(): void
+    {
+        $logger = new RecordingPsrLogger();
+        $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
+
+        $moduleLogger->lifecycleStarted(LifecycleOperation::Optimize);
+
+        self::assertSame(LogLevel::INFO, $logger->records[0]['level']);
+        self::assertSame('lifecycle.optimize.started', $logger->records[0]['message']);
+        self::assertSame([], $logger->records[0]['context']);
+    }
+
+    #[Test]
+    public function lifecycleSucceededLogsModuleAtInfo(): void
+    {
+        $logger = new RecordingPsrLogger();
+        $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
+
+        $moduleLogger->lifecycleSucceeded(LifecycleOperation::Install, 'blog');
+
+        self::assertSame(LogLevel::INFO, $logger->records[0]['level']);
+        self::assertSame('lifecycle.install.succeeded', $logger->records[0]['message']);
+        self::assertSame(['module' => 'blog'], $logger->records[0]['context']);
+    }
+
+    #[Test]
+    public function lifecycleFailedLogsTheThrowableObjectAndMessageAtError(): void
+    {
+        $logger = new RecordingPsrLogger();
+        $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
+
+        $exception = new \RuntimeException('kaboom');
+
+        $moduleLogger->lifecycleFailed(LifecycleOperation::Remove, 'blog', $exception);
+
+        self::assertSame(LogLevel::ERROR, $logger->records[0]['level']);
+        self::assertSame('lifecycle.remove.failed', $logger->records[0]['message']);
+
+        $context = $logger->records[0]['context'];
+        self::assertSame('blog', $context['module']);
+        self::assertSame($exception, $context['exception']);
+        self::assertSame('kaboom', $context['message']);
+    }
+
+    #[Test]
+    public function lifecycleRolledBackLogsModuleAndStageAtWarning(): void
+    {
+        $logger = new RecordingPsrLogger();
+        $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
+
+        $moduleLogger->lifecycleRolledBack(LifecycleOperation::Update, 'blog', 'persistence');
+
+        self::assertSame(LogLevel::WARNING, $logger->records[0]['level']);
+        self::assertSame('lifecycle.update.rolled_back', $logger->records[0]['message']);
+        self::assertSame(['module' => 'blog', 'stage' => 'persistence'], $logger->records[0]['context']);
+    }
+
+    #[Test]
+    public function lifecycleBackupCreatedLogsModuleAndBackupAtInfoWithoutOperationKey(): void
+    {
+        $logger = new RecordingPsrLogger();
+        $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
+
+        $moduleLogger->lifecycleBackupCreated(LifecycleOperation::Update, 'blog', '/backups/blog-123');
+
+        self::assertSame(LogLevel::INFO, $logger->records[0]['level']);
+        self::assertSame('lifecycle.update.backup_created', $logger->records[0]['message']);
+        self::assertSame(['module' => 'blog', 'backup' => '/backups/blog-123'], $logger->records[0]['context']);
+    }
+
+    #[Test]
+    public function pipelineFinishedStaysAtDebugForACleanRun(): void
+    {
+        $logger = new RecordingPsrLogger();
+        $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
+
+        $moduleLogger->pipelineFinished(new PipelineRunSummary(
+            modulesEnabled: 1,
+            loaders: 2,
+            applied: 2,
+            skipped: 0,
+            failed: 0,
+            durationMs: 1.5,
+        ));
+
+        self::assertSame(LogLevel::DEBUG, $logger->records[0]['level']);
+        self::assertSame('pipeline.finished', $logger->records[0]['message']);
+    }
+
+    #[Test]
+    public function pipelineFinishedEscalatesToWarningWhenAnyLoaderFailed(): void
+    {
+        $logger = new RecordingPsrLogger();
+        // A warning threshold would hide a clean (debug) run, but the failed run escalates.
+        $moduleLogger = new ModuleLogger($logger, LogLevel::WARNING, $this->allEventsEnabled());
+
+        $moduleLogger->pipelineFinished(new PipelineRunSummary(
+            modulesEnabled: 1,
+            loaders: 2,
+            applied: 1,
+            skipped: 0,
+            failed: 1,
+            durationMs: 2.0,
+        ));
+
+        self::assertCount(1, $logger->records);
+        self::assertSame(LogLevel::WARNING, $logger->records[0]['level']);
+        self::assertSame('pipeline.finished', $logger->records[0]['message']);
+    }
+
+    #[Test]
+    public function unrecognisedThresholdFailsOpenToDebug(): void
+    {
+        $logger = new RecordingPsrLogger();
+        $moduleLogger = new ModuleLogger($logger, 'bogus', $this->allEventsEnabled());
+
+        $moduleLogger->discoveryCompleted(1, 1, 0);
+
+        self::assertCount(1, $logger->records);
+        self::assertSame('discovery.completed', $logger->records[0]['message']);
+    }
+
+    #[Test]
+    public function thresholdComparisonIsCaseInsensitive(): void
+    {
+        $logger = new RecordingPsrLogger();
+        $moduleLogger = new ModuleLogger($logger, 'INFO', $this->allEventsEnabled());
+
+        // debug — below the (mixed-case) INFO threshold, filtered out.
+        $moduleLogger->discoveryCompleted(1, 1, 0);
+        // info — meets the threshold, written.
+        $moduleLogger->cacheWritten(2, 'bootstrap/cache/modules.php');
+
+        self::assertCount(1, $logger->records);
+        self::assertSame('cache.written', $logger->records[0]['message']);
+    }
+
+    #[Test]
+    public function errorEventsBypassADisabledCategoryWhileNonErrorEventsStayGated(): void
+    {
+        $logger = new RecordingPsrLogger();
+        $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, [
+            'discovery' => true,
+            'cache' => true,
+            'pipeline' => false,
+            'lifecycle' => false,
+        ]);
+
+        // ERROR bypasses the disabled pipeline category.
+        $moduleLogger->loaderFailed(
+            $this->moduleCarryingSecrets(),
+            new WhitelistFakeLoader(),
+            new \RuntimeException('boom'),
+        );
+        // DEBUG stays gated by the disabled pipeline category.
+        $moduleLogger->loaderOutcome(
+            $this->moduleCarryingSecrets(),
+            new WhitelistFakeLoader(),
+            LoadReport::applied(),
+        );
+        // ERROR bypasses the disabled lifecycle category.
+        $moduleLogger->lifecycleFailed(LifecycleOperation::Remove, 'blog', new \RuntimeException('x'));
+        // INFO stays gated by the disabled lifecycle category.
+        $moduleLogger->lifecycleStarted(LifecycleOperation::Remove, 'blog');
+
+        $messages = array_map(static fn (array $record): string => $record['message'], $logger->records);
+
+        self::assertSame([
+            'pipeline.loader.failed',
+            'lifecycle.remove.failed',
+        ], $messages);
+    }
+
+    #[Test]
+    public function disablingTheCacheCategoryStillSuppressesTheWarningLevelCacheInvalid(): void
+    {
+        $logger = new RecordingPsrLogger();
+        $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, [
+            'discovery' => true,
+            'cache' => false,
+            'pipeline' => true,
+            'lifecycle' => true,
+        ]);
+
+        // WARNING < ERROR, so the bypass does not apply — the disabled category wins.
+        $moduleLogger->cacheInvalid('corrupt', new \RuntimeException('parse'));
+
+        self::assertSame([], $logger->records);
     }
 
     #[Test]

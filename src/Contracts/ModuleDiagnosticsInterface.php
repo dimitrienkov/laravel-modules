@@ -28,9 +28,9 @@ use Throwable;
  */
 interface ModuleDiagnosticsInterface
 {
-    public function discoveryRootMissing(string $root): void;
+    public function discoveryRootMissing(string $directory): void;
 
-    public function discoveryRootRejected(string $root, string $reason): void;
+    public function discoveryRootRejected(string $directory, string $reason): void;
 
     public function discoveryModuleFound(string $module, string $path): void;
 
@@ -44,7 +44,7 @@ interface ModuleDiagnosticsInterface
 
     public function cacheCleared(): void;
 
-    public function cacheInvalid(string $reason): void;
+    public function cacheInvalid(string $reason, ?Throwable $exception = null): void;
 
     public function pipelineStarted(int $modulesEnabled, int $loaders): void;
 
@@ -57,6 +57,8 @@ interface ModuleDiagnosticsInterface
     public function lifecycleStarted(LifecycleOperation $operation, ?string $module = null, ?string $sourceKind = null): void;
 
     public function lifecycleSucceeded(LifecycleOperation $operation, ?string $module = null): void;
+
+    public function lifecycleFailed(LifecycleOperation $operation, ?string $module = null, ?Throwable $exception = null): void;
 
     public function lifecycleRolledBack(LifecycleOperation $operation, string $module, string $stage): void;
 

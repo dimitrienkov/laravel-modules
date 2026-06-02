@@ -1,4 +1,4 @@
-[← Feature Toggles](feature-toggles.md) · [Back to README](../README.MD) · [Contributing →](contributing.md)
+[← Logging](logging.md) · [Back to README](../README.MD) · [Contributing →](contributing.md)
 
 # CLI
 

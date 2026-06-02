@@ -59,7 +59,7 @@ final readonly class ModuleRegistryCache implements ModuleRegistryCacheInterface
         try {
             return $this->loadValidated();
         } catch (InvalidModuleCacheException $exception) {
-            $this->diagnostics->cacheInvalid($exception->getMessage());
+            $this->diagnostics->cacheInvalid($exception->getMessage(), $exception);
 
             throw $exception;
         }

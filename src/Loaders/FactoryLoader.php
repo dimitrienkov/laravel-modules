@@ -55,7 +55,7 @@ final class FactoryLoader implements LoaderInterface
             $this->registered = true;
         }
 
-        return LoadReport::applied(['factories' => [substr($factoriesDir, \strlen($module->path) + 1)]]);
+        return LoadReport::applied(['factories' => [$this->layout->relativeToModule($module, $factoriesDir)]]);
     }
 
     public function priority(): int

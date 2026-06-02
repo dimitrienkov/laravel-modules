@@ -11,6 +11,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleLoaderException;
 use DimitrienkoV\LaravelModules\Loaders\Pipeline\ModuleLoaderPipeline;
 use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
 use DimitrienkoV\LaravelModules\Loaders\VO\PipelineRunSummary;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
@@ -231,6 +232,41 @@ final class ModuleLoaderPipelineTest extends TestCase
             ));
     }
 
+    #[Test]
+    public function countsAppliedSkippedAndFailedAndMeasuresDuration(): void
+    {
+        /** @var \ArrayObject<int, array{0: string, 1: string}> $calls */
+        $calls = new \ArrayObject();
+
+        /** @var ModuleDiagnosticsInterface&Mockery\MockInterface $diagnostics */
+        $diagnostics = Mockery::spy(ModuleDiagnosticsInterface::class);
+
+        $pipeline = new ModuleLoaderPipeline(
+            registry: new PipelineFakeRegistry([
+                ModuleFactory::make(name: 'blog'),
+            ]),
+            loaders: [
+                new PipelineStaticReportLoader(LoadReport::applied(['x' => ['a']]), 10),
+                new PipelineStaticReportLoader(LoadReport::skipped(SkipReason::NoDirectory), 20),
+                new PipelineConditionallyThrowingLoader($calls, new \RuntimeException('boom'), 30, 'blog'),
+            ],
+            exceptionHandler: $this->fakeExceptionHandler(),
+            diagnostics: $diagnostics,
+        );
+
+        $pipeline->boot();
+
+        $diagnostics->shouldHaveReceived('loaderFailed')->once();
+        $diagnostics->shouldHaveReceived('pipelineFinished')
+            ->once()
+            ->with(Mockery::on(
+                static fn (PipelineRunSummary $summary): bool => $summary->applied === 1
+                    && $summary->skipped === 1
+                    && $summary->failed === 1
+                    && $summary->durationMs >= 0.0,
+            ));
+    }
+
     private function fakeExceptionHandler(): ExceptionHandler
     {
         /** @var ExceptionHandler&Mockery\MockInterface $handler */
@@ -238,6 +274,25 @@ final class ModuleLoaderPipelineTest extends TestCase
         $handler->shouldReceive('report');
 
         return $handler;
+    }
+}
+
+final readonly class PipelineStaticReportLoader implements LoaderInterface
+{
+    public function __construct(
+        private LoadReport $report,
+        private int $priority,
+    ) {
+    }
+
+    public function load(Module $module): LoadReport
+    {
+        return $this->report;
+    }
+
+    public function priority(): int
+    {
+        return $this->priority;
     }
 }
 

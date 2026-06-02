@@ -8,7 +8,8 @@ namespace DimitrienkoV\LaravelModules\Loaders\VO;
  * Aggregate outcome of one full loader-pipeline run, reported on
  * `pipeline.finished`. Counts are accumulated in pipeline-local variables (the
  * pipeline stays `final readonly`); `durationMs` is the total wall time measured
- * with `hrtime(true)`. All fields are whitelisted scalars, safe to log.
+ * with `hrtime(true)`. All fields are whitelisted scalars — see the whitelist
+ * guarantee on {@see \DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface}.
  */
 final readonly class PipelineRunSummary
 {

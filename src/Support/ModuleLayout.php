@@ -113,6 +113,16 @@ final readonly class ModuleLayout
         return $module->path . '/Providers';
     }
 
+    /**
+     * An artifact directory expressed relative to its module root. Callers pass
+     * absolute paths this same layout produced, so `$absolutePath` always sits
+     * under `$module->path`; the `+ 1` drops the separator after the module root.
+     */
+    public function relativeToModule(Module $module, string $absolutePath): string
+    {
+        return substr($absolutePath, \strlen($module->path) + 1);
+    }
+
     public function routeFile(Module $module, string $type): string
     {
         return $this->routesDir($module) . "/{$type}.php";

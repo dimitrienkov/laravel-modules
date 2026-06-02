@@ -14,6 +14,7 @@ use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyDisabledException;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
+use Throwable;
 
 final readonly class DisableModuleUseCase
 {
@@ -38,13 +39,19 @@ final readonly class DisableModuleUseCase
 
         $this->diagnostics->lifecycleStarted(LifecycleOperation::Disable, $moduleName);
 
-        $newState = ModuleState::updatedFrom($module->state)->withEnabled(false);
+        try {
+            $newState = ModuleState::updatedFrom($module->state)->withEnabled(false);
 
-        $updated = $this->stateRepository->writeState($module, $newState);
-        $this->invalidator->flushAndReset();
+            $updated = $this->stateRepository->writeState($module, $newState);
+            $this->invalidator->flushAndReset();
 
-        $this->diagnostics->lifecycleSucceeded(LifecycleOperation::Disable, $moduleName);
+            $this->diagnostics->lifecycleSucceeded(LifecycleOperation::Disable, $moduleName);
 
-        return $updated;
+            return $updated;
+        } catch (Throwable $e) {
+            $this->diagnostics->lifecycleFailed(LifecycleOperation::Disable, $moduleName, $e);
+
+            throw $e;
+        }
     }
 }

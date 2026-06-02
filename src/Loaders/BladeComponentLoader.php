@@ -39,7 +39,7 @@ final readonly class BladeComponentLoader implements LoaderInterface
             },
         );
 
-        return LoadReport::applied(['components' => [substr($bladeComponentsDir, \strlen($module->path) + 1)]]);
+        return LoadReport::applied(['components' => [$this->layout->relativeToModule($module, $bladeComponentsDir)]]);
     }
 
     public function priority(): int

@@ -50,7 +50,7 @@ final readonly class CommandLoader implements LoaderInterface
             },
         );
 
-        return LoadReport::applied(['commands' => [substr($commandsDir, \strlen($module->path) + 1)]]);
+        return LoadReport::applied(['commands' => [$this->layout->relativeToModule($module, $commandsDir)]]);
     }
 
     public function priority(): int

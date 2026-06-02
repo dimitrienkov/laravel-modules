@@ -10,6 +10,7 @@ use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator
 use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryCacheInterface;
 use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
+use Throwable;
 
 final readonly class ClearModulesOptimizeCacheUseCase
 {
@@ -28,10 +29,16 @@ final readonly class ClearModulesOptimizeCacheUseCase
 
         $this->diagnostics->lifecycleStarted(LifecycleOperation::ClearCache);
 
-        $this->invalidator->flushAndReset();
+        try {
+            $this->invalidator->flushAndReset();
 
-        $this->diagnostics->lifecycleSucceeded(LifecycleOperation::ClearCache);
+            $this->diagnostics->lifecycleSucceeded(LifecycleOperation::ClearCache);
 
-        return new ClearModulesOptimizeCacheResult(cleared: true);
+            return new ClearModulesOptimizeCacheResult(cleared: true);
+        } catch (Throwable $e) {
+            $this->diagnostics->lifecycleFailed(LifecycleOperation::ClearCache, exception: $e);
+
+            throw $e;
+        }
     }
 }

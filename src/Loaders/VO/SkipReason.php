@@ -11,9 +11,10 @@ namespace DimitrienkoV\LaravelModules\Loaders\VO;
  *
  * - NoDirectory: the convention directory is absent (most loaders).
  * - EmptyDirectory: the directory exists but holds no matching files. Only
- *   loaders that enumerate files themselves (Config/Middleware/Observer/Policy/
- *   BladeComponent/Factory) report this; path-registering loaders that hand a
- *   directory to Laravel without listing it (Migration/Event/Command) never do.
+ *   loaders that enumerate the directory's contents themselves report this —
+ *   Config/Middleware/Observer/Policy and RouteLoader. Loaders that register a
+ *   directory or namespace with Laravel without listing it
+ *   (Migration/Event/Command/Factory/BladeComponent) never do.
  * - FileNotFound: a single expected file is absent (BroadcastLoader channels,
  *   ConsoleRouteLoader console routes).
  * - RoutesCached: the host cached its routes, so RouteLoader stands down.

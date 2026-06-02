@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\Enums;
 
 /**
- * The eight mutating lifecycle operations that emit diagnostic events.
+ * The eight lifecycle operations that emit diagnostic events.
  *
  * Each case maps to a lifecycle UseCase and becomes the `{op}` segment of a log
  * event name (e.g. `lifecycle.install.started`). The read-only ListModulesUseCase

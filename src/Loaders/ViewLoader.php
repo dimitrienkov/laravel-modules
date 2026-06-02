@@ -37,7 +37,7 @@ final readonly class ViewLoader implements LoaderInterface
             },
         );
 
-        return LoadReport::applied(['views' => [substr($viewsDir, \strlen($module->path) + 1)]]);
+        return LoadReport::applied(['views' => [$this->layout->relativeToModule($module, $viewsDir)]]);
     }
 
     public function priority(): int
