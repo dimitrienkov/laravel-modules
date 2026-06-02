@@ -360,6 +360,29 @@ arch('feature repository implements its published contract')
     ->expect('DimitrienkoV\LaravelModules\Manifest\FeatureRepository')
     ->toImplement('DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface');
 
+arch('module-aware generators are final')
+    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Make')
+    ->classes()
+    ->toBeFinal();
+
+arch('module-aware generators do not depend on concrete registry or persistence')
+    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Make')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
+        'DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository',
+        'DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository',
+    ]);
+
+arch('generator concerns resolve modules through the registry contract only')
+    ->expect('DimitrienkoV\LaravelModules\Console\Concerns')
+    ->not->toUse([
+        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
+        'DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository',
+        'DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository',
+    ]);
+
 test('src does not use global logging or service-location helpers', function (): void {
     $srcDir = realpath(__DIR__ . '/../../src');
     expect($srcDir)->not->toBeFalse();

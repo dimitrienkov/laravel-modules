@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Feature\Commands\Make;
 
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeComponent;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeController;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeFactory;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeMail;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeMigration;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeModel;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeRequest;
 use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeSeeder;
 use DimitrienkoV\LaravelModules\Tests\Support\InteractsWithModuleGenerators;
 use Illuminate\Contracts\Console\Kernel;
@@ -36,6 +38,8 @@ final class ModuleAwareNativeGeneratorTest extends TestCase
         $this->registerGeneratorCommand(MakeSeeder::class);
         $this->registerGeneratorCommand(MakeComponent::class);
         $this->registerGeneratorCommand(MakeMail::class);
+        $this->registerGeneratorCommand(MakeController::class);
+        $this->registerGeneratorCommand(MakeRequest::class);
 
         // make:migration's parent needs the framework's MigrationCreator (which
         // carries a stub path) and Composer — the same deps the rebind provider
@@ -219,5 +223,46 @@ final class ModuleAwareNativeGeneratorTest extends TestCase
 
         $this->assertFileExists($this->modulePath('Resources/views/mail/digest.blade.php'));
         $this->assertFileDoesNotExist($this->generatorTempDir . '/resources/views/mail/digest.blade.php');
+    }
+
+    #[Test]
+    public function matchingTestOptionIsRejectedInModuleMode(): void
+    {
+        $this->artisan('make:model', ['name' => 'Post', '--module' => 'blog', '--test' => true])
+            ->assertFailed()
+            ->expectsOutputToContain('do not create matching tests');
+
+        $this->assertFileDoesNotExist($this->modulePath('Domain/Models/Post.php'));
+        $this->assertDirectoryDoesNotExist($this->generatorTempDir . '/tests');
+    }
+
+    #[Test]
+    public function controllerWithRequestsKeepsControllerAndRequestsInModule(): void
+    {
+        $this->artisan('make:controller', [
+            'name' => 'PostController',
+            '--module' => 'blog',
+            '--model' => 'Post',
+            '--requests' => true,
+        ])
+            ->expectsConfirmation(
+                'A App\\Modules\\Blog\\Domain\\Models\\Post model does not exist. Do you want to generate it?',
+                'yes',
+            )
+            ->assertSuccessful();
+
+        // Controller, form requests and the generated model all live in the module.
+        $controller = $this->modulePath('Http/Controllers/PostController.php');
+        $this->assertFileExists($controller);
+        $contents = (string) file_get_contents($controller);
+        $this->assertStringContainsString('namespace App\\Modules\\Blog\\Http\\Controllers;', $contents);
+        $this->assertStringContainsString('use App\\Modules\\Blog\\Http\\Requests\\StorePostRequest;', $contents);
+
+        $this->assertFileExists($this->modulePath('Http/Requests/StorePostRequest.php'));
+        $this->assertFileExists($this->modulePath('Http/Requests/UpdatePostRequest.php'));
+        $this->assertFileExists($this->modulePath('Domain/Models/Post.php'));
+
+        // Nothing leaked into the host.
+        $this->assertFileDoesNotExist($this->appPath('Http/Requests/StorePostRequest.php'));
     }
 }

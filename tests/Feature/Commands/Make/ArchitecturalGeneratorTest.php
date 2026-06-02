@@ -79,7 +79,13 @@ final class ArchitecturalGeneratorTest extends TestCase
         $this->assertFileExists($this->modulePath('Application/Queries/RecentPostsQuery.php'));
 
         $this->artisan('make:dto', ['name' => 'CreatePost', '--module' => 'blog'])->assertSuccessful();
-        $this->assertFileExists($this->modulePath('Application/DTOs/CreatePostDto.php'));
+        $dto = $this->modulePath('Application/DTOs/CreatePostDto.php');
+        $this->assertFileExists($dto);
+
+        $contents = (string) file_get_contents($dto);
+        $this->assertStringContainsString('declare(strict_types=1);', $contents);
+        $this->assertStringContainsString('namespace App\\Modules\\Blog\\Application\\DTOs;', $contents);
+        $this->assertStringContainsString('final readonly class CreatePostDto', $contents);
     }
 
     #[Test]
