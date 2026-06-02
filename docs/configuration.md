@@ -1,4 +1,4 @@
-[← Manifest](manifest.md) · [Back to README](../README.MD) · [Architecture →](architecture.md)
+[← Manifest](manifest.md) · [Back to README](../README.md) · [Architecture →](architecture.md)
 
 # Configuration
 

@@ -1,4 +1,4 @@
-[← Feature Toggles](feature-toggles.md) · [Back to README](../README.MD) · [CLI →](cli.md)
+[← Feature Toggles](feature-toggles.md) · [Back to README](../README.md) · [CLI →](cli.md)
 
 # Diagnostic Logging
 

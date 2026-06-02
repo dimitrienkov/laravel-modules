@@ -100,7 +100,7 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 
 | Документ | Путь | Описание |
 |----------|------|----------|
-| README | `README.MD` | Landing-page пакета |
+| README | `README.md` | Landing-page пакета |
 | Getting Started | `docs/getting-started.md` | Установка и первая проверка |
 | Module Structure | `docs/module-structure.md` | Поддерживаемые пути модулей |
 | Manifest | `docs/manifest.md` | Контракт `module.json` |

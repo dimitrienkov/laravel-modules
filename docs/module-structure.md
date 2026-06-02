@@ -1,4 +1,4 @@
-[← Getting Started](getting-started.md) · [Back to README](../README.MD) · [Manifest →](manifest.md)
+[← Getting Started](getting-started.md) · [Back to README](../README.md) · [Manifest →](manifest.md)
 
 # Module Structure
 

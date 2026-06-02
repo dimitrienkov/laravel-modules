@@ -1,4 +1,4 @@
-[← Module Structure](module-structure.md) · [Back to README](../README.MD) · [Configuration →](configuration.md)
+[← Module Structure](module-structure.md) · [Back to README](../README.md) · [Configuration →](configuration.md)
 
 # Manifest
 
