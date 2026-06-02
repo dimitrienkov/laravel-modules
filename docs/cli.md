@@ -2,7 +2,7 @@
 
 # CLI
 
-Текущий v2.0 core реализует production cache, lifecycle management и scaffolding команды.
+Текущий v2.0 core реализует production cache, lifecycle management, scaffolding и module-aware генераторы.
 
 ## Реализованные команды
 
@@ -10,13 +10,15 @@
 |---------|-------------|
 | `modules:optimize` | Собирает `bootstrap/cache/modules.php` |
 | `modules:optimize-clear` | Удаляет cached module registry |
-| `make:module` | Создаёт структуру нового модуля |
+| `make:module` | Создаёт структуру нового модуля (опционально component-driven через `--with`) |
 | `modules:enable` | Включает модуль с проверкой зависимостей |
 | `modules:disable` | Отключает модуль с проверкой reverse dependencies |
 | `modules:list` | Показывает таблицу зарегистрированных модулей |
 | `modules:install` | Устанавливает модуль из zip-архива |
 | `modules:update` | Обновляет модуль с backup и merge settings values |
 | `modules:remove` | Удаляет модуль с backup или без |
+| `make:*` с `--module` | Module-aware режим native Laravel-генераторов (см. [Module-aware генераторы](#module-aware-генераторы)) |
+| `make:use-case` / `make:action` / `make:query` / `make:dto` / `make:vo` | Архитектурные генераторы пакета |
 
 ## Build cache
 
@@ -80,8 +82,9 @@ php artisan make:module analytics --directory=app/Integrations --overwrite
 | `--directory` | Target root из configured `modules.paths.directories` |
 | `--disabled` | Создать модуль в отключённом состоянии |
 | `--overwrite` | Перезаписать существующий модуль в той же target-директории |
+| `--with` | Component-driven скелет: CSV из `application`, `config`, `console`, `database`, `domain`, `http`, `routes`, `views`. Создаётся только выбранное плюс обязательные root/Providers. Неизвестное значение → fail-fast до создания директории; пустой `--with=` → только обязательное |
 
-Scaffold записывает в `state.json` provenance `source.kind = local` (без checksum).
+Без `--with` интерактивный запуск показывает multiselect «что создать?», а `--no-interaction` оставляет текущий минимальный скелет (Config, Console/Commands, Database/Factories, Database/Migrations, Domain/Models, Http/Middleware, Providers, Routes). Scaffold записывает в `state.json` provenance `source.kind = local` (без checksum) и никогда не пишет mutable state в `module.json`.
 
 ## Enable / Disable / List
 
@@ -131,11 +134,65 @@ php artisan modules:remove blog --force --delete-permanently
 
 `modules:remove` тоже использует Laravel `ConfirmableTrait`; в production окружении добавляйте `--force`. Без `--delete-permanently` модуль перемещается в `config('modules.paths.backup')`, а `state.json` копируется в backup и удаляется из state root. С `--delete-permanently` сначала удаляется `state.json`, затем директория модуля; если удаление state не удалось, директория остаётся intact. Remove запрещён, если другие installed модули зависят от удаляемого. Миграции не откатываются автоматически.
 
+## Module-aware генераторы
+
+Опция `--module=<name>` добавляется к native Laravel-генераторам прозрачно: имя и signature команды не меняются, без `--module` поведение байт-в-байт совпадает с host. Имя модуля резолвится через registry-контракт и нечувствительно к регистру (`--module=blog` = `--module=Blog`); неизвестный модуль завершает команду failure-кодом, не создавая partial-файлов. Поскольку модули лежат под `app/` (namespace из `App\`), файл автоматически попадает внутрь модуля.
+
+```bash
+php artisan make:model Post --module=blog -mfs
+php artisan make:controller PostController --module=blog --model=Post --requests
+php artisan make:mail Digest --module=blog --markdown=mail.digest
+php artisan make:component Alert --module=blog
+```
+
+Поддерживаемые native-команды и их «дом» внутри модуля (22 команды с явным размещением):
+
+| Команда | Размещение в модуле |
+|---------|---------------------|
+| `make:model` | `Domain/Models` |
+| `make:controller` | `Http/Controllers` |
+| `make:request` | `Http/Requests` |
+| `make:resource` | `Http/Resources` |
+| `make:middleware` | `Http/Middleware` |
+| `make:event` | `Domain/Events` |
+| `make:listener` | `Domain/Listeners` |
+| `make:observer` | `Domain/Observers` |
+| `make:policy` | `Domain/Policies` |
+| `make:job` | `Jobs` |
+| `make:mail` | `Mail` (+ Blade в `Resources/views`) |
+| `make:notification` | `Notifications` |
+| `make:command` | `Console/Commands` |
+| `make:rule` | `Rules` |
+| `make:cast` | `Casts` |
+| `make:channel` | `Broadcasting` |
+| `make:provider` | `Providers` |
+| `make:exception` | `Exceptions` |
+| `make:component` | `View/Components` (+ Blade в `Resources/views/components`) |
+| `make:factory` | `Database/Factories` |
+| `make:seeder` | `Database/Seeders` |
+| `make:migration` | `Database/Migrations` (через native `--path`) |
+
+Под-генераторы наследуют `--module`: `make:model -mfs --module=blog` создаёт model, migration, factory и seeder только внутри модуля, а сгенерированная model ссылается на module factory namespace. `make:controller --requests` кладёт form requests в `Http/Requests` модуля. В module-aware режиме matching-test опции (`--test`, `--pest`, `--phpunit`) отклоняются fail-fast — поставляемые модули не несут host-тестов.
+
+### Архитектурные генераторы пакета
+
+`make:use-case`, `make:action`, `make:query`, `make:dto`, `make:vo` создают `final readonly`-классы в house-style. Без `--module` пишут в host (`app/Application/{UseCases,Actions,Queries,DTOs}`, `app/Domain/VO`), с `--module` — в соответствующий слой модуля.
+
+```bash
+php artisan make:use-case PublishPost --module=blog   # Application/UseCases/PublishPostUseCase.php
+php artisan make:dto CreatePost --module=blog          # Application/DTOs/CreatePostDto.php
+php artisan make:vo Money --module=blog                # Domain/VO/Money.php (без суффикса)
+```
+
+Суффикс добавляется автоматически (`UseCase`/`Action`/`Query`/`Dto`) и не дублируется; `make:vo` сохраняет имя без суффикса, как VO ядра (`Version`, `Checksum`).
+
 ## Ещё не реализовано
 
 | Command family | Status |
 |----------------|--------|
-| Laravel generators with `--module` | Roadmap |
+| `make:test --module` | Out of scope — модули не несут собственных тестов |
+| Generic `make:class/interface/trait/enum/scope/view/config` с `--module` | Roadmap — у них нет конвенционного «дома» в модуле, остаются host-командами |
+| MoonShine-генераторы | Out of scope — артефакты создаёт сам MoonShine |
 
 ## See Also
 

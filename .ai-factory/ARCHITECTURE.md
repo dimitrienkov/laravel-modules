@@ -26,7 +26,7 @@
 | `Manifest` | Валидация manifest, parser layer, VO hydration, manifest/state repositories, registry facade, feature runtime API. |
 | `Registry` | Filesystem discovery, snapshot builder, production cache format, registry/cache VO. |
 | `Application` | UseCase orchestration для lifecycle и optimize flows, DTO, support-сервисы операций над модулями. |
-| `Console/Commands` | Тонкие Artisan adapters над `Application/UseCases` и `Contracts`. |
+| `Console/Commands` | Тонкие Artisan adapters над `Application/UseCases` и `Contracts`. Подпапка `Make/` — module-aware генераторы поверх Laravel `GeneratorCommand` (общий код в `Console/Concerns` traits, резолв модуля через `ModuleRegistryInterface`). |
 | `Loaders` | Convention-based runtime loaders. Не читают manifest-флаги загрузки. Каждый `load()` возвращает `LoadReport` (`Loaders/VO`). |
 | `Support` | Общие инфраструктурные утилиты: atomic write, paths, namespace resolution, filesystem wrapper, topological sort. `Support/Logging` — диагностический adapter (`ModuleLogger`/`NullModuleDiagnostics`). |
 | `Providers` | Container wiring, default loader registration, optimizer hooks, optional bridge wiring. |
@@ -70,7 +70,10 @@ src/
 │       ├── RemoveModuleUseCase.php
 │       ├── ScaffoldModuleUseCase.php
 │       └── UpdateModuleUseCase.php
-├── Console/Commands/Modules/
+├── Console/
+│   ├── Commands/Modules/
+│   ├── Commands/Make/                 # module-aware make:* subclasses + arch generators
+│   └── Concerns/                      # ModuleAwareGenerator, ArchitecturalGenerator traits
 ├── Contracts/
 ├── Exceptions/
 ├── Loaders/
@@ -99,6 +102,7 @@ src/
 
 - `Providers -> Contracts + Manifest + Registry + Support + Loaders + MoonShine + Application`
 - `Console/Commands -> Application/UseCases + Contracts`
+- `Console/Commands/Make + Console/Concerns -> Contracts + Manifest/VO + Support` (+ Laravel `GeneratorCommand`); резолв модуля только через `ModuleRegistryInterface`, без concrete registry/persistence
 - `Application/UseCases -> Contracts + Manifest/VO + Application/Support + Application/DTOs + Support + Registry`
 - `Application/Support -> Contracts + Manifest/VO + Support + Registry`
 - `Application/DTOs ->` без зависимостей на runtime-сервисы

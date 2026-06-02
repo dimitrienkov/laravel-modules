@@ -4,7 +4,7 @@
 
 `dimitrienkov0/laravel-modules` помогает Laravel-приложению находить модули в настроенных директориях, валидировать `module.json`, сортировать модули по зависимостям и загружать enabled-модули через предсказуемый loader pipeline.
 
-Текущий v2.0 core покрывает runtime loading, feature values, production registry cache и lifecycle-команды: `make:module`, `modules:install`, `modules:update`, `modules:remove`, `modules:enable`, `modules:disable`, `modules:list`, `modules:optimize`, `modules:optimize-clear`. Module-aware генераторы `make:* --module` и полноценный admin UI остаются roadmap.
+Текущий v2.0 core покрывает runtime loading, feature values, production registry cache, lifecycle-команды (`make:module`, `modules:install`, `modules:update`, `modules:remove`, `modules:enable`, `modules:disable`, `modules:list`, `modules:optimize`, `modules:optimize-clear`) и module-aware генераторы: native `make:* --module` для 22 артефактов плюс архитектурные `make:use-case/action/query/dto/vo` (см. [docs/cli.md](docs/cli.md)). Полноценный admin UI остаётся roadmap.
 
 ## Quick Start
 

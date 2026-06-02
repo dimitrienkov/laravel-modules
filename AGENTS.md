@@ -28,7 +28,10 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 │   │   ├── Enums/                    # LifecycleOperation, ModuleSourceKind, RemoveStrategy
 │   │   ├── Support/                  # source staging, directory ops, dependency guards, rollback
 │   │   └── UseCases/                 # scaffold/install/update/remove/enable/disable/optimize flows
-│   ├── Console/Commands/Modules/     # Artisan adapters: make:module и modules:* команды
+│   ├── Console/
+│   │   ├── Commands/Modules/         # Artisan adapters: make:module и modules:* команды
+│   │   ├── Commands/Make/            # module-aware make:* subclasses + арх-генераторы (use-case/action/query/dto/vo)
+│   │   └── Concerns/                 # ModuleAwareGenerator, ArchitecturalGenerator traits
 │   ├── Contracts/                    # публичные интерфейсы ядра
 │   ├── Exceptions/                   # типизированные runtime-исключения
 │   ├── Loaders/                      # реализации LoaderInterface (load(): LoadReport)
@@ -39,7 +42,7 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 │   │   ├── Parsing/                  # фабрики и нормализаторы manifest fields
 │   │   └── VO/                       # Module, ManifestMeta, ModuleState, ModuleStateDocument, ModuleOrigin, FeatureValues и другие VO
 │   ├── MoonShine/                    # MoonShineModuleAutoloader, optional bridge
-│   ├── Providers/                    # ModuleLoaderServiceProvider
+│   ├── Providers/                    # ModuleLoaderServiceProvider, ModuleGeneratorCommandsServiceProvider
 │   ├── Registry/                     # scanner, snapshot builder, cache и registry VO
 │   └── Support/                      # layout/state paths, atomic writers, filesystem, sorter, namespace resolver
 │       └── Logging/                  # ModuleLogger, NullModuleDiagnostics (opt-in диагностика)
