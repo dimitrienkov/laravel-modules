@@ -48,7 +48,7 @@ php artisan make:module blog
 
 Команда создаёт структуру модуля, `module.json`, ServiceProvider stub и приватный `state.json`.
 
-`module.json`:
+Минимальный `module.json` после scaffold:
 
 ```json
 {
@@ -61,12 +61,7 @@ php artisan make:module blog
     "version": "1.0.0"
   },
   "settings": {
-    "schema": {
-      "enable_comments": {
-        "type": "bool",
-        "default": true
-      }
-    }
+    "schema": {}
   }
 }
 ```
@@ -80,15 +75,19 @@ php artisan make:module blog
   "enabled": true,
   "installed_at": "2026-05-23T14:12:00+00:00",
   "updated_at": "2026-05-23T14:12:00+00:00",
+  "source": {
+    "kind": "local",
+    "installed_version": "1.0.0"
+  },
   "settings": {
-    "values": {
-      "enable_comments": false
-    }
+    "values": {}
   }
 }
 ```
 
 ## Feature Usage
+
+Добавьте feature schema и values, как описано в [docs/feature-toggles.md](docs/feature-toggles.md), затем читайте их через scoped repository:
 
 ```php
 <?php

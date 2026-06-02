@@ -187,7 +187,7 @@ State и explicit values находятся в отдельном `state.json`:
 
 - `schema_version` — обязательный top-level integer. Текущая версия: `1`. Неизвестная или отсутствующая версия → strict-fail (`InvalidManifestException`), без fallback на default.
 - `meta.kind` — обязательный backed string enum `ModuleKind` (`module`, `subsystem`, `integration`). Чисто презентационный: не влияет на loader pipeline, dependency resolution или enable/disable. Arch-тест `loaders do not depend on ModuleKind` закрепляет эту границу.
-- `meta.group` — опциональный string, kebab-case (`/^[a-z][a-z0-9-]*$/`). Используется для логической группировки модулей (отображение в `modules:list`, конфигурация `modules.groups`). Не влияет на loader pipeline и dependency resolution.
+- `meta.group` — опциональный string, segment kebab-case (`/^[a-z0-9]+(-[a-z0-9]+)*$/`). Используется для логической группировки модулей (отображение в `modules:list`, конфигурация `modules.groups`). Не влияет на loader pipeline и dependency resolution.
 - `state`, `settings.values`, `autoload` и неизвестные top-level ключи запрещены в `module.json`.
 - `meta.dependencies` поддерживает только object-form `moduleName => Composer constraint`; list-form dependencies не являются текущим контрактом.
 - `settings.schema` поддерживает `bool`, `int`, `string`, `enum`; metadata `label`, `description`, `group` допустима.
@@ -283,7 +283,7 @@ Implemented Artisan surface:
 - `modules:optimize`
 - `modules:optimize-clear`
 
-Lifecycle-команды остаются тонкими adapters над use cases и support-сервисами. Они меняют `state.json` для enable/disable и пишут `module.json` только через `ModuleManifestRepositoryInterface::writeManifest()` в scaffold/install/update flows. Успешные lifecycle-мутации инвалидируют optimized registry cache.
+Lifecycle-команды остаются тонкими adapters над use cases и support-сервисами. Они меняют `state.json` для enable/disable и пишут `module.json` только через `ModuleManifestRepositoryInterface::writeManifest()` в scaffold/install/update flows. Запись feature values через repository/API также остаётся в границе `state.json`. Успешные lifecycle-мутации инвалидируют optimized registry cache.
 
 `modules:install` и `modules:update` валидируют source structure, manifest и dependencies до замены target files. `modules:update` сохраняет совместимые customer `settings.values`; удалённые или invalid values попадают в skipped result.
 
