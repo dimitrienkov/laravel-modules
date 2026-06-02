@@ -263,7 +263,7 @@ Pipeline behavior:
 - Disabled modules are skipped.
 - Exceptions from one loader are reported as `ModuleLoaderException` and do not stop remaining loaders/modules.
 - Loader applicability is convention-based: loader возвращает `LoadReport::skipped(<reason>)`, когда ожидаемых файлов/директорий нет, и `LoadReport::applied(<artifacts>)` при загрузке.
-- Pipeline инъецирует `ModuleDiagnosticsInterface` и эмитит `pipelineStarted` / `loaderOutcome` (на каждую пару loader × module) / `loaderFailed` / `pipelineFinished`. Счётчики накапливаются в локальных переменных `boot()` — pipeline остаётся `final readonly`.
+- Pipeline инъецирует `ModuleDiagnosticsInterface` и эмитит `pipelineStarted` / `loaderCompleted` (на каждую пару loader × module) / `loaderFailed` / `pipelineFinished`. Счётчики накапливаются в локальных переменных `boot()` — pipeline остаётся `final readonly`.
 
 ## Lifecycle Commands
 
