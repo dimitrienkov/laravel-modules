@@ -9,6 +9,7 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use Illuminate\Support\Str;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
@@ -71,8 +72,8 @@ trait ModuleAwareGenerator
      * with `-mfs`, or `make:controller --requests`) never spawns host factories,
      * migrations, seeders, form requests, or test files. Host mode is untouched.
      *
-     * @param \Symfony\Component\Console\Command\Command|string $command
-     * @param array<string, mixed>                              $arguments
+     * @param Command|string       $command
+     * @param array<string, mixed> $arguments
      */
     public function call($command, array $arguments = [])
     {

@@ -42,7 +42,7 @@ trait ArchitecturalGenerator
      */
     abstract protected function stubName(): string;
 
-    protected function getStub()
+    protected function getStub(): string
     {
         return $this->stubsPath . '/' . $this->stubName();
     }
