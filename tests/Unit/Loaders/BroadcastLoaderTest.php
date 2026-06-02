@@ -50,7 +50,7 @@ final class BroadcastLoaderTest extends TestCase
         file_put_contents($channelsFile, "<?php define('{$marker}', true);");
 
         $app = new Application($this->tempDir);
-        $app->singleton(BroadcastManager::class, static fn (Application $a): BroadcastManager => new BroadcastManager($a));
+        $app->singleton(BroadcastManager::class, static fn(Application $a): BroadcastManager => new BroadcastManager($a));
 
         $report = (new BroadcastLoader(new ContainerLifecycleHooks($app), new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $modulePath));
@@ -70,7 +70,7 @@ final class BroadcastLoaderTest extends TestCase
         $marker = 'BROADCAST_NOT_LOADED_' . bin2hex(random_bytes(4));
 
         $app = new Application($this->tempDir);
-        $app->singleton(BroadcastManager::class, static fn (Application $a): BroadcastManager => new BroadcastManager($a));
+        $app->singleton(BroadcastManager::class, static fn(Application $a): BroadcastManager => new BroadcastManager($a));
 
         $report = (new BroadcastLoader(new ContainerLifecycleHooks($app), new Filesystem(), new ModuleLayout()))
             ->load(ModuleFactory::make(path: $this->tempDir . '/Missing'));

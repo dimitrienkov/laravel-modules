@@ -12,7 +12,7 @@ final class FeatureTypeMismatchException extends RuntimeException implements Mod
     public static function forType(string $moduleName, string $key, string $expectedType, string $actualType): self
     {
         return new self(
-            "Feature [{$key}] for module [{$moduleName}] must be [{$expectedType}], [{$actualType}] returned."
+            "Feature [{$key}] for module [{$moduleName}] must be [{$expectedType}], [{$actualType}] returned.",
         );
     }
 }

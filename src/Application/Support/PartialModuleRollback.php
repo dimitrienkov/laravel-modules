@@ -12,8 +12,7 @@ final readonly class PartialModuleRollback
     public function __construct(
         private ModuleDirectoryOperations $directoryOps,
         private ModuleStateRepositoryInterface $stateRepository,
-    ) {
-    }
+    ) {}
 
     /**
      * @return string Cleanup note (empty if state cleanup succeeded)

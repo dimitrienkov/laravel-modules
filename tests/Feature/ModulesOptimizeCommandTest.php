@@ -114,7 +114,7 @@ final class ModulesOptimizeCommandTest extends TestCase
         $registry = $this->application()->make(ModuleRegistry::class);
 
         self::assertSame(['blog'], array_map(
-            static fn (object $module): string => $module->name,
+            static fn(object $module): string => $module->name,
             $registry->all(),
         ));
 
@@ -127,7 +127,7 @@ final class ModulesOptimizeCommandTest extends TestCase
         $this->artisanCommand('modules:optimize-clear')->assertSuccessful();
 
         self::assertSame(['blog', 'users'], array_map(
-            static fn (object $module): string => $module->name,
+            static fn(object $module): string => $module->name,
             $registry->all(),
         ));
     }

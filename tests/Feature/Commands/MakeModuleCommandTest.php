@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Feature\Commands;
 
+use DimitrienkoV\LaravelModules\Application\Enums\ScaffoldComponent;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand;
@@ -51,7 +52,7 @@ final class MakeModuleCommandTest extends TestCase
     #[Test]
     public function scaffoldsModuleSuccessfully(): void
     {
-        $this->artisanCommand('make:module blog')
+        $this->artisanCommand('make:module --no-interaction blog')
             ->assertSuccessful()
             ->expectsOutputToContain('scaffolded');
 
@@ -62,7 +63,7 @@ final class MakeModuleCommandTest extends TestCase
     #[Test]
     public function scaffoldsDisabledModule(): void
     {
-        $this->artisanCommand('make:module blog --disabled')
+        $this->artisanCommand('make:module --no-interaction blog --disabled')
             ->assertSuccessful();
 
         $stateFile = $this->stateRoot . '/blog/state.json';
@@ -77,7 +78,7 @@ final class MakeModuleCommandTest extends TestCase
     #[Test]
     public function failsOnInvalidName(): void
     {
-        $this->artisanCommand('make:module "Invalid Name!"')
+        $this->artisanCommand('make:module --no-interaction "Invalid Name!"')
             ->assertFailed()
             ->expectsOutputToContain('invalid module name');
     }
@@ -85,11 +86,11 @@ final class MakeModuleCommandTest extends TestCase
     #[Test]
     public function failsWhenModuleAlreadyExists(): void
     {
-        $this->artisanCommand('make:module blog')->assertSuccessful();
+        $this->artisanCommand('make:module --no-interaction blog')->assertSuccessful();
 
         $this->registerMakeCommand();
 
-        $this->artisanCommand('make:module blog')
+        $this->artisanCommand('make:module --no-interaction blog')
             ->assertFailed()
             ->expectsOutputToContain('already exists');
     }
@@ -97,7 +98,7 @@ final class MakeModuleCommandTest extends TestCase
     #[Test]
     public function scaffoldsModuleWithDefaultKindInference(): void
     {
-        $this->artisanCommand('make:module blog')
+        $this->artisanCommand('make:module --no-interaction blog')
             ->assertSuccessful();
 
         $manifest = json_decode(
@@ -112,7 +113,7 @@ final class MakeModuleCommandTest extends TestCase
     #[Test]
     public function scaffoldsModuleWithExplicitKind(): void
     {
-        $this->artisanCommand('make:module blog --kind=integration')
+        $this->artisanCommand('make:module --no-interaction blog --kind=integration')
             ->assertSuccessful();
 
         $manifest = json_decode(
@@ -126,7 +127,7 @@ final class MakeModuleCommandTest extends TestCase
     #[Test]
     public function failsOnInvalidKind(): void
     {
-        $this->artisanCommand('make:module blog --kind=invalid')
+        $this->artisanCommand('make:module --no-interaction blog --kind=invalid')
             ->assertFailed()
             ->expectsOutputToContain('allowed values: module, subsystem, integration');
     }
@@ -134,7 +135,7 @@ final class MakeModuleCommandTest extends TestCase
     #[Test]
     public function scaffoldsModuleWithValidGroup(): void
     {
-        $this->artisanCommand('make:module blog --group=blog-tools')
+        $this->artisanCommand('make:module --no-interaction blog --group=blog-tools')
             ->assertSuccessful();
 
         $manifest = json_decode(
@@ -148,7 +149,7 @@ final class MakeModuleCommandTest extends TestCase
     #[Test]
     public function failsOnEmptyGroup(): void
     {
-        $this->artisanCommand('make:module blog --group=')
+        $this->artisanCommand('make:module --no-interaction blog --group=')
             ->assertFailed()
             ->expectsOutputToContain('kebab-case');
 
@@ -158,7 +159,7 @@ final class MakeModuleCommandTest extends TestCase
     #[Test]
     public function failsOnInvalidGroup(): void
     {
-        $this->artisanCommand('make:module blog --group="Bad Group"')
+        $this->artisanCommand('make:module --no-interaction blog --group="Bad Group"')
             ->assertFailed()
             ->expectsOutputToContain('kebab-case');
 
@@ -168,12 +169,108 @@ final class MakeModuleCommandTest extends TestCase
     #[Test]
     public function forceOverwritesExisting(): void
     {
-        $this->artisanCommand('make:module blog')->assertSuccessful();
+        $this->artisanCommand('make:module --no-interaction blog')->assertSuccessful();
 
         $this->registerMakeCommand();
 
-        $this->artisanCommand('make:module blog --overwrite')
+        $this->artisanCommand('make:module --no-interaction blog --overwrite')
             ->assertSuccessful();
+    }
+
+    #[Test]
+    public function withOptionScaffoldsOnlySelectedComponents(): void
+    {
+        $this->artisanCommand('make:module --no-interaction blog --with=routes,views,domain')
+            ->assertSuccessful();
+
+        $base = $this->tempDir . '/app/Modules/Blog';
+        $this->assertDirectoryExists($base . '/Providers');
+        $this->assertDirectoryExists($base . '/Routes');
+        $this->assertDirectoryExists($base . '/Resources/views');
+        $this->assertDirectoryExists($base . '/Domain/Models');
+
+        $this->assertDirectoryDoesNotExist($base . '/Config');
+        $this->assertDirectoryDoesNotExist($base . '/Console/Commands');
+        $this->assertDirectoryDoesNotExist($base . '/Database/Factories');
+    }
+
+    #[Test]
+    public function withOptionFailsFastOnUnknownComponent(): void
+    {
+        $this->artisanCommand('make:module --no-interaction blog --with=routes,bogus')
+            ->assertFailed()
+            ->expectsOutputToContain('Unknown module component [bogus]');
+
+        $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
+    }
+
+    #[Test]
+    public function withOptionFailsFastOnDuplicateComponent(): void
+    {
+        $this->artisanCommand('make:module --no-interaction blog --with=routes,routes')
+            ->assertFailed()
+            ->expectsOutputToContain('Duplicate module component [routes]');
+
+        $this->assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
+    }
+
+    #[Test]
+    public function emptyWithScaffoldsMandatoryOnly(): void
+    {
+        $this->artisanCommand('make:module --no-interaction blog --with=')
+            ->assertSuccessful();
+
+        $base = $this->tempDir . '/app/Modules/Blog';
+        $this->assertDirectoryExists($base . '/Providers');
+        $this->assertFileExists($base . '/module.json');
+
+        $this->assertDirectoryDoesNotExist($base . '/Config');
+        $this->assertDirectoryDoesNotExist($base . '/Routes');
+        $this->assertDirectoryDoesNotExist($base . '/Domain/Models');
+    }
+
+    #[Test]
+    public function interactiveMultiselectScaffoldsSelectedComponents(): void
+    {
+        $choices = [];
+
+        foreach (ScaffoldComponent::cases() as $case) {
+            $choices[$case->value] = $case->label();
+        }
+
+        $this->artisanCommand('make:module blog')
+            ->expectsChoice('Which components should the module include?', ['routes', 'application'], $choices)
+            ->assertSuccessful();
+
+        $base = $this->tempDir . '/app/Modules/Blog';
+        $this->assertDirectoryExists($base . '/Routes');
+        $this->assertDirectoryExists($base . '/Application/UseCases');
+        $this->assertDirectoryDoesNotExist($base . '/Config');
+    }
+
+    #[Test]
+    public function interactiveEmptySelectionScaffoldsMandatoryOnly(): void
+    {
+        $choices = [];
+
+        foreach (ScaffoldComponent::cases() as $case) {
+            $choices[$case->value] = $case->label();
+        }
+
+        // Deselecting everything in the multiselect is a valid choice: it yields
+        // an empty (not null) selection, so only the mandatory root + Providers
+        // skeleton is created — no optional directories.
+        $this->artisanCommand('make:module blog')
+            ->expectsChoice('Which components should the module include?', [], $choices)
+            ->assertSuccessful();
+
+        $base = $this->tempDir . '/app/Modules/Blog';
+        $this->assertDirectoryExists($base . '/Providers');
+        $this->assertFileExists($base . '/module.json');
+
+        $this->assertDirectoryDoesNotExist($base . '/Config');
+        $this->assertDirectoryDoesNotExist($base . '/Routes');
+        $this->assertDirectoryDoesNotExist($base . '/Domain/Models');
     }
 
     private function registerMakeCommand(): void

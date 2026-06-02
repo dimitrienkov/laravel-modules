@@ -17,8 +17,7 @@ final readonly class CachedModuleDescriptor
         public string $path,
         public string $namespace,
         public array $manifest,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<array-key, mixed> $entry
@@ -38,7 +37,7 @@ final readonly class CachedModuleDescriptor
 
         $manifestObject = StringKeyedObject::toStringKeyedObject(
             $manifest,
-            static fn (): InvalidModuleCacheException => InvalidModuleCacheException::forPath(
+            static fn(): InvalidModuleCacheException => InvalidModuleCacheException::forPath(
                 $cachePath,
                 "module cache entry [{$name}] manifest must be an object.",
             ),

@@ -9,6 +9,5 @@ final readonly class SkippedFeatureValue
     public function __construct(
         public string $key,
         public string $reason,
-    ) {
-    }
+    ) {}
 }

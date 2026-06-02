@@ -22,8 +22,7 @@ final readonly class ConsoleRouteLoader implements LoaderInterface
         private ContainerLifecycleHooks $hooks,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {
@@ -46,7 +45,7 @@ final readonly class ConsoleRouteLoader implements LoaderInterface
                     return;
                 }
 
-                $app->booted(static fn () => $kernel->addCommandRoutePaths([$consoleRoutesFile]));
+                $app->booted(static fn() => $kernel->addCommandRoutePaths([$consoleRoutesFile]));
             },
         );
 

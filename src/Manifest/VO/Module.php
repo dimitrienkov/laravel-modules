@@ -19,8 +19,7 @@ final readonly class Module
         public ManifestMeta $meta,
         public ModuleState $state,
         public FeatureSchema $features,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<string, mixed> $manifest

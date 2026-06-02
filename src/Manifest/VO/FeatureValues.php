@@ -15,8 +15,7 @@ final readonly class FeatureValues
     public function __construct(
         private FeatureSchema $schema,
         private array $values,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<array-key, mixed> $values
@@ -33,14 +32,14 @@ final readonly class FeatureValues
             if (! \is_string($key)) {
                 throw InvalidManifestException::forPath(
                     $manifestPath,
-                    'settings.values keys must be feature names.'
+                    'settings.values keys must be feature names.',
                 );
             }
 
             if (! $schema->has($key)) {
                 throw InvalidManifestException::forPath(
                     $manifestPath,
-                    "settings.values.{$key} is not defined in settings.schema for module [{$moduleName}]."
+                    "settings.values.{$key} is not defined in settings.schema for module [{$moduleName}].",
                 );
             }
 

@@ -1,4 +1,4 @@
-[← Manifest](manifest.md) · [Back to README](../README.MD) · [Architecture →](architecture.md)
+[← Manifest](manifest.md) · [Back to README](../README.md) · [Architecture →](architecture.md)
 
 # Configuration
 
@@ -28,6 +28,17 @@ return [
     'groups' => [
         // 'content' => 'Content Management',
         // 'e-commerce' => 'E-Commerce',
+    ],
+    'logging' => [
+        'enabled' => env('MODULES_LOGGING', false),
+        'channel' => env('MODULES_LOG_CHANNEL'),
+        'level' => env('MODULES_LOG_LEVEL', 'debug'),
+        'events' => [
+            'discovery' => true,
+            'cache' => true,
+            'pipeline' => true,
+            'lifecycle' => true,
+        ],
     ],
     'routing' => [
         'types' => [

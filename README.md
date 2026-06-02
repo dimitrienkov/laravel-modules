@@ -4,7 +4,7 @@
 
 `dimitrienkov0/laravel-modules` помогает Laravel-приложению находить модули в настроенных директориях, валидировать `module.json`, сортировать модули по зависимостям и загружать enabled-модули через предсказуемый loader pipeline.
 
-Текущий v2.0 core покрывает runtime loading, feature values, production registry cache и lifecycle-команды: `make:module`, `modules:install`, `modules:update`, `modules:remove`, `modules:enable`, `modules:disable`, `modules:list`, `modules:optimize`, `modules:optimize-clear`. Module-aware генераторы `make:* --module` и полноценный admin UI остаются roadmap.
+Текущий v2.0 core покрывает runtime loading, feature values, production registry cache, lifecycle-команды (`make:module`, `modules:install`, `modules:update`, `modules:remove`, `modules:enable`, `modules:disable`, `modules:list`, `modules:optimize`, `modules:optimize-clear`) и module-aware генераторы: native `make:* --module` для 22 артефактов плюс архитектурные `make:use-case/action/query/dto/vo` (см. [docs/cli.md](docs/cli.md)). Полноценный admin UI остаётся roadmap.
 
 ## Quick Start
 
@@ -48,7 +48,7 @@ php artisan make:module blog
 
 Команда создаёт структуру модуля, `module.json`, ServiceProvider stub и приватный `state.json`.
 
-`module.json`:
+Минимальный `module.json` после scaffold:
 
 ```json
 {
@@ -61,12 +61,7 @@ php artisan make:module blog
     "version": "1.0.0"
   },
   "settings": {
-    "schema": {
-      "enable_comments": {
-        "type": "bool",
-        "default": true
-      }
-    }
+    "schema": {}
   }
 }
 ```
@@ -80,15 +75,19 @@ php artisan make:module blog
   "enabled": true,
   "installed_at": "2026-05-23T14:12:00+00:00",
   "updated_at": "2026-05-23T14:12:00+00:00",
+  "source": {
+    "kind": "local",
+    "installed_version": "1.0.0"
+  },
   "settings": {
-    "values": {
-      "enable_comments": false
-    }
+    "values": {}
   }
 }
 ```
 
 ## Feature Usage
+
+Добавьте feature schema и values, как описано в [docs/feature-toggles.md](docs/feature-toggles.md), затем читайте их через scoped repository:
 
 ```php
 <?php

@@ -1,4 +1,4 @@
-[← Module Structure](module-structure.md) · [Back to README](../README.MD) · [Configuration →](configuration.md)
+[← Module Structure](module-structure.md) · [Back to README](../README.md) · [Configuration →](configuration.md)
 
 # Manifest
 
@@ -137,7 +137,7 @@ storage/app/private/modules/{name}/state.json
 
 > **Provenance, не integrity verification.** `checksum` фиксирует sha256 zip-архива в момент его чтения при install/update — это запись происхождения, а не проверка целостности. Текущий runtime не сверяет архив или установленные файлы с ожидаемым digest или подписью. Verification/signature flow относится к packaging/marketplace roadmap, а не к реализованному поведению.
 
-State writes должны идти через `ModuleStateRepository`. Команды `enable`, `disable` и settings writes модифицируют только `state.json`. Команды `install`, `scaffold` и `update` создают или переписывают `module.json` через `writeManifest()` и создают `state.json`.
+State writes должны идти через `ModuleStateRepository`. Команды `enable` и `disable`, а также запись feature values через repository/API, модифицируют только `state.json`. Команды `install`, `scaffold` и `update` создают или переписывают `module.json` через `writeManifest()` и создают `state.json`.
 
 Если `state.json` отсутствует, `ModuleStateRepository` возвращает default disabled state и пустые explicit values. Это позволяет registry видеть модуль, но loader pipeline пропускает его до явного включения.
 

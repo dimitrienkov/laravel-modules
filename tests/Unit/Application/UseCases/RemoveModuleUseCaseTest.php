@@ -24,6 +24,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use stdClass;
 
 #[CoversClass(RemoveModuleUseCase::class)]
 #[Group('lifecycle')]
@@ -195,7 +197,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         $failingStateRepo->shouldReceive('read')->andReturn($savedDocument);
         $failingStateRepo->shouldReceive('delete')->once();
         $failingStateRepo->shouldReceive('writeDocument')
-            ->andThrow(new \RuntimeException('state write failed'));
+            ->andThrow(new RuntimeException('state write failed'));
 
         $useCase = new RemoveModuleUseCase(
             $registry,
@@ -228,7 +230,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         /** @var ModuleStateRepositoryInterface&Mockery\MockInterface $failingStateRepo */
         $failingStateRepo = Mockery::mock(ModuleStateRepositoryInterface::class);
         $failingStateRepo->shouldReceive('moveToBackup')
-            ->andThrow(new \RuntimeException('state backup failed'));
+            ->andThrow(new RuntimeException('state backup failed'));
 
         $moveCount = 0;
         /** @var Filesystem&Mockery\MockInterface $failingFs */
@@ -243,10 +245,10 @@ final class RemoveModuleUseCaseTest extends TestCase
                 return (new Filesystem())->moveDirectory($source, $target);
             });
         $failingFs->shouldReceive('isDirectory')->andReturnUsing(
-            fn (string $path): bool => (new Filesystem())->isDirectory($path),
+            fn(string $path): bool => (new Filesystem())->isDirectory($path),
         );
         $failingFs->shouldReceive('makeDirectory')->andReturnUsing(
-            fn (string $path, int $mode, bool $recursive): bool => (new Filesystem())->makeDirectory($path, $mode, $recursive),
+            fn(string $path, int $mode, bool $recursive): bool => (new Filesystem())->makeDirectory($path, $mode, $recursive),
         );
 
         $failingDirOps = new ModuleDirectoryOperations(
@@ -268,7 +270,7 @@ final class RemoveModuleUseCaseTest extends TestCase
         } catch (ModuleRemoveException $e) {
             $this->assertStringContainsString('restore also failed', $e->getMessage());
             $restoreError = $e->getPrevious();
-            $this->assertInstanceOf(\RuntimeException::class, $restoreError);
+            $this->assertInstanceOf(RuntimeException::class, $restoreError);
             $this->assertStringContainsString('state backup failed', $restoreError->getMessage());
         }
     }
@@ -395,6 +397,6 @@ final class RemoveModuleUseCaseTest extends TestCase
     private function createModule(string $name, bool $enabled = true, array $dependencies = []): void
     {
         $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, dependencies: $dependencies);
-        $this->writeModuleState($this->stateRoot, $name, $enabled, values: new \stdClass());
+        $this->writeModuleState($this->stateRoot, $name, $enabled, values: new stdClass());
     }
 }

@@ -10,8 +10,7 @@ final readonly class LocalFilesystem
 {
     public function __construct(
         private Filesystem $filesystem,
-    ) {
-    }
+    ) {}
 
     public function exists(string $path): bool
     {
@@ -35,7 +34,7 @@ final readonly class LocalFilesystem
     {
         return array_values(array_filter(
             $this->filesystem->directories($directory),
-            'is_string',
+            is_string(...),
         ));
     }
 

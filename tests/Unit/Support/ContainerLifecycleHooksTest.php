@@ -11,6 +11,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 #[CoversClass(ContainerLifecycleHooks::class)]
 #[Group('support')]
@@ -20,7 +21,7 @@ final class ContainerLifecycleHooksTest extends TestCase
     public function runsCallbackForFutureResolutions(): void
     {
         $app = new Application(sys_get_temp_dir());
-        $service = new \stdClass();
+        $service = new stdClass();
         $calls = [];
 
         (new ContainerLifecycleHooks($app))->callAfterResolving(
@@ -30,7 +31,7 @@ final class ContainerLifecycleHooksTest extends TestCase
             },
         );
 
-        $app->singleton('service', static fn (): \stdClass => $service);
+        $app->singleton('service', static fn(): stdClass => $service);
         $app->make('service');
 
         self::assertSame([[$service, $app]], $calls);
@@ -40,7 +41,7 @@ final class ContainerLifecycleHooksTest extends TestCase
     public function runsCallbackImmediatelyForAlreadyResolvedServices(): void
     {
         $app = new Application(sys_get_temp_dir());
-        $service = new \stdClass();
+        $service = new stdClass();
         $calls = [];
 
         $app->instance('service', $service);

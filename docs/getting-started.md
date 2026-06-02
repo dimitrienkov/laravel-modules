@@ -1,4 +1,4 @@
-[Back to README](../README.MD) · [Module Structure →](module-structure.md)
+[Back to README](../README.md) · [Module Structure →](module-structure.md)
 
 # Getting Started
 

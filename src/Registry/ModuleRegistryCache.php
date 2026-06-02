@@ -30,8 +30,7 @@ final readonly class ModuleRegistryCache implements ModuleRegistryCacheInterface
         private string $basePath,
         private AtomicFileWriter $fileWriter = new AtomicFileWriter(),
         private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
-    ) {
-    }
+    ) {}
 
     public function cachePath(): string
     {

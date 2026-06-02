@@ -13,8 +13,7 @@ final class FakeNamespaceResolver implements NamespaceResolverInterface
         private readonly string $basePath,
         private readonly string $appSubDir = 'app',
         private readonly string $baseNamespace = 'App\\',
-    ) {
-    }
+    ) {}
 
     public function resolve(string $modulePath): string
     {

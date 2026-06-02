@@ -17,6 +17,5 @@ final readonly class UpdateModuleResult
         public Version $newVersion,
         public array $skippedValues,
         public string $path,
-    ) {
-    }
+    ) {}
 }

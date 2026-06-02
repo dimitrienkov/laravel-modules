@@ -79,7 +79,7 @@ final class FactoryLoaderTest extends TestCase
     public function preservesExistingHostFactoryResolverForNonModuleModels(): void
     {
         Factory::guessFactoryNamesUsing(
-            static fn (string $modelClass): string => 'Host\\Database\\Factories\\'
+            static fn(string $modelClass): string => 'Host\\Database\\Factories\\'
                 . basename(str_replace('\\', '/', $modelClass))
                 . 'Factory',
         );

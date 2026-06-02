@@ -14,8 +14,7 @@ final readonly class ModuleDependencies
      */
     public function __construct(
         private array $dependencies,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<mixed> $dependencies

@@ -25,8 +25,7 @@ final readonly class ModuleManifestRepository implements ModuleManifestRepositor
         private ManifestDocumentReader $documentReader,
         private ModuleStateRepositoryInterface $stateRepository,
         private LocalFilesystem $filesystem,
-    ) {
-    }
+    ) {}
 
     public function load(string $modulePath): Module
     {

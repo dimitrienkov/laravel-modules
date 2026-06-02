@@ -33,8 +33,7 @@ final readonly class ManifestMeta
         public ?string $license,
         public ModuleDependencies $dependencies,
         public ?ModuleGroup $group = null,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<string, mixed> $meta

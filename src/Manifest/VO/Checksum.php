@@ -23,7 +23,7 @@ final readonly class Checksum
 
     public function __construct(public string $value)
     {
-        if (! preg_match(self::PATTERN, $this->value)) {
+        if (preg_match(self::PATTERN, $this->value) !== 1) {
             throw new InvalidArgumentException(
                 "Checksum must be a 64-character lowercase hex sha256 digest, got [{$this->value}].",
             );

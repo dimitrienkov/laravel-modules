@@ -38,6 +38,7 @@ final class ModuleLayoutTest extends TestCase
         self::assertSame('/app/Modules/Blog/Domain/Policies', $layout->policiesDir($module));
         self::assertSame('/app/Modules/Blog/Http/Middleware', $layout->middlewareDir($module));
         self::assertSame('/app/Modules/Blog/Domain/Listeners', $layout->listenersDir($module));
+        self::assertSame('/app/Modules/Blog/Database/Seeders', $layout->seedersDir($module));
     }
 
     #[Test]
@@ -63,10 +64,12 @@ final class ModuleLayoutTest extends TestCase
         $layout = new ModuleLayout();
 
         self::assertSame('App\\Modules\\Blog\\View\\Components', $layout->bladeComponentNamespace($module));
-        self::assertSame('App\\Modules\\Blog\\Database\\Factories', $layout->factoryNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Database\\Factories', $layout->factoriesNamespace($module));
         self::assertSame('App\\Modules\\Blog\\Http\\Middleware', $layout->middlewareNamespace($module));
         self::assertSame('App\\Modules\\Blog\\Domain\\Models', $layout->modelNamespace($module));
-        self::assertSame('App\\Modules\\Blog\\Domain\\Observers', $layout->observerNamespace($module));
-        self::assertSame('App\\Modules\\Blog\\Domain\\Policies', $layout->policyNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Domain\\Observers', $layout->observersNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Domain\\Policies', $layout->policiesNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Database\\Seeders', $layout->seedersNamespace($module));
+        self::assertSame('App\\Modules\\Blog\\Http\\Requests', $layout->requestsNamespace($module));
     }
 }

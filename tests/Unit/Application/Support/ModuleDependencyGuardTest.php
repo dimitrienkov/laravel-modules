@@ -17,6 +17,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 #[CoversClass(ModuleDependencyGuard::class)]
 #[Group('lifecycle')]
@@ -146,9 +147,7 @@ final class ModuleDependencyGuardTest extends TestCase
             /**
              * @param array<int, Module> $modules
              */
-            public function __construct(private readonly array $modules)
-            {
-            }
+            public function __construct(private readonly array $modules) {}
 
             public function all(): array
             {
@@ -163,7 +162,7 @@ final class ModuleDependencyGuardTest extends TestCase
                     }
                 }
 
-                throw new \RuntimeException("Module [{$name}] not found.");
+                throw new RuntimeException("Module [{$name}] not found.");
             }
 
             public function has(string $name): bool
@@ -177,9 +176,7 @@ final class ModuleDependencyGuardTest extends TestCase
                 return false;
             }
 
-            public function reset(): void
-            {
-            }
+            public function reset(): void {}
         };
 
         return new ModuleDependencyGuard($registry, new TopologicalSorter());

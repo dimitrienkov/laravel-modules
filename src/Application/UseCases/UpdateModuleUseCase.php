@@ -37,8 +37,7 @@ final readonly class UpdateModuleUseCase
         private ModuleDirectoryOperations $directoryOps,
         private LifecycleRegistryInvalidator $invalidator,
         private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
-    ) {
-    }
+    ) {}
 
     public function execute(string $moduleName, string $sourcePath): UpdateModuleResult
     {
@@ -66,7 +65,7 @@ final readonly class UpdateModuleUseCase
 
                 $allModules = $this->registry->all();
                 $candidateGraph = array_map(
-                    static fn (Module $m): Module => $m->name === $moduleName ? $candidate : $m,
+                    static fn(Module $m): Module => $m->name === $moduleName ? $candidate : $m,
                     $allModules,
                 );
                 $this->dependencyGuard->assertGraphValid($candidateGraph);

@@ -8,6 +8,5 @@ final readonly class ClearModulesOptimizeCacheResult
 {
     public function __construct(
         public bool $cleared,
-    ) {
-    }
+    ) {}
 }

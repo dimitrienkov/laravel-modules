@@ -19,8 +19,7 @@ final readonly class ViewLoader implements LoaderInterface
         private ContainerLifecycleHooks $hooks,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {

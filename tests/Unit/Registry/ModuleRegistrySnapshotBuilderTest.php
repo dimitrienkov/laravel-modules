@@ -28,6 +28,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 #[CoversClass(ModuleRegistrySnapshotBuilder::class)]
 #[Group('registry')]
@@ -67,7 +68,7 @@ final class ModuleRegistrySnapshotBuilderTest extends TestCase
 
         self::assertSame(2, $snapshot->count());
         self::assertSame(['users', 'blog'], array_map(
-            static fn ($m): string => $m->name,
+            static fn($m): string => $m->name,
             $snapshot->all(),
         ));
     }
@@ -157,7 +158,7 @@ final class ModuleRegistrySnapshotBuilderTest extends TestCase
     private function writeModule(string $name, string $version, array $dependencies = []): void
     {
         $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, $version, $dependencies, schema: []);
-        $this->writeModuleState($this->stateRoot, $name, values: new \stdClass());
+        $this->writeModuleState($this->stateRoot, $name, values: new stdClass());
     }
 
 }

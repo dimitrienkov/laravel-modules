@@ -52,8 +52,7 @@ final readonly class ScaffoldModuleUseCase
         private ModuleDirectoryOperations $directoryOps,
         private PartialModuleRollback $rollback,
         private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
-    ) {
-    }
+    ) {}
 
     public function execute(ScaffoldModuleConfig $config): ScaffoldModuleResult
     {
@@ -83,7 +82,7 @@ final readonly class ScaffoldModuleUseCase
 
         try {
             try {
-                $this->skeletonBuilder->build($targetPath, $namespace, $studlyName, $config->name);
+                $this->skeletonBuilder->build($targetPath, $namespace, $studlyName, $config->name, $config->components);
 
                 $state = ModuleState::initialState(enabled: $config->enabled);
 

@@ -47,7 +47,7 @@ final readonly class TopologicalSorter
             if (isset($moduleMap[$module->name])) {
                 throw InvalidManifestException::forPath(
                     $module->manifestPath(),
-                    "duplicate module name [{$module->name}]."
+                    "duplicate module name [{$module->name}].",
                 );
             }
 

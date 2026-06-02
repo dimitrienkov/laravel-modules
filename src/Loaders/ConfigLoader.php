@@ -18,8 +18,7 @@ final readonly class ConfigLoader implements LoaderInterface
         private Repository $config,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {
@@ -29,7 +28,7 @@ final readonly class ConfigLoader implements LoaderInterface
             return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
-        $files = $this->filesystem->glob($configDir . '/*.php') ?: [];
+        $files = $this->filesystem->glob($configDir . '/*.php');
         sort($files);
 
         $merged = [];

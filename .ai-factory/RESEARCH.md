@@ -1,58 +1,103 @@
 # Research
 
-Updated: 2026-06-01 19:40
+Updated: 2026-06-02 14:26
 Status: active
 
 ## Active Summary (input for /aif-plan)
 <!-- aif:active-summary:start -->
-**Topic:** Настраиваемое диагностическое логирование (ROADMAP Фаза 2, milestone `[ ]`).
+**Topic:** Генераторы `make:* --module` (ROADMAP Фаза 2, milestone `[ ]` «Генераторы `make:* --module`»). Предыдущий milestone (диагностическое логирование) завершён 2026-06-01 — его дизайн сохранён в Sessions ниже.
 
-**Goal:** Opt-in диагностический слой, тихий по умолчанию, в отдельный лог-канал, с семантическими уровнями. Базовый запрос пользователя: «какие модули найдены, какие подгрузились/какие нет». ROADMAP расширяет до: discovery/scan, invalid roots, cache hit/miss/write/clear, lifecycle-команды с rollback/backup boundaries, pipeline по модулю, loader applied/skipped/failed с artefacts.
+**Goal:** Два семейства генераторов в одном milestone:
+1. **Native Laravel-генераторы → module-aware** через опцию `--module` (`make:model Post --module=Blog -mfs`, `make:controller … --module=Blog`, `make:migration … --module=Blog` и т.д.) — ПОЛНЫЙ набор Laravel (~23 команды).
+2. **Архитектурные генераторы пакета** в том же стиле: `make:use-case`, `make:action`, `make:query`, `make:dto`, **`make:vo`** (`make:vo` добавлен пользователем сверх roadmap).
+MoonShine-генераторы НЕ дублируем (артефакты создаёт сам MoonShine).
 
-**Real "why" (уточнено ресёрчем):** настоящее обоснование milestone — **field-diagnostics поставленных заказчику модулей**, а не локальная разработка. У заказчика на проде artisan/дебаггер/profiler недоступны; практичный путь — «выставь `MODULES_LOGGING=true`, выстави канал, воспроизведи, пришли `storage/logs/modules.log`». Это объясняет акценты: человекочитаемый нарратив + структурный context на ОТДЕЛЬНОМ канале (на дефолтном `debug` discovery в prod исчезает).
+**Ключевое преимущество конвенции проекта:** модули лежат ВНУТРИ `app_path()`, namespace выводится из `App\` (`App\Modules\Blog\…`) → модуль уже автозагружаем корневым PSR-4 хоста, БЕЗ отдельного composer-autoload на модуль. Laravel `GeneratorCommand::getPath()` = `app_path()/ + (FQCN − rootNamespace) + .php`. Для namespace-генераторов (model/controller/policy/…) достаточно переопределить ТОЛЬКО `getDefaultNamespace()` → вернуть `App\Modules\Blog\<Subdir>`, и файл сам ляжет в `app/Modules/Blog/<Subdir>/Name.php`. `getPath()` Laravel'а работает как есть. Это главное отличие от InterNACHI/modular, где модуль вне `app/` (`app-modules/blog/src`, namespace `Modules\Blog`) и нужен per-module composer path-repo + полный remap `getPath()`.
 
-**Прецеденты (ресёрч, итог):** прямого аналога «логировать загрузку модулей» в экосистеме нет. nwidart/laravel-modules (глоб. хелперы+фасады, `module:list`), internachi/modular («silent operation + on-demand CLI»: `modules:list/cache`), Laravel core (package discovery = command output, не лог), Symfony (`debug:container`/profiler) — ВСЕ отвечают на «что загрузилось» инспекционными командами, не runtime-логами. Вывод: наш лог-слой — осознанный шаг за пределы нормы, оправданный поставкой модулей; «как у других» не работает как обоснование.
-
-**Constraints (forced арх-тестами и архитектурой):**
-- Запрещены Laravel facades (`Illuminate\Support\Facades\*`) и голые хелперы: `logger logs info app config resolve value report dispatch event` (тест `src does not use global logging or service-location helpers`). Регекс ловит только bare-вызовы (`info(`), но НЕ методы (`->info(`).
-- → логгер обязан быть **инъецированной зависимостью** (PSR `Psr\Log\LoggerInterface` / обёртка), не фасад/хелпер.
-- Все concrete-классы `src/` — `final`; VO — `final readonly`; `declare(strict_types=1)`; конструкторная DI; без raw FS (логгер пишет через Monolog-канал, FS-тест не задевает).
-- `Contracts/*` — только интерфейсы.
-- `ARCHITECTURE.md` сейчас ПРЯМО запрещает runtime-логи (стр. 114 dependency-rules + стр. 292 «Package core не пишет runtime logs»). Формулировка «через `Log`» = фасад. Milestone легализует DI-логирование → **обе формулировки переписать**.
+**Прецеденты (ресёрч, проверено через GitHub API):**
+- **InterNACHI/modular** — ТОЧНЫЙ референс интерфейса `make:* --module`. Механика (воспроизводимая):
+  - На каждую native-команду — тонкий subclass (`MakeModel extends ModelMakeCommand`, ~23 шт. в `src/Console/Commands/Make/`), переопределяет только `getDefaultNamespace()` (swap root → module namespace).
+  - Общий трейт `ModularizeGeneratorCommand` (отд. пакет `internachi/modularize`): добавляет `--module`, метод `module()`, переопределяет `getDefaultNamespace`/`qualifyClass`/`qualifyModel`/`getPath` и пробрасывает `--module` в под-команды через `call()`.
+  - **Shadowing native-команд** = rebind контейнерных алиасов в `ModularizedCommandsServiceProvider::register()`: `$this->app->booted(fn() => Artisan::starting(fn($artisan) => …))` затем `$this->app->singleton('command.model.make', MakeModel::class)` + `singleton(get_parent_class($class), $class)`. Делается в `booted+starting`, чтобы победить независимо от порядка провайдеров. Имя команды (`make:model`) наследуется → интерфейс не меняется. Migration особый: `singleton(MigrateMakeCommand::class, fn($app)=>new MakeMigration($app['migration.creator'], $app['composer']))`.
+  - **Без `--module` поведение 100% идентично нативному** (getDefaultNamespace возвращает обычный namespace) → shadow прозрачен и безопасен.
+- **nwidart/laravel-modules** — отдельные имена `module:make-model`/`module:make-controller`, глобальные хелперы+фасады. НЕ совпадает с нашим интерфейсом — отвергнут.
 
 **Decisions (зафиксированы с пользователем):**
-- **Scope milestone = ТОЛЬКО логи (field-diagnostics).** CLI-инспекцию (`modules:doctor` / `--verbose modules:list`) НЕ делаем здесь — Фаза 3. `LoadReport` закладываем как общий субстрат под будущий doctor, но наружу в этом milestone выходит только логирование.
-- **Гранулярность лоадеров = A2:** контракт меняется `LoaderInterface::load(Module): LoadReport` (было `: void`). Логирование централизовано в pipeline. Переиспользуемо позже в `modules:doctor`/UI/тестах. BC не волнует.
-- **`LoadReport` — финальная форма:** `status: LoadStatus { applied | skipped }` (ровно ДВЕ); `artifacts: array<string,list<string>>` (basenames; map оправдан для мультитиповых loader'ов, напр. RouteLoader `web/api/...`); `reason: ?SkipReason` — заполняется ТОЛЬКО при `skipped`.
-  - `applied` ⇒ artifacts ≥ 1, reason = null. `skipped` ⇒ artifacts = [], reason = <почему>.
-  - **`SkipReason` = enum** (типобезопасно, фильтруемо, тестируемо). Черновой набор: `no_directory`, `empty_directory`, `file_absent`, `cache_active` (routes/console cached), `integration_unavailable` (напр. inertia route type). Финализировать набор по 15 loader'ам в плане.
-  - Граница: «директория есть, но нет файлов» ⇒ `skipped(empty_directory)`.
-- **`failed` — это брошенное исключение, НЕ статус `LoadReport`.** Изоляция ошибок pipeline (`try { load } catch { report() + diagnostics.loaderFailed(); continue }`) не меняется. `loader.failed` логируется ДОПОЛНИТЕЛЬНО к `exceptionHandler->report()` (не вместо).
-- **Exceptions в этом milestone НЕ трогаем.** `ModuleLoaderException` остаётся как есть (уже несёт `loaderClass/moduleName/modulePath` как public readonly). Context для `loader.failed` строим В PIPELINE — в `catch` уже доступны `$loader` и `$module`. Правка класса исключения не нужна.
-  - **Future enhancement (НЕ сейчас, Фаза 3 вместе с doctor):** метод `context(): array` на `ModuleLoaderException` — Laravel `ExceptionHandler` автоматически мёржит его в лог host'а (Sentry/Flare/stack), давая структурный контекст и в трекер заказчика из одной точки. Добавление — НЕ ломающее. PSR-3: исключение класть в `context['exception']`, message статичный с плейсхолдерами.
-- **Лог-канал = именованный канал хоста** (`modules.logging.channel='modules'`, null → default). Пакет канал НЕ навязывает — использует по имени; готовый сниппет канала (отдельный файл `storage/logs/modules.log`) кладём в docs.
-- **Конфиг events = семантический level у каждого события + глобальный порог `modules.logging.level` + тумблеры по категориям** `events: {discovery, cache, pipeline, lifecycle}`.
-- **Lifetime логгера = singleton.** `ModuleLogger` stateless (оборачивает инъецированный channel) → Octane-safe, арх-тест на mutable static проходит.
+- **Native-интерфейс = прозрачный override** (как в roadmap): rebind алиасов `command.*.make`, имя команды то же, `make:model Post --module=Blog`. (Альтернативы opt-in-через-конфиг и отдельные `modules:make-*` отклонены.)
+- **Охват native = ПОЛНЫЙ набор Laravel (~23):** model, controller, migration, factory, seeder, policy, request, resource, event, listener, job, mail, notification, observer, middleware, command, rule, cast, channel, component, provider, exception, test.
+- **Архитектурные генераторы (5):** `make:use-case`, `make:action`, `make:query`, `make:dto`, `make:vo`. Раскладка внутри модуля и суффиксы:
+  - `Application/UseCases/<Name>UseCase.php` (`final readonly`)
+  - `Application/Actions/<Name>Action.php` (`final readonly`)
+  - `Application/Queries/<Name>Query.php` (`final readonly`)
+  - `Application/DTOs/<Name>Dto.php` (`final readonly`)
+  - `Domain/VO/<Name>.php` — **БЕЗ суффикса** (`final readonly`), совпадает с конвенцией ядра (`<Layer>/VO`, VO без суффикса: `Version`, `Checksum`).
+- **Объём = один milestone** (оба семейства: общий трейт + ~23 native-subclass + 5 арх-команд + rebind-провайдер + стабы + тесты).
+- **Общий код = TRAIT, не базовый класс.** Арх-тест `all concrete src classes are final` запрещает concrete non-final класс; `abstract` база провалит `toBeFinal()`. Pest `classes()` НЕ трогает traits → trait безопасен. (Roadmap говорит «единый базовый класс» — реализуем как trait, цель DRY достигается.)
+- **Резолв модуля только через `ModuleRegistryInterface`** (контракт; концрет `ModuleRegistry`/repos запрещены арх-тестом `console commands do not depend on concrete persistence/registry`). `--module=Blog` → нормализовать в snake → `registry->find()` → `$module->namespace` + `$module->path`. Если модуль не найден — явная ошибка. ApplicationNamespaceResolver используется ТРАНЗИТИВНО (namespace уже посчитан им при scan и лежит в `Module->namespace`) — повторно звать не нужно.
+
+**Constraints (forced арх-тестами — `tests/Architecture/ArchitectureTest.php`):**
+- `src does not use Laravel facades` — глобально, БЕЗ исключения для `Console/`. Запланированный в Фазе 1 carve-out не реализован. → в командах нельзя `Illuminate\Support\Facades\*`. `Illuminate\Console\Application::starting()` — это класс, не фасад (`use … as Artisan` как у InterNACHI) → разрешено.
+- `src does not use global helpers` (`app(`,`config(`,`resolve(`,`value(`,…) — только `$this->laravel->make(...)` / DI.
+- `all concrete src classes are final` → каждая конкретная команда `final`; общий код — trait.
+- `artisan commands extend Laravel Command` → OK транзитивно (`*MakeCommand → GeneratorCommand → Command`).
+- direct filesystem I/O запрещён вне whitelisted инфра-классов → расширяем Laravel `GeneratorCommand` (запись внутри vendor); наш код НЕ содержит `file_put_contents`/`is_dir`/… токенов.
+- `php files under src tests and stubs declare strict types` сканирует `stubs/` → КАЖДЫЙ новый стаб обязан содержать `declare(strict_types=1)`.
+- mutable static запрещены → кеш `module()` хранить в instance-property (команда per-invocation), не static.
+
+**Особые случаи путей (нужен remap, `getDefaultNamespace()` недостаточно):**
+- `make:migration` — пишет в `database/migrations/` (timestamp, без namespace), особый конструктор (`migration.creator`+`composer`). Вариант A: subclass + remap пути в `Module/Database/Migrations`. Вариант B (проще): транслировать `--module` → нативный `--path=app/Modules/Blog/Database/Migrations` (опция `--path` у make:migration существует). `MigrationLoader` уже регистрирует `Database/Migrations`.
+- `make:factory` → `database/factories/`, namespace `Database\Factories\` → remap в `Module/Database/Factories`.
+- `make:seeder` → `database/seeders/` → remap (модуль сейчас НЕ имеет `Database/Seeders` в скелете — решить: добавить или класть в Factories-уровень).
+- `make:test` → `tests/` → модуль обычно без `tests/`; решить — `Module/tests` или skip из набора.
+- `make:component` (Blade) → ДВА файла: класс в `View/Components/` (есть в layout) + view в `resources/views/components/` → remap view в `Module/Resources/views/components`.
 
 **Open questions (решить в плане):**
-1. **Место `LoadReport` + арх-ignores.** Кладём в `Loaders/VO/LoadReport.php` + `LoadStatus` + `SkipReason`. Прецедент: `Contracts\LoaderInterface` уже импортирует `Manifest\VO\Module` (Contracts↔VO — принятый паттерн, не нарушение «Contracts не зависят от реализаций»). НО арх-тесты `loaders are final and implement LoaderInterface` и `loaders use the Loader suffix` сканируют весь `Loaders\*` → добавить `->ignoring(Loaders\VO\…)` (как уже для `ModuleLoaderPipeline`).
-2. **Порядок цикла vs «pipeline start/finish по модулю».** Сейчас pipeline — **loader-outer** (`foreach loader { foreach module }`): фазовая загрузка по всему набору (config всех модулей → providers всех → …). Менять на module-outer НЕЛЬЗЯ (сломается фазовость). → «граница по модулю» не натуральна. Решение: `pipeline.started/finished` summary (N enabled, M loaders, total ms) + событие на каждый `(loader, module)`; per-module агрегат — суммированием при необходимости.
-3. **Null-object vs NullLogger.** Рекомендация: отдельный `NullModuleDiagnostics` (call-sites без `if`); контекст-массивы строить лениво ВНУТРИ логгера (overhead при выкл. = вызов метода + пара сравнений). Аллокация `LoadReport` на loader×module остаётся всегда — цена A2, мизерная.
-4. **Порог уровня** `modules.logging.level` имеет смысл в основном для дефолтного (null) канала; на выделенном `modules`-канале фильтрует host. Зафиксировать поведение одной строкой в docs/плане.
-5. **Финальный набор `SkipReason`** — выверить по всем 15 loader'ам (каждый ранний `return;` → `skipped(<reason>)`).
+1. **`--module` обязателен ли для арх-генераторов?** Дефолт-предложение: НЕ обязателен — без `--module` пишем в host `app/Application/UseCases/…` (как native make:* без --module). С `--module` — в модуль. Подтвердить в плане.
+2. **Скелет `make:module`:** добавить ли `Application/{UseCases,Actions,Queries,DTOs}` + `Domain/VO` в `ModuleSkeletonBuilder::createDirectories()`. GeneratorCommand сам создаёт каталоги (`makeDirectory`), так что не блокер, но желательно для полноты скелета. + добавить `Database/Seeders`, `tests/` если их генераторы войдут в набор.
+3. **`ModuleLayout`:** добавить методы-источники истины для новых путей/namespace (`useCasesDir/Namespace`, `actionsDir/…`, `queriesDir/…`, `dtosDir/…`, `domainVoDir/Namespace`). Команда может строить namespace и напрямую (`$module->namespace.'\\Application\\UseCases'`), но layout нужен для скелета и тестов.
+4. **Стабы:** новые в корневом `stubs/` (существующая конвенция; roadmap говорит `src/stubs/`, но фактически `stubs/` в корне — следовать факту). Токены — в стиле Laravel `GeneratorCommand` (`{{ namespace }}`, `{{ class }}`, `{{ rootNamespace }}`) т.к. арх-генераторы расширяют `GeneratorCommand`. Стабы отражают house-style: `declare(strict_types=1)` + `final readonly`. Native-команды используют стабы Laravel (кастомизация заказчиком через `stub:publish`) — свои не плодим.
+5. **Laravel 12 vs 13:** конструкторы некоторых `*MakeCommand` (особенно migration) могут различаться между линейками. Rebind migration зависит от сигнатуры установленной версии. Сверить обе линейки в плане (риск brittleness).
+6. **Где регистрировать rebind:** отдельный провайдер (`Providers/ModuleGeneratorCommandsProvider`, как у InterNACHI) или внутри `ModuleLoaderServiceProvider`. Делать только в `runningInConsole()` контексте.
 
 **Success signals:**
 - `composer test` (arch+unit+feature) + `composer phpstan` + `composer format:dry` зелёные.
-- Логи off by default; при `enabled` — пишут в отдельный канал с уровнями.
-- Unit-тест доказывает: feature values / secrets / полный manifest НИКОГДА не попадают в context (whitelist).
-- `loader.failed` логируется ДОПОЛНИТЕЛЬНО к существующему `exceptionHandler->report()` (не вместо).
-- `skipped`-события несут `SkipReason` → лог отвечает на «почему модуль НЕ подгрузился».
+- `make:model Post --module=blog` → `app/Modules/Blog/Domain/Models/Post.php` с namespace `App\Modules\Blog\Domain\Models`; БЕЗ `--module` поведение идентично нативному Laravel.
+- Под-генераторы (`make:model -mfs --module=blog`) пробрасывают `--module` в factory/migration/seeder.
+- `make:use-case Publish --module=blog` → `app/Modules/Blog/Application/UseCases/PublishUseCase.php`, `final readonly`, `declare(strict_types=1)`.
+- `make:vo Money --module=blog` → `app/Modules/Blog/Domain/VO/Money.php`, `final readonly`, без суффикса.
+- Несуществующий `--module` → внятная ошибка (через `ModuleRegistryInterface`).
+- Все новые команды `final`, общий код в trait, новые стабы несут `declare(strict_types=1)`.
 
-**Next step:** `/aif-plan full логирование модулей` (full-режим: контракт + 15 лоадеров + конфиг + docs + ARCHITECTURE + arch-тесты + тесты).
+**Next step:** `/aif-plan full генераторы make:* --module` (full: trait + ~23 native-subclass + 5 арх-команд + rebind-провайдер + стабы + ModuleLayout/skeleton + docs/cli.md + ROADMAP отметка + arch/unit/feature тесты).
 <!-- aif:active-summary:end -->
 
 ## Sessions
 <!-- aif:sessions:start -->
+### 2026-06-02 14:26 — Explore: генераторы make:* --module (дизайн)
+
+**What changed:** Исследован milestone «Генераторы `make:* --module`». Изучена кодовая база (scaffold-флоу, `ModuleLayout`, `ApplicationNamespaceResolver`, провайдер, арх-тесты) и механика двух референсных пакетов через GitHub API. Закрыты 5 продуктовых развилок вопросами пользователю. Active Summary переписан с завершённого логирования на генераторы.
+
+**Решения пользователя (этой сессии):**
+- Native-интерфейс = **прозрачный override** через rebind алиасов `command.*.make` (как в roadmap), не opt-in-конфиг и не отдельные имена.
+- Охват native = **полный набор** Laravel (~23 команды).
+- Арх-генераторы = `make:use-case`, `make:action`, `make:query`, `make:dto`, **`make:vo`** (vo добавлен сверх roadmap).
+- Раскладка = `Application/{UseCases,Actions,Queries,DTOs}` + суффиксы UseCase/Action/Query/Dto; **`Domain/VO/` без суффикса** (как VO ядра).
+- Объём = **один milestone**.
+
+**Key notes (ресёрч/код):**
+- Преимущество конвенции: модуль под `app/`, namespace из `App\` → автозагрузка из коробки; для namespace-генераторов достаточно `getDefaultNamespace()`, `getPath()` Laravel работает как есть (в отличие от InterNACHI, где модуль вне `app/` и нужен per-module composer-autoload + полный remap).
+- InterNACHI-механика (проверена через API): subclass-на-команду + общий трейт `ModularizeGeneratorCommand` + rebind алиасов в `booted()→Artisan::starting()`, `singleton('command.X.make', MakeX)` + `singleton(get_parent_class(...), MakeX)`. Migration особый (constructor `migration.creator`+`composer`). Без `--module` поведение идентично нативному.
+- Арх-тесты диктуют: общий код = **trait** (не abstract база — провалит `all concrete src classes are final`); резолв модуля только через `ModuleRegistryInterface`; нельзя фасады/хелперы даже в Console; новые стабы обязаны нести `declare(strict_types=1)` (тест сканирует `stubs/`).
+- Особые пути (нужен remap, не только namespace): migration (`--path` опция уже есть как простой вариант), factory, seeder, test, component(blade view). Часть каталогов отсутствует в скелете модуля (Database/Seeders, tests) — решить в плане.
+
+**Links (paths):**
+- ROADMAP milestone: `.ai-factory/ROADMAP.md` (Фаза 2, «Генераторы `make:* --module`», строка 32).
+- Ближайший аналог в коде: `src/Application/UseCases/ScaffoldModuleUseCase.php`, `src/Application/Support/ModuleSkeletonBuilder.php`, `src/Console/Commands/Modules/MakeModuleCommand.php`, `stubs/module-service-provider.stub`.
+- Источник истины путей/namespace: `src/Support/ModuleLayout.php`; namespace: `src/Support/ApplicationNamespaceResolver.php`; резолв модуля: `src/Contracts/ModuleRegistryInterface.php` (`find/has`), `src/Manifest/VO/Module.php` (`namespace`/`path`).
+- Регистрация команд/стабов: `src/Providers/ModuleLoaderServiceProvider.php` (`boot()` `commands([...])`, `publishes(... 'modules-stubs')`).
+- Арх-ограничения: `tests/Architecture/ArchitectureTest.php` (тесты `all concrete src classes are final`, `src does not use Laravel facades`, `global … helpers`, `console commands do not depend on concrete …`, `artisan commands extend Laravel Command`, strict-types по `stubs/`).
+- Референсы: github.com/InterNACHI/modular (`src/Console/Commands/Make/*`, `src/Support/ModularizedCommandsServiceProvider.php`), github.com/InterNACHI/modularize (`src/ModularizeGeneratorCommand.php`); nwidart.com/laravel-modules (`module:make-*`); Laravel `Illuminate\Console\GeneratorCommand`.
+
 ### 2026-06-01 19:29 — Explore: диагностическое логирование (дизайн)
 
 **What changed:** Исследован milestone «Настраиваемое диагностическое логирование». Зафиксированы 3 ключевых решения (A2 LoadReport, именованный канал хоста, семантический level + порог + категории-тумблеры). Выявлено, что архитектура сейчас запрещает runtime-логи и требует правки.

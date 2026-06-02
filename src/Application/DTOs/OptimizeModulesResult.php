@@ -9,6 +9,5 @@ final readonly class OptimizeModulesResult
     public function __construct(
         public string $path,
         public int $count,
-    ) {
-    }
+    ) {}
 }

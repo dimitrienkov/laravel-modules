@@ -1,5 +1,7 @@
 includes:
-    - vendor/larastan/larastan/extension.neon
+    # larastan, phpstan-strict-rules, phpstan-deprecation-rules and
+    # tomasvotruba/type-coverage are auto-registered by phpstan/extension-installer.
+    - vendor/phpstan/phpstan/conf/bleedingEdge.neon
 
 parameters:
     paths:
@@ -7,8 +9,42 @@ parameters:
     level: max
     reportUnmatchedIgnoredErrors: true
     treatPhpDocTypesAsCertain: true
+    checkUninitializedProperties: true
+    checkBenevolentUnionTypes: true
     parallel:
-        maximumNumberOfProcesses: 2
-    ignoreErrors: []
+        maximumNumberOfProcesses: 16
+    type_coverage:
+        declare: 100
+        return_type: 100
+        param_type: 100
+        property_type: 100
+        constant_type: 100
+    ignoreErrors:
+        # Illuminate\Contracts\Foundation\Application does not declare path() (it
+        # declares basePath(), which is why only path() trips this rule). Larastan
+        # resolves the missing method through the App facade's
+        # "@method static string path()" annotation, so a normal instance call on
+        # the bound concrete Application reads as a static call. The runtime target
+        # is a genuine instance method.
+        -
+            identifier: staticMethod.dynamicCall
+            message: '#Dynamic call to static method Illuminate\\Foundation\\Application::path\(\)#'
+        # The module-aware generators mirror Laravel's GeneratorCommand signatures
+        # on purpose (see commit 8bb5aa3): GeneratorCommand::handle() is documented
+        # "@return bool|null" and getOptions()/call() carry looser parent PHPDoc than
+        # the int exit code / option list these overrides actually produce. Native
+        # parameter types are impossible here (untyped vendor parent => LSP fatal),
+        # so the child-signature divergence is intentional host parity.
+        -
+            identifier: method.childReturnType
+            path: src/Console/Concerns/ModuleAwareGenerator.php
+        -
+            identifier: method.childParameterType
+            path: src/Console/Concerns/ModuleAwareGenerator.php
+        # openLock() returns a stream resource; PHP has no native "resource" type,
+        # so 100% return-type coverage is physically unreachable for this file.
+        -
+            identifier: typeCoverage.returnTypeCoverage
+            path: src/Support/AtomicFileWriter.php
     excludePaths:
         - vendor/*

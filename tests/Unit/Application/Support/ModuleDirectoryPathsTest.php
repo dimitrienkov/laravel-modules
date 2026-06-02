@@ -135,7 +135,7 @@ final class ModuleDirectoryPathsTest extends TestCase
     /**
      * @param list<string> $directories
      */
-    private function makePaths(array $directories, string|null $backup = null): ModuleDirectoryPaths
+    private function makePaths(array $directories, ?string $backup = null): ModuleDirectoryPaths
     {
         $config = [
             'modules' => [

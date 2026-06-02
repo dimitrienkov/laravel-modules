@@ -23,6 +23,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 #[CoversClass(InstallModuleUseCase::class)]
 #[Group('lifecycle')]
@@ -118,9 +119,9 @@ final class InstallModuleUseCaseTest extends TestCase
         $zipPath = $this->createSourceZip('blog');
         $targetPath = $this->tempDir . '/app/Modules/Blog';
 
-        $failingManifests = $this->createMock(\DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface::class);
+        $failingManifests = $this->createMock(ModuleManifestRepositoryInterface::class);
         $failingManifests->method('writeManifest')->willThrowException(
-            new \DimitrienkoV\LaravelModules\Exceptions\ManifestWriteException('simulated write failure'),
+            new ManifestWriteException('simulated write failure'),
         );
 
         $useCase = $this->makeUseCase(manifestRepository: $failingManifests);
@@ -298,6 +299,6 @@ final class InstallModuleUseCaseTest extends TestCase
     private function createInstalledModule(string $name): void
     {
         $this->writeModuleManifest($this->tempDir . '/app/Modules', $name);
-        $this->writeModuleState($this->stateRoot, $name, values: new \stdClass());
+        $this->writeModuleState($this->stateRoot, $name, values: new stdClass());
     }
 }

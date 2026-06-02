@@ -23,7 +23,8 @@
 ## Документация И Roadmap
 
 - Документируй только фактический runtime как реализованный.
-- Нереализованные module-aware generators `make:* --module`, full MoonShine admin UI, lifecycle events, marketplace/signature/fetch flows помечай как roadmap.
+- Module-aware генераторы `make:* --module` и архитектурные генераторы (`make:use-case` / `make:action` / `make:query` / `make:dto` / `make:vo`) реализованы — документируй их как текущий runtime, не как roadmap.
+- Нереализованные full MoonShine admin UI, lifecycle events, marketplace/signature/fetch flows помечай как roadmap.
 - Не дублируй большие описания между AI-context файлами: `ARCHITECTURE.md` хранит дизайн и runtime flow, `base.md` - короткие правила, `AGENTS.md` - карту проекта, `DESCRIPTION.md` - product/runtime summary.
 
 ## Тесты И Quality Gates

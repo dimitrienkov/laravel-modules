@@ -17,8 +17,7 @@ final readonly class EventLoader implements LoaderInterface
     public function __construct(
         private Filesystem $filesystem,
         private ModuleLayout $layout,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {

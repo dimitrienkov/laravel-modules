@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 #[CoversClass(CommandLoader::class)]
 #[Group('loaders')]
@@ -53,7 +54,7 @@ final class CommandLoaderTest extends TestCase
         $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
-        $app->singleton(ConsoleKernelContract::class, static fn (): CommandRecordingKernel => $kernel);
+        $app->singleton(ConsoleKernelContract::class, static fn(): CommandRecordingKernel => $kernel);
         $app->make(ConsoleKernelContract::class);
 
         self::assertSame([], $kernel->addedCommandPaths);
@@ -113,7 +114,7 @@ final class CommandLoaderTest extends TestCase
         $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $this->tempDir . '/Blog'));
 
-        $app->singleton(ConsoleKernelContract::class, static fn (): CommandRecordingKernel => $kernel);
+        $app->singleton(ConsoleKernelContract::class, static fn(): CommandRecordingKernel => $kernel);
         $app->make(ConsoleKernelContract::class);
         $app->boot();
 
@@ -130,14 +131,14 @@ final class CommandLoaderTest extends TestCase
         mkdir($commandsDir, 0755, true);
         file_put_contents($commandsDir . '/SomeCommand.php', '<?php // command');
         $app = new Application($this->tempDir);
-        $reflection = new \ReflectionProperty(Application::class, 'isRunningInConsole');
+        $reflection = new ReflectionProperty(Application::class, 'isRunningInConsole');
         $reflection->setValue($app, false);
         $kernel = new CommandRecordingKernel();
 
         $report = $this->loader($app)
             ->load(ModuleFactory::make(path: $modulePath, namespace: 'App\\Modules\\Blog'));
 
-        $app->singleton(ConsoleKernelContract::class, static fn (): CommandRecordingKernel => $kernel);
+        $app->singleton(ConsoleKernelContract::class, static fn(): CommandRecordingKernel => $kernel);
         $app->make(ConsoleKernelContract::class);
         $app->boot();
 

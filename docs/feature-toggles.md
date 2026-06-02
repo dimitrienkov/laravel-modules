@@ -1,4 +1,4 @@
-[← Architecture](architecture.md) · [Back to README](../README.MD) · [Logging →](logging.md)
+[← Architecture](architecture.md) · [Back to README](../README.md) · [Logging →](logging.md)
 
 # Feature Toggles
 

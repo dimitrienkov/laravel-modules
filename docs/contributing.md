@@ -1,4 +1,4 @@
-[← CLI](cli.md) · [Back to README](../README.MD)
+[← CLI](cli.md) · [Back to README](../README.md)
 
 # Contributing
 
@@ -66,7 +66,7 @@ Title пишется на английском и следует Conventional Co
 
 При изменении документации:
 
-- Держите `README.MD` как landing page.
+- Держите `README.md` как landing page.
 - Детальные topic pages размещайте в `docs/`.
 - Сохраняйте navigation headers в порядке Documentation table из README.
 - Завершайте каждую docs page секцией `See Also`.

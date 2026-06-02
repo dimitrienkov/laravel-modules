@@ -14,8 +14,7 @@ final readonly class ModuleDependencyGuard
     public function __construct(
         private ModuleRegistryInterface $registry,
         private TopologicalSorter $sorter,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<int, Module> $candidateModules

@@ -4,7 +4,7 @@
 
 `dimitrienkov0/laravel-modules` — Laravel-пакет для manifest-driven модульной архитектуры. Пакет загружает модули из настроенных директорий хост-приложения, читает `module.json`, строит dependency-aware registry, применяет loader-pipeline и предоставляет runtime API для feature toggles без БД.
 
-Текущий реализованный срез — **v2.0 core**: контракты, manifest VO, registry/cache, 15 лоадеров (полный loader pipeline), scoped `FeatureRepository`, optimizer-команды, lifecycle UseCase-классы и Artisan-команды (`make:module`, `modules:install/update/remove/enable/disable/list/optimize/optimize-clear`), support-сервисы (`ZipExtractor`, `ModuleSourcePreparer`, `ModuleDependencyGuard`, `ModuleDirectoryOperations`, `LifecycleRegistryInvalidator`, `ModuleDirectoryPaths`, `ModuleSkeletonBuilder`, `PartialModuleRollback`, `ModuleStatePaths`) и optional bridges для MoonShine/Inertia. Module-aware генераторы `make:* --module` и полноценный MoonShine admin-UI остаются roadmap-задачами следующих фаз.
+Текущий реализованный срез — **v2.0 core**: контракты, manifest VO, registry/cache, 15 лоадеров (полный loader pipeline), scoped `FeatureRepository`, optimizer-команды, lifecycle UseCase-классы и Artisan-команды (`make:module`, `modules:install/update/remove/enable/disable/list/optimize/optimize-clear`), support-сервисы (`ZipExtractor`, `ModuleSourcePreparer`, `ModuleDependencyGuard`, `ModuleDirectoryOperations`, `LifecycleRegistryInvalidator`, `ModuleDirectoryPaths`, `ModuleSkeletonBuilder`, `PartialModuleRollback`, `ModuleStatePaths`), optional bridges для MoonShine/Inertia и module-aware генераторы (native `make:* --module` для 22 артефактов через `ModuleAwareGenerator` trait + rebind parent-FQCN singleton'ов; архитектурные `make:use-case/action/query/dto/vo`; component-driven `make:module --with`). Полноценный MoonShine admin-UI остаётся roadmap-задачей следующих фаз.
 
 ## Целевые сценарии
 
@@ -33,7 +33,7 @@
 - Loader pipeline с 15 реализованными лоадерами: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`.
 - `FeatureRepositoryInterface` с методами `get`, `getBool`, `getInt`, `getString`; реализация биндится как scoped. `FeatureRepository` читает values через `ModuleStateRepositoryInterface::readValues()`.
 - Команды `modules:optimize` и `modules:optimize-clear`, интегрированные с Laravel optimizer hooks.
-- Lifecycle UseCase-классы и Artisan-команды: enable/disable/settings writes меняют только `state.json`; scaffold/install/update пишут immutable descriptor через `ModuleManifestRepositoryInterface::writeManifest()`.
+- Lifecycle UseCase-классы и Artisan-команды: enable/disable меняют только `state.json`; запись feature values через repository/API также остаётся в `state.json`; scaffold/install/update пишут immutable descriptor через `ModuleManifestRepositoryInterface::writeManifest()`.
 - Registry cache (v4) кеширует только manifest descriptors (`meta` + `settings.schema`) и `load_order`; state и values НЕ кешируются — читаются свежими из `state.json` при каждом request.
 - Optional MoonShine bridge через `MoonShineModuleAutoloader`.
 - Optional Inertia routes: `Routes/inertia.php` загружается только при наличии Inertia.
@@ -42,7 +42,6 @@
 
 ### Roadmap, не текущий runtime
 
-- Module-aware генераторы `make:* --module`.
 - MoonShine resources/pages для управления модулями и settings forms.
 - Packaging/marketplace/signature flow для коммерческой поставки.
 - Lifecycle events (`ModuleInstalled`, `ModuleEnabled`, etc.).
@@ -133,14 +132,14 @@ Mutable state и explicit feature values хранятся в отдельном 
 - `schema_version` — обязательный top-level integer, версия формата manifest. Текущая версия: `1`. Неизвестная версия → `InvalidManifestException` (strict-fail, без fallback).
 - `meta.name` — canonical module name; `display_name` опционален и fallback'ается на `name`.
 - `meta.kind` — обязательный, backed string enum `ModuleKind` (`module`, `subsystem`, `integration`). Чисто презентационный: не влияет на loader pipeline, dependency resolution или enable/disable. При scaffold infer'ится из целевой директории (`Modules→module`, `Integrations→integration`, `Subsystems→subsystem`).
-- `meta.group` — опциональный string, kebab-case (`/^[a-z][a-z0-9-]*$/`). Логическая группировка модулей для отображения (`modules:list`) и конфигурации (`modules.groups`). Не влияет на loader pipeline и dependency resolution.
+- `meta.group` — опциональный string, segment kebab-case (`/^[a-z0-9]+(-[a-z0-9]+)*$/`). Логическая группировка модулей для отображения (`modules:list`) и конфигурации (`modules.groups`). Не влияет на loader pipeline и dependency resolution.
 - `meta.dependencies` принимает только объект `moduleName => Composer constraint`; wildcard constraint записывается явно как `"*"`.
 - `settings.schema` поддерживает типы `bool`, `int`, `string`, `enum`.
 - `settings.values` в `state.json` хранит только явные override-значения; defaults остаются в schema (`module.json`) и не записываются как values.
 - `source` — опциональная секция в `state.json`. `ModuleOrigin` VO содержит `kind` (enum `ModuleOriginKind`: `local`, `zip`), `installed_version` и опциональный `checksum`. Записывается lifecycle UseCase-классами (scaffold, install, update) для фиксации provenance. Не влияет на loader pipeline и registry cache.
 - `FeatureValues` валидирует значения против schema при чтении и записи.
 - Source-модуль НЕ ДОЛЖЕН содержать `state.json` — он принадлежит приватному хранилищу хоста.
-- `state.json` управляется через `ModuleStateRepositoryInterface`; enable/disable/settings writes модифицируют только `state.json`, а scaffold/install/update пишут `module.json` через `ModuleManifestRepositoryInterface::writeManifest()`.
+- `state.json` управляется через `ModuleStateRepositoryInterface`; enable/disable и запись feature values через repository/API модифицируют только `state.json`, а scaffold/install/update пишут `module.json` через `ModuleManifestRepositoryInterface::writeManifest()`.
 - Конфиг `modules.paths.state` задаёт корневую директорию state-хранилища (по умолчанию `storage/app/private/modules`).
 
 ## Loader pipeline

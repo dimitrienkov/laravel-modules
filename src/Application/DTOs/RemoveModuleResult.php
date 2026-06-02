@@ -10,6 +10,5 @@ final readonly class RemoveModuleResult
         public string $name,
         public string $removedPath,
         public ?string $backupPath,
-    ) {
-    }
+    ) {}
 }

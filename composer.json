@@ -23,19 +23,23 @@
     "psr/log": "^3.0"
   },
   "require-dev": {
-    "phpunit/phpunit": "^11|^12",
+    "driftingly/rector-laravel": "^2",
+    "friendsofphp/php-cs-fixer": "^3.65",
     "inertiajs/inertia-laravel": "^2",
+    "larastan/larastan": "^3",
     "mockery/mockery": "^1.2",
     "moonshine/contracts": "^4.0",
     "moonshine/core": "^4.0",
-    "rector/rector": "^2",
-    "friendsofphp/php-cs-fixer": "^3.65",
-    "driftingly/rector-laravel": "^2",
-    "phpstan/phpstan": "^2",
-    "larastan/larastan": "^3",
     "orchestra/testbench": "^10|^11",
     "pestphp/pest": "^3",
-    "pestphp/pest-plugin-arch": "^3"
+    "pestphp/pest-plugin-arch": "^3",
+    "phpstan/extension-installer": "^1.4",
+    "phpstan/phpstan": "^2",
+    "phpstan/phpstan-deprecation-rules": "^2.0",
+    "phpstan/phpstan-strict-rules": "^2.0",
+    "phpunit/phpunit": "^11|^12",
+    "rector/rector": "^2",
+    "tomasvotruba/type-coverage": "^2.2"
   },
   "suggest": {
     "inertiajs/inertia-laravel": "Required only for loading module Routes/inertia.php files in Inertia host applications.",
@@ -66,14 +70,17 @@
       "@test:feature"
     ],
     "test:bail": "vendor/bin/pest --bail",
-    "rector": "vendor/bin/rector process --clear-cache --debug",
-    "rector:dry": "vendor/bin/rector process --clear-cache --dry-run --debug",
-    "format": "vendor/bin/php-cs-fixer fix --allow-risky=yes --sequential",
-    "format:dry": "vendor/bin/php-cs-fixer fix --allow-risky=yes --dry-run --diff --sequential",
-    "phpstan": "vendor/bin/phpstan analyse --memory-limit=512M --debug",
+    "rector": "vendor/bin/rector process",
+    "rector:dry": "vendor/bin/rector process --dry-run",
+    "rector:fresh": "vendor/bin/rector process --clear-cache",
+    "rector:debug": "vendor/bin/rector process --dry-run --debug",
+    "format": "vendor/bin/php-cs-fixer fix --allow-risky=yes",
+    "format:dry": "vendor/bin/php-cs-fixer fix --allow-risky=yes --dry-run --diff",
+    "phpstan": "vendor/bin/phpstan analyse --memory-limit=1G",
+    "phpstan:debug": "vendor/bin/phpstan analyse --memory-limit=1G --debug",
     "phpstan:clear": [
       "vendor/bin/phpstan clear-result-cache",
-      "vendor/bin/phpstan analyse --memory-limit=512M --debug"
+      "vendor/bin/phpstan analyse --memory-limit=1G"
     ]
   }
 }

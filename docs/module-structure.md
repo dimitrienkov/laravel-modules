@@ -1,4 +1,4 @@
-[← Getting Started](getting-started.md) · [Back to README](../README.MD) · [Manifest →](manifest.md)
+[← Getting Started](getting-started.md) · [Back to README](../README.md) · [Manifest →](manifest.md)
 
 # Module Structure
 
@@ -91,6 +91,8 @@ storage/app/private/modules/blog/state.json
 ```
 
 Disabled-модули обнаруживаются registry, но default loaders к ним не применяются. `make:module` автоматически создаёт `state.json` с `enabled: true` (или `false` при `--disabled`).
+
+Эти поддиректории — «дома» для module-aware генераторов: `make:model Post --module=blog` кладёт класс в `Domain/Models`, `make:controller … --module=blog` — в `Http/Controllers`, и так далее (полная таблица из 22 размещений — в [CLI → Module-aware генераторы](cli.md#module-aware-генераторы)). Архитектурные слои `Application/{UseCases,Actions,Queries,DTOs}` и `Domain/VO` создаются генераторами `make:use-case/action/query/dto/vo` по требованию, а `make:module --with=…` позволяет scaffold'ить только нужные поддиректории.
 
 ## Roadmap-only пути
 

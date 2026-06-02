@@ -11,6 +11,5 @@ final readonly class ScaffoldModuleResult
         public string $path,
         public bool $enabled,
         public string $providerClass,
-    ) {
-    }
+    ) {}
 }

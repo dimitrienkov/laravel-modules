@@ -2,6 +2,37 @@
 
 declare(strict_types=1);
 
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
+use DimitrienkoV\LaravelModules\Loaders\VO\PipelineRunSummary;
+use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
+use DimitrienkoV\LaravelModules\Loaders\VO\SkipReason;
+use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
+use DimitrienkoV\LaravelModules\Support\Logging\LogEvent;
+use DimitrienkoV\LaravelModules\Support\Logging\LifecyclePhase;
+use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
+use DimitrienkoV\LaravelModules\Support\ZipExtractor;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeCommand;
+use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
+use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeClearCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesListCommand;
+use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesInstallCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesUpdateCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesRemoveCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesEnableCommand;
+use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesDisableCommand;
+use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
+use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
+use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
+use DimitrienkoV\LaravelModules\Support\AtomicFileWriter;
+use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
+use DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface;
+use DimitrienkoV\LaravelModules\Manifest\FeatureRepository;
+use DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface;
+use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
+use DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Loaders\Pipeline\ModuleLoaderPipeline;
 use Illuminate\Console\Command;
@@ -36,7 +67,7 @@ test('php files under src tests and stubs declare strict types', function (): vo
 
             $path = $file->getPathname();
 
-            if (str_contains($path, '/Fixtures/')) {
+            if (str_contains((string) $path, '/Fixtures/')) {
                 continue;
             }
 
@@ -61,16 +92,16 @@ arch('value objects are final readonly')
 
 arch('loader value objects are final readonly')
     ->expect([
-        'DimitrienkoV\LaravelModules\Loaders\VO\LoadReport',
-        'DimitrienkoV\LaravelModules\Loaders\VO\PipelineRunSummary',
+        LoadReport::class,
+        PipelineRunSummary::class,
     ])
     ->toBeReadonly()
     ->toBeFinal();
 
 arch('loader value object enums are string backed')
     ->expect([
-        'DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus',
-        'DimitrienkoV\LaravelModules\Loaders\VO\SkipReason',
+        LoadStatus::class,
+        SkipReason::class,
     ])
     ->toBeStringBackedEnums();
 
@@ -78,16 +109,16 @@ arch('diagnostics implementations are final and implement the contract')
     ->expect('DimitrienkoV\LaravelModules\Support\Logging')
     ->classes()
     ->toBeFinal()
-    ->toImplement('DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface')
+    ->toImplement(ModuleDiagnosticsInterface::class)
     ->ignoring([
-        'DimitrienkoV\LaravelModules\Support\Logging\LogEvent',
-        'DimitrienkoV\LaravelModules\Support\Logging\LifecyclePhase',
+        LogEvent::class,
+        LifecyclePhase::class,
     ]);
 
 arch('logging event enums are string backed')
     ->expect([
-        'DimitrienkoV\LaravelModules\Support\Logging\LogEvent',
-        'DimitrienkoV\LaravelModules\Support\Logging\LifecyclePhase',
+        LogEvent::class,
+        LifecyclePhase::class,
     ])
     ->toBeStringBackedEnums();
 
@@ -189,7 +220,7 @@ arch('application DTOs are final readonly')
 
 arch('loaders do not depend on ModuleKind')
     ->expect('DimitrienkoV\LaravelModules\Loaders')
-    ->not->toUse('DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind');
+    ->not->toUse(ModuleKind::class);
 
 arch('application layer does not depend on loaders or moonshine')
     ->expect('DimitrienkoV\LaravelModules\Application')
@@ -199,7 +230,7 @@ arch('application layer does not depend on loaders or moonshine')
     ]);
 
 arch('ZipExtractor is final readonly')
-    ->expect('DimitrienkoV\LaravelModules\Support\ZipExtractor')
+    ->expect(ZipExtractor::class)
     ->toBeFinal()
     ->toBeReadonly();
 
@@ -208,49 +239,49 @@ arch('application enums are string backed enums')
     ->toBeStringBackedEnums();
 
 arch('optimize commands do not depend on concrete registry or cache classes')
-    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeCommand')
+    ->expect(ModulesOptimizeCommand::class)
     ->not->toUse([
-        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
-        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
+        ModuleRegistry::class,
+        ModuleRegistryCache::class,
     ]);
 
 arch('optimize clear command does not depend on concrete registry or cache classes')
-    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesOptimizeClearCommand')
+    ->expect(ModulesOptimizeClearCommand::class)
     ->not->toUse([
-        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
-        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
+        ModuleRegistry::class,
+        ModuleRegistryCache::class,
     ]);
 
 arch('list command does not depend on concrete registry')
-    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesListCommand')
+    ->expect(ModulesListCommand::class)
     ->not->toUse([
-        'DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface',
-        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
+        ModuleRegistryInterface::class,
+        ModuleRegistry::class,
     ]);
 
 arch('lifecycle commands do not depend on concrete infrastructure classes')
     ->expect([
-        'DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand',
-        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesInstallCommand',
-        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesUpdateCommand',
-        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesRemoveCommand',
-        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesEnableCommand',
-        'DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesDisableCommand',
+        MakeModuleCommand::class,
+        ModulesInstallCommand::class,
+        ModulesUpdateCommand::class,
+        ModulesRemoveCommand::class,
+        ModulesEnableCommand::class,
+        ModulesDisableCommand::class,
     ])
     ->not->toUse([
-        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
-        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
-        'DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository',
-        'DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository',
-        'DimitrienkoV\LaravelModules\Support\LocalFilesystem',
-        'DimitrienkoV\LaravelModules\Support\AtomicFileWriter',
-        'DimitrienkoV\LaravelModules\Support\AtomicJsonWriter',
+        ModuleRegistry::class,
+        ModuleRegistryCache::class,
+        ModuleManifestRepository::class,
+        ModuleStateRepository::class,
+        LocalFilesystem::class,
+        AtomicFileWriter::class,
+        AtomicJsonWriter::class,
     ]);
 
 arch('exceptions implement ModuleExceptionInterface')
     ->expect('DimitrienkoV\LaravelModules\Exceptions')
     ->classes()
-    ->toImplement('DimitrienkoV\LaravelModules\Contracts\ModuleExceptionInterface');
+    ->toImplement(ModuleExceptionInterface::class);
 
 arch('application layer does not depend on providers')
     ->expect('DimitrienkoV\LaravelModules\Application')
@@ -323,14 +354,14 @@ arch('loaders use the Loader suffix')
 arch('console commands do not depend on concrete persistence or registry internals')
     ->expect('DimitrienkoV\LaravelModules\Console\Commands')
     ->not->toUse([
-        'DimitrienkoV\LaravelModules\Manifest\ModuleRegistry',
-        'DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache',
-        'DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository',
-        'DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository',
-        'DimitrienkoV\LaravelModules\Manifest\FeatureRepository',
-        'DimitrienkoV\LaravelModules\Support\LocalFilesystem',
-        'DimitrienkoV\LaravelModules\Support\AtomicFileWriter',
-        'DimitrienkoV\LaravelModules\Support\AtomicJsonWriter',
+        ModuleRegistry::class,
+        ModuleRegistryCache::class,
+        ModuleManifestRepository::class,
+        ModuleStateRepository::class,
+        FeatureRepository::class,
+        LocalFilesystem::class,
+        AtomicFileWriter::class,
+        AtomicJsonWriter::class,
     ]);
 
 arch('loaders do not depend on optional UI integrations')
@@ -349,16 +380,39 @@ arch('application layer does not depend on optional UI integrations')
     ]);
 
 arch('manifest repository implements its published contract')
-    ->expect('DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository')
-    ->toImplement('DimitrienkoV\LaravelModules\Contracts\ModuleManifestRepositoryInterface');
+    ->expect(ModuleManifestRepository::class)
+    ->toImplement(ModuleManifestRepositoryInterface::class);
 
 arch('state repository implements its published contract')
-    ->expect('DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository')
-    ->toImplement('DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface');
+    ->expect(ModuleStateRepository::class)
+    ->toImplement(ModuleStateRepositoryInterface::class);
 
 arch('feature repository implements its published contract')
-    ->expect('DimitrienkoV\LaravelModules\Manifest\FeatureRepository')
-    ->toImplement('DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface');
+    ->expect(FeatureRepository::class)
+    ->toImplement(FeatureRepositoryInterface::class);
+
+arch('module-aware generators are final')
+    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Make')
+    ->classes()
+    ->toBeFinal();
+
+arch('module-aware generators do not depend on concrete registry or persistence')
+    ->expect('DimitrienkoV\LaravelModules\Console\Commands\Make')
+    ->not->toUse([
+        ModuleRegistry::class,
+        ModuleRegistryCache::class,
+        ModuleManifestRepository::class,
+        ModuleStateRepository::class,
+    ]);
+
+arch('generator concerns resolve modules through the registry contract only')
+    ->expect('DimitrienkoV\LaravelModules\Console\Concerns')
+    ->not->toUse([
+        ModuleRegistry::class,
+        ModuleRegistryCache::class,
+        ModuleManifestRepository::class,
+        ModuleStateRepository::class,
+    ]);
 
 test('src does not use global logging or service-location helpers', function (): void {
     $srcDir = realpath(__DIR__ . '/../../src');

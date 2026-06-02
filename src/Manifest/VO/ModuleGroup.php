@@ -21,7 +21,7 @@ final readonly class ModuleGroup
 
     public function __construct(public string $value)
     {
-        if (! preg_match(self::PATTERN, $this->value)) {
+        if (preg_match(self::PATTERN, $this->value) !== 1) {
             throw new InvalidArgumentException(
                 "Module group [{$this->value}] must be kebab-case: lowercase letters and digits in hyphen-separated segments.",
             );

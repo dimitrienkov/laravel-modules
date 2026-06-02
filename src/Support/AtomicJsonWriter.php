@@ -12,8 +12,7 @@ final readonly class AtomicJsonWriter
 {
     public function __construct(
         private AtomicFileWriter $fileWriter = new AtomicFileWriter(),
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<string, mixed> $data
@@ -35,7 +34,7 @@ final readonly class AtomicJsonWriter
         try {
             return json_encode(
                 $data,
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
             ) . PHP_EOL;
         } catch (JsonException $exception) {
             throw ManifestWriteException::forPath($path, $exception->getMessage(), $exception);

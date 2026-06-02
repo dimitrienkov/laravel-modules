@@ -15,8 +15,7 @@ final readonly class ModuleDirectoryPaths
         private Repository $config,
         private string $basePath,
         private string $appPath,
-    ) {
-    }
+    ) {}
 
     public function defaultTargetRoot(): string
     {
@@ -37,7 +36,7 @@ final readonly class ModuleDirectoryPaths
         }
 
         $rootList = implode(', ', array_map(
-            fn (string $root): string => '[' . $root . ']',
+            fn(string $root): string => '[' . $root . ']',
             $roots,
         ));
 

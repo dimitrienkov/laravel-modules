@@ -11,9 +11,7 @@ final class RecordingConsoleKernel extends ConsoleKernel
     /** @var list<string> */
     public array $addedRoutePaths = [];
 
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 
     /**
      * @param list<string> $paths

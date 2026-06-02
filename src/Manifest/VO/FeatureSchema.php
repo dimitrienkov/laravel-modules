@@ -15,8 +15,7 @@ final readonly class FeatureSchema
      */
     public function __construct(
         private array $definitions,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<array-key, mixed> $schema
@@ -29,14 +28,14 @@ final readonly class FeatureSchema
             if (! \is_string($key)) {
                 throw InvalidManifestException::forPath(
                     $manifestPath,
-                    'settings.schema keys must be feature names.'
+                    'settings.schema keys must be feature names.',
                 );
             }
 
             if (! \is_array($definition)) {
                 throw InvalidManifestException::forPath(
                     $manifestPath,
-                    "settings.schema.{$key} must be an object."
+                    "settings.schema.{$key} must be an object.",
                 );
             }
 

@@ -49,7 +49,7 @@ final readonly class ManifestFieldReader
 
         return StringKeyedObject::toStringKeyedObject(
             $value,
-            static fn (): InvalidManifestException => InvalidManifestException::forPath($manifestPath, "{$key} must be an object."),
+            static fn(): InvalidManifestException => InvalidManifestException::forPath($manifestPath, "{$key} must be an object."),
         );
     }
 
@@ -163,7 +163,7 @@ final readonly class ManifestFieldReader
         string $field,
         string $manifestPath,
     ): void {
-        if (! preg_match(self::MODULE_NAME_PATTERN, $name)) {
+        if (preg_match(self::MODULE_NAME_PATTERN, $name) !== 1) {
             throw InvalidManifestException::forPath(
                 $manifestPath,
                 "{$field} must be lowercase snake_case (a-z, 0-9, underscore, starting with a letter).",

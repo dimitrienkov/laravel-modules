@@ -31,6 +31,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 #[CoversClass(ModuleRegistry::class)]
 #[Group('manifest')]
@@ -68,7 +69,7 @@ final class ModuleRegistryTest extends TestCase
         $registry = $this->registry();
 
         self::assertSame(['users', 'blog'], array_map(
-            static fn ($module): string => $module->name,
+            static fn($module): string => $module->name,
             $registry->all(),
         ));
         self::assertCount(2, $registry->all());
@@ -95,7 +96,7 @@ final class ModuleRegistryTest extends TestCase
         $registry = $this->registry();
 
         self::assertSame(['cached'], array_map(
-            static fn ($module): string => $module->name,
+            static fn($module): string => $module->name,
             $registry->all(),
         ));
         self::assertSame('App\\Cached', $registry->find('cached')->namespace);
@@ -109,7 +110,7 @@ final class ModuleRegistryTest extends TestCase
         $this->writeModule('Users', 'users', '1.0.0');
 
         self::assertSame(['users'], array_map(
-            static fn ($module): string => $module->name,
+            static fn($module): string => $module->name,
             $this->registry()->all(),
         ));
     }
@@ -255,7 +256,7 @@ final class ModuleRegistryTest extends TestCase
     private function writeModule(string $directory, string $name, string $version, array $dependencies = []): void
     {
         $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, $version, $dependencies, schema: []);
-        $this->writeModuleState($this->stateRoot, $name, values: new \stdClass());
+        $this->writeModuleState($this->stateRoot, $name, values: new stdClass());
     }
 
 }

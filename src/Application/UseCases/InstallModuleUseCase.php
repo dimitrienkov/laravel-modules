@@ -42,8 +42,7 @@ final readonly class InstallModuleUseCase
         private NamespaceResolverInterface $namespaceResolver,
         private PartialModuleRollback $rollback,
         private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
-    ) {
-    }
+    ) {}
 
     public function execute(string $sourcePath, ?string $directory = null, bool $enabled = true): InstallModuleResult
     {

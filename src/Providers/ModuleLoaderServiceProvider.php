@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Providers;
 
+use Override;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSkeletonBuilder;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleSourcePreparer;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeAction;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeDto;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeQuery;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeUseCase;
+use DimitrienkoV\LaravelModules\Console\Commands\Make\MakeVo;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\MakeModuleCommand;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesDisableCommand;
 use DimitrienkoV\LaravelModules\Console\Commands\Modules\ModulesEnableCommand;
@@ -69,6 +75,8 @@ use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\ServiceProvider;
 use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
 
@@ -97,8 +105,24 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         BroadcastLoader::class,
     ];
 
-    private const string MOONSHINE_CORE_CONTRACT = 'MoonShine\\Contracts\\Core\\DependencyInjection\\CoreContract';
+    /**
+     * The package's architectural generators. One source for both the singleton
+     * factory bindings (they need the injected stub path) and the `commands()`
+     * registration, so a new generator is declared in exactly one place.
+     *
+     * @var array<int, class-string>
+     */
+    private const array ARCHITECTURAL_GENERATORS = [
+        MakeUseCase::class,
+        MakeAction::class,
+        MakeQuery::class,
+        MakeDto::class,
+        MakeVo::class,
+    ];
 
+    private const string MOONSHINE_CORE_CONTRACT = CoreContract::class;
+
+    #[Override]
     public function register(): void
     {
         $this->mergeConfigFrom($this->packageConfigPath(), 'modules');
@@ -120,7 +144,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         ], 'modules-config');
 
         $this->publishes([
-            __DIR__ . '/../../stubs' => base_path('stubs/modules'),
+            $this->packageStubsPath() => base_path('stubs/modules'),
         ], 'modules-stubs');
 
         if ($this->app->runningInConsole()) {
@@ -136,6 +160,9 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                 ModulesRemoveCommand::class,
             ]);
 
+            $this->app->register(ModuleGeneratorCommandsServiceProvider::class);
+            $this->registerArchitecturalGenerators();
+
             $this->optimizes(
                 optimize: 'modules:optimize',
                 clear: 'modules:optimize-clear',
@@ -150,7 +177,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     {
         $this->app->singleton(
             ModuleDiagnosticsInterface::class,
-            fn (): ModuleDiagnosticsInterface => $this->makeDiagnostics(),
+            fn(): ModuleDiagnosticsInterface => $this->makeDiagnostics(),
         );
     }
 
@@ -203,60 +230,52 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     {
         $this->app->singleton(LocalFilesystem::class);
         $this->app->singleton(ModuleLayout::class);
-        $this->app->singleton(AtomicJsonWriter::class, function (): AtomicJsonWriter {
-            return new AtomicJsonWriter($this->app->make(AtomicFileWriter::class));
-        });
+        $this->app->singleton(AtomicJsonWriter::class, fn(): AtomicJsonWriter => new AtomicJsonWriter($this->app->make(AtomicFileWriter::class)));
         $this->app->singleton(ContainerLifecycleHooks::class);
         $this->app->singleton(ManifestDocumentReader::class);
         $this->app->singleton(ManifestSettingsValidator::class);
         $this->app->singleton(ManifestValidator::class);
         $this->app->singleton(
             ManifestValidatorInterface::class,
-            fn (): ManifestValidator => $this->app->make(ManifestValidator::class),
+            fn(): ManifestValidator => $this->app->make(ManifestValidator::class),
         );
 
         $this->app->singleton(ApplicationNamespaceResolver::class);
         $this->app->singleton(
             NamespaceResolverInterface::class,
-            fn (): ApplicationNamespaceResolver => $this->app->make(ApplicationNamespaceResolver::class),
+            fn(): ApplicationNamespaceResolver => $this->app->make(ApplicationNamespaceResolver::class),
         );
 
-        $this->app->singleton(ModuleManifestRepository::class, function (): ModuleManifestRepository {
-            return new ModuleManifestRepository(
-                layout: $this->app->make(ModuleLayout::class),
-                writer: $this->app->make(AtomicJsonWriter::class),
-                validator: $this->app->make(ManifestValidatorInterface::class),
-                namespaceResolver: $this->app->make(NamespaceResolverInterface::class),
-                documentReader: $this->app->make(ManifestDocumentReader::class),
-                stateRepository: $this->app->make(ModuleStateRepositoryInterface::class),
-                filesystem: $this->app->make(LocalFilesystem::class),
-            );
-        });
+        $this->app->singleton(ModuleManifestRepository::class, fn(): ModuleManifestRepository => new ModuleManifestRepository(
+            layout: $this->app->make(ModuleLayout::class),
+            writer: $this->app->make(AtomicJsonWriter::class),
+            validator: $this->app->make(ManifestValidatorInterface::class),
+            namespaceResolver: $this->app->make(NamespaceResolverInterface::class),
+            documentReader: $this->app->make(ManifestDocumentReader::class),
+            stateRepository: $this->app->make(ModuleStateRepositoryInterface::class),
+            filesystem: $this->app->make(LocalFilesystem::class),
+        ));
         $this->app->singleton(
             ModuleManifestRepositoryInterface::class,
-            fn (): ModuleManifestRepository => $this->app->make(ModuleManifestRepository::class),
+            fn(): ModuleManifestRepository => $this->app->make(ModuleManifestRepository::class),
         );
     }
 
     private function registerStateBindings(): void
     {
-        $this->app->singleton(ModuleStatePaths::class, function (): ModuleStatePaths {
-            return new ModuleStatePaths(
-                config: $this->app->make(Repository::class),
-                basePath: $this->app->basePath(),
-            );
-        });
+        $this->app->singleton(ModuleStatePaths::class, fn(): ModuleStatePaths => new ModuleStatePaths(
+            config: $this->app->make(Repository::class),
+            basePath: $this->app->basePath(),
+        ));
 
-        $this->app->singleton(ModuleStateRepository::class, function (): ModuleStateRepository {
-            return new ModuleStateRepository(
-                paths: $this->app->make(ModuleStatePaths::class),
-                writer: $this->app->make(AtomicJsonWriter::class),
-                filesystem: $this->app->make(LocalFilesystem::class),
-            );
-        });
+        $this->app->singleton(ModuleStateRepository::class, fn(): ModuleStateRepository => new ModuleStateRepository(
+            paths: $this->app->make(ModuleStatePaths::class),
+            writer: $this->app->make(AtomicJsonWriter::class),
+            filesystem: $this->app->make(LocalFilesystem::class),
+        ));
         $this->app->singleton(
             ModuleStateRepositoryInterface::class,
-            fn (): ModuleStateRepository => $this->app->make(ModuleStateRepository::class),
+            fn(): ModuleStateRepository => $this->app->make(ModuleStateRepository::class),
         );
     }
 
@@ -264,51 +283,43 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     {
         $this->app->singleton(TopologicalSorter::class);
 
-        $this->app->singleton(ModuleDirectoryScanner::class, function (): ModuleDirectoryScanner {
-            return new ModuleDirectoryScanner(
-                config: $this->app->make(Repository::class),
-                filesystem: $this->app->make(LocalFilesystem::class),
-                layout: $this->app->make(ModuleLayout::class),
-                basePath: $this->app->basePath(),
-                appPath: $this->app->path(),
-                diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
-            );
-        });
+        $this->app->singleton(ModuleDirectoryScanner::class, fn(): ModuleDirectoryScanner => new ModuleDirectoryScanner(
+            config: $this->app->make(Repository::class),
+            filesystem: $this->app->make(LocalFilesystem::class),
+            layout: $this->app->make(ModuleLayout::class),
+            basePath: $this->app->basePath(),
+            appPath: $this->app->path(),
+            diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
+        ));
 
-        $this->app->singleton(ModuleRegistryCache::class, function (): ModuleRegistryCache {
-            return new ModuleRegistryCache(
-                validator: $this->app->make(ManifestValidatorInterface::class),
-                layout: $this->app->make(ModuleLayout::class),
-                stateRepository: $this->app->make(ModuleStateRepositoryInterface::class),
-                basePath: $this->app->basePath(),
-                diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
-            );
-        });
+        $this->app->singleton(ModuleRegistryCache::class, fn(): ModuleRegistryCache => new ModuleRegistryCache(
+            validator: $this->app->make(ManifestValidatorInterface::class),
+            layout: $this->app->make(ModuleLayout::class),
+            stateRepository: $this->app->make(ModuleStateRepositoryInterface::class),
+            basePath: $this->app->basePath(),
+            diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
+        ));
 
         $this->app->singleton(
             ModuleRegistryCacheInterface::class,
-            fn (): ModuleRegistryCache => $this->app->make(ModuleRegistryCache::class),
+            fn(): ModuleRegistryCache => $this->app->make(ModuleRegistryCache::class),
         );
 
-        $this->app->singleton(ModuleRegistrySnapshotBuilder::class, function (): ModuleRegistrySnapshotBuilder {
-            return new ModuleRegistrySnapshotBuilder(
-                scanner: $this->app->make(ModuleDirectoryScanner::class),
-                manifests: $this->app->make(ModuleManifestRepositoryInterface::class),
-                sorter: $this->app->make(TopologicalSorter::class),
-                diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
-            );
-        });
+        $this->app->singleton(ModuleRegistrySnapshotBuilder::class, fn(): ModuleRegistrySnapshotBuilder => new ModuleRegistrySnapshotBuilder(
+            scanner: $this->app->make(ModuleDirectoryScanner::class),
+            manifests: $this->app->make(ModuleManifestRepositoryInterface::class),
+            sorter: $this->app->make(TopologicalSorter::class),
+            diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
+        ));
 
-        $this->app->singleton(ModuleRegistry::class, function (): ModuleRegistry {
-            return new ModuleRegistry(
-                builder: $this->app->make(ModuleRegistrySnapshotBuilder::class),
-                cache: $this->app->make(ModuleRegistryCacheInterface::class),
-                diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
-            );
-        });
+        $this->app->singleton(ModuleRegistry::class, fn(): ModuleRegistry => new ModuleRegistry(
+            builder: $this->app->make(ModuleRegistrySnapshotBuilder::class),
+            cache: $this->app->make(ModuleRegistryCacheInterface::class),
+            diagnostics: $this->app->make(ModuleDiagnosticsInterface::class),
+        ));
         $this->app->singleton(
             ModuleRegistryInterface::class,
-            fn (): ModuleRegistry => $this->app->make(ModuleRegistry::class),
+            fn(): ModuleRegistry => $this->app->make(ModuleRegistry::class),
         );
     }
 
@@ -322,25 +333,21 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->app->singleton(ZipExtractor::class);
         $this->app->singleton(ModuleSourcePreparer::class);
 
-        $this->app->singleton(ModuleDirectoryPaths::class, function (): ModuleDirectoryPaths {
-            return new ModuleDirectoryPaths(
-                config: $this->app->make(Repository::class),
-                basePath: $this->app->basePath(),
-                appPath: $this->app->path(),
-            );
-        });
+        $this->app->singleton(ModuleDirectoryPaths::class, fn(): ModuleDirectoryPaths => new ModuleDirectoryPaths(
+            config: $this->app->make(Repository::class),
+            basePath: $this->app->basePath(),
+            appPath: $this->app->path(),
+        ));
 
         $this->app->singleton(LifecycleRegistryInvalidator::class);
         $this->app->singleton(ModuleDependencyGuard::class);
         $this->app->singleton(ModuleDirectoryOperations::class);
         $this->app->singleton(AtomicFileWriter::class);
-        $this->app->singleton(ModuleSkeletonBuilder::class, function (): ModuleSkeletonBuilder {
-            return new ModuleSkeletonBuilder(
-                $this->app->make(LocalFilesystem::class),
-                $this->app->make(AtomicFileWriter::class),
-                stubsPath: \dirname(__DIR__, 2) . '/stubs',
-            );
-        });
+        $this->app->singleton(ModuleSkeletonBuilder::class, fn(): ModuleSkeletonBuilder => new ModuleSkeletonBuilder(
+            $this->app->make(LocalFilesystem::class),
+            $this->app->make(AtomicFileWriter::class),
+            stubsPath: $this->packageStubsPath(),
+        ));
     }
 
     private function registerDefaultLoaders(): void
@@ -413,8 +420,33 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         );
     }
 
+    /**
+     * Register the package's architectural generators. They extend Laravel's
+     * GeneratorCommand (which only takes a Filesystem), so the package stub path
+     * is injected here at the composition root — keeping `file_exists()`-style
+     * stub resolution, a forbidden filesystem token, out of `src/`.
+     */
+    private function registerArchitecturalGenerators(): void
+    {
+        $stubsPath = $this->packageStubsPath();
+
+        foreach (self::ARCHITECTURAL_GENERATORS as $generator) {
+            $this->app->singleton(
+                $generator,
+                static fn(Application $app): object => new $generator($app->make(Filesystem::class), $stubsPath),
+            );
+        }
+
+        $this->commands(self::ARCHITECTURAL_GENERATORS);
+    }
+
     private function packageConfigPath(): string
     {
         return __DIR__ . '/../../config/modules.php';
+    }
+
+    private function packageStubsPath(): string
+    {
+        return \dirname(__DIR__, 2) . '/stubs';
     }
 }

@@ -12,8 +12,7 @@ final readonly class LifecycleRegistryInvalidator
     public function __construct(
         private ModuleRegistryCacheInterface $cache,
         private ModuleRegistryInterface $registry,
-    ) {
-    }
+    ) {}
 
     public function flushAndReset(): void
     {

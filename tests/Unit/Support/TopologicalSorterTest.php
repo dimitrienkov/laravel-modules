@@ -28,7 +28,7 @@ final class TopologicalSorterTest extends TestCase
         $sorted = (new TopologicalSorter())->sort([$blog, $users]);
 
         self::assertSame(['users', 'blog'], array_map(
-            static fn ($module): string => $module->name,
+            static fn($module): string => $module->name,
             $sorted,
         ));
     }
@@ -88,7 +88,7 @@ final class TopologicalSorterTest extends TestCase
         ]);
 
         self::assertSame(['blog'], array_map(
-            static fn ($module): string => $module->name,
+            static fn($module): string => $module->name,
             $sorted,
         ));
     }
@@ -146,7 +146,7 @@ final class TopologicalSorterTest extends TestCase
 
         $sorted = (new TopologicalSorter())->sort([$a, $b, $c, $d]);
 
-        $names = array_map(static fn ($module): string => $module->name, $sorted);
+        $names = array_map(static fn($module): string => $module->name, $sorted);
 
         $posD = array_search('d', $names, true);
         $posB = array_search('b', $names, true);
@@ -168,7 +168,7 @@ final class TopologicalSorterTest extends TestCase
         $a = ModuleFactory::make(name: 'a', version: '1.0.0', dependencies: ['b' => '*']);
 
         $sorted = (new TopologicalSorter())->sort([$a, $b, $c, $d]);
-        $names = array_map(static fn ($module): string => $module->name, $sorted);
+        $names = array_map(static fn($module): string => $module->name, $sorted);
 
         self::assertSame(['d', 'c', 'b', 'a'], $names);
     }

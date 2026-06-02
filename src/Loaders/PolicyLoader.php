@@ -19,8 +19,7 @@ final readonly class PolicyLoader implements LoaderInterface
         private Gate $gate,
         private Filesystem $filesystem,
         private ModuleLayout $layout,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {
@@ -30,7 +29,7 @@ final readonly class PolicyLoader implements LoaderInterface
             return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
-        $files = $this->filesystem->glob($policiesDir . '/*Policy.php') ?: [];
+        $files = $this->filesystem->glob($policiesDir . '/*Policy.php');
         sort($files);
 
         $policies = [];
@@ -59,7 +58,7 @@ final readonly class PolicyLoader implements LoaderInterface
     private function registerPolicy(Module $module, string $file): void
     {
         $basename = basename($file, '.php');
-        $policyFqcn = $this->layout->policyNamespace($module) . '\\' . $basename;
+        $policyFqcn = $this->layout->policiesNamespace($module) . '\\' . $basename;
         $modelName = substr($basename, 0, -\strlen('Policy'));
         $modelFqcn = $this->layout->modelNamespace($module) . '\\' . $modelName;
 

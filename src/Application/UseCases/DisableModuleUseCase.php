@@ -24,8 +24,7 @@ final readonly class DisableModuleUseCase
         private ModuleDependencyGuard $dependencyGuard,
         private LifecycleRegistryInvalidator $invalidator,
         private ModuleDiagnosticsInterface $diagnostics = new NullModuleDiagnostics(),
-    ) {
-    }
+    ) {}
 
     public function execute(string $moduleName): Module
     {

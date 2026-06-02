@@ -28,6 +28,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LogLevel;
 use Stringable;
+use RuntimeException;
 
 #[CoversClass(ModuleLogger::class)]
 #[Group('unit')]
@@ -86,7 +87,7 @@ final class ModuleLoggerTest extends TestCase
         $logger = new RecordingPsrLogger();
         $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
 
-        $exception = new \RuntimeException('boom');
+        $exception = new RuntimeException('boom');
 
         $moduleLogger->loaderFailed(
             $this->moduleCarryingSecrets(),
@@ -159,7 +160,7 @@ final class ModuleLoggerTest extends TestCase
         $logger = new RecordingPsrLogger();
         $moduleLogger = new ModuleLogger($logger, LogLevel::DEBUG, $this->allEventsEnabled());
 
-        $exception = new \RuntimeException('kaboom');
+        $exception = new RuntimeException('kaboom');
 
         $moduleLogger->lifecycleFailed(LifecycleOperation::Remove, 'blog', $exception);
 
@@ -289,7 +290,7 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger->loaderFailed(
             $this->moduleCarryingSecrets(),
             new WhitelistFakeLoader(),
-            new \RuntimeException('boom'),
+            new RuntimeException('boom'),
         );
         // DEBUG stays gated by the disabled pipeline category.
         $moduleLogger->loaderCompleted(
@@ -298,11 +299,11 @@ final class ModuleLoggerTest extends TestCase
             LoadReport::applied(),
         );
         // ERROR bypasses the disabled lifecycle category.
-        $moduleLogger->lifecycleFailed(LifecycleOperation::Remove, 'blog', new \RuntimeException('x'));
+        $moduleLogger->lifecycleFailed(LifecycleOperation::Remove, 'blog', new RuntimeException('x'));
         // INFO stays gated by the disabled lifecycle category.
         $moduleLogger->lifecycleStarted(LifecycleOperation::Remove, 'blog');
 
-        $messages = array_map(static fn (array $record): string => $record['message'], $logger->records);
+        $messages = array_map(static fn(array $record): string => $record['message'], $logger->records);
 
         self::assertSame([
             LogEvent::PipelineLoaderFailed->value,
@@ -326,13 +327,13 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger->loaderFailed(
             $this->moduleCarryingSecrets(),
             new WhitelistFakeLoader(),
-            new \RuntimeException('boom'),
+            new RuntimeException('boom'),
         );
-        $moduleLogger->lifecycleFailed(LifecycleOperation::Install, 'blog', new \RuntimeException('x'));
+        $moduleLogger->lifecycleFailed(LifecycleOperation::Install, 'blog', new RuntimeException('x'));
         // A WARNING-level event at the same raised threshold stays suppressed.
         $moduleLogger->lifecycleRolledBack(LifecycleOperation::Install, 'blog', 'persistence');
 
-        $messages = array_map(static fn (array $record): string => $record['message'], $logger->records);
+        $messages = array_map(static fn(array $record): string => $record['message'], $logger->records);
 
         self::assertSame([
             LogEvent::PipelineLoaderFailed->value,
@@ -378,7 +379,7 @@ final class ModuleLoggerTest extends TestCase
         ]);
 
         // WARNING < ERROR, so the bypass does not apply — the disabled category wins.
-        $moduleLogger->cacheInvalid('corrupt', new \RuntimeException('parse'));
+        $moduleLogger->cacheInvalid('corrupt', new RuntimeException('parse'));
 
         self::assertSame([], $logger->records);
     }
@@ -391,7 +392,7 @@ final class ModuleLoggerTest extends TestCase
         // still suppressed because only ERROR+ ignores the threshold.
         $moduleLogger = new ModuleLogger($logger, LogLevel::ERROR, $this->allEventsEnabled());
 
-        $moduleLogger->cacheInvalid('corrupt', new \RuntimeException('parse'));
+        $moduleLogger->cacheInvalid('corrupt', new RuntimeException('parse'));
 
         self::assertSame([], $logger->records);
     }
@@ -441,7 +442,7 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger->loaderFailed(
             $this->moduleCarryingSecrets(),
             new WhitelistFakeLoader(),
-            new \RuntimeException('boom'),
+            new RuntimeException('boom'),
         );
 
         self::assertCount(1, $logger->records);
@@ -470,7 +471,7 @@ final class ModuleLoggerTest extends TestCase
         $moduleLogger->loaderFailed(
             $this->moduleCarryingSecrets(),
             new WhitelistFakeLoader(),
-            new \RuntimeException('boom'),
+            new RuntimeException('boom'),
         );
 
         self::assertSame(1, $logger->attempts);
@@ -574,6 +575,6 @@ final class ThrowingPsrLogger extends AbstractLogger
     {
         $this->attempts++;
 
-        throw new \RuntimeException('log channel is broken');
+        throw new RuntimeException('log channel is broken');
     }
 }

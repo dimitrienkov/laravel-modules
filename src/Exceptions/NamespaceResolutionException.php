@@ -22,14 +22,14 @@ final class NamespaceResolutionException extends RuntimeException implements Mod
     public static function unresolvedPath(string $modulePath, string $composerPath): self
     {
         return new self(
-            "Unable to resolve namespace for module path [{$modulePath}] from PSR-4 roots in [{$composerPath}]."
+            "Unable to resolve namespace for module path [{$modulePath}] from PSR-4 roots in [{$composerPath}].",
         );
     }
 
     public static function outsideAppPath(string $modulePath, string $appPath): self
     {
         return new self(
-            "Module path [{$modulePath}] is outside the application path [{$appPath}]. Modules must reside within app_path()."
+            "Module path [{$modulePath}] is outside the application path [{$appPath}]. Modules must reside within app_path().",
         );
     }
 }

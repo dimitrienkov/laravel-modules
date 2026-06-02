@@ -4,9 +4,9 @@
 
 ## Обзор проекта
 
-`dimitrienkov0/laravel-modules` — manifest-driven Laravel-пакет для модульной архитектуры приложений. Текущий срез v2.0 core реализует обнаружение модулей по `module.json`, типизированный manifest layer, dependency-aware `ModuleRegistry`, loader-pipeline, runtime feature toggles, production cache, lifecycle UseCase-классы и Artisan-команды (`make:module`, `modules:install/update/remove/enable/disable/list`), а также опциональный MoonShine autoload bridge.
+`dimitrienkov0/laravel-modules` — manifest-driven Laravel-пакет для модульной архитектуры приложений. Текущий срез v2.0 core реализует обнаружение модулей по `module.json`, типизированный manifest layer, dependency-aware `ModuleRegistry`, loader-pipeline, runtime feature toggles, production cache, lifecycle UseCase-классы и Artisan-команды (`make:module`, `modules:install/update/remove/enable/disable/list/optimize/optimize-clear`), module-aware режим native-генераторов (`make:* --module`) и архитектурные генераторы (`make:use-case/action/query/dto/vo`), а также опциональный MoonShine autoload bridge.
 
-Module-aware генераторы `make:* --module` и полноценный MoonShine admin-UI описаны в roadmap, но не должны документироваться как уже реализованные.
+Полноценный MoonShine admin-UI, lifecycle-события и marketplace-доставка (подпись/удалённый fetch) описаны в roadmap, но не должны документироваться как уже реализованные.
 
 ## Технологический стек
 
@@ -28,7 +28,10 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 │   │   ├── Enums/                    # LifecycleOperation, ModuleSourceKind, RemoveStrategy
 │   │   ├── Support/                  # source staging, directory ops, dependency guards, rollback
 │   │   └── UseCases/                 # scaffold/install/update/remove/enable/disable/optimize flows
-│   ├── Console/Commands/Modules/     # Artisan adapters: make:module и modules:* команды
+│   ├── Console/
+│   │   ├── Commands/Modules/         # Artisan adapters: make:module и modules:* команды
+│   │   ├── Commands/Make/            # module-aware make:* subclasses + арх-генераторы (use-case/action/query/dto/vo)
+│   │   └── Concerns/                 # ModuleAwareGenerator, ArchitecturalGenerator traits
 │   ├── Contracts/                    # публичные интерфейсы ядра
 │   ├── Exceptions/                   # типизированные runtime-исключения
 │   ├── Loaders/                      # реализации LoaderInterface (load(): LoadReport)
@@ -39,7 +42,7 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 │   │   ├── Parsing/                  # фабрики и нормализаторы manifest fields
 │   │   └── VO/                       # Module, ManifestMeta, ModuleState, ModuleStateDocument, ModuleOrigin, FeatureValues и другие VO
 │   ├── MoonShine/                    # MoonShineModuleAutoloader, optional bridge
-│   ├── Providers/                    # ModuleLoaderServiceProvider
+│   ├── Providers/                    # ModuleLoaderServiceProvider, ModuleGeneratorCommandsServiceProvider
 │   ├── Registry/                     # scanner, snapshot builder, cache и registry VO
 │   └── Support/                      # layout/state paths, atomic writers, filesystem, sorter, namespace resolver
 │       └── Logging/                  # ModuleLogger, NullModuleDiagnostics (opt-in диагностика)
@@ -58,7 +61,7 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 ├── .claude/                          # Claude agents/settings для проекта
 ├── composer.json                     # зависимости, autoload, scripts
 ├── phpunit.xml.dist                  # suites Architecture/Unit/Feature
-├── phpstan.neon.dist                 # PHPStan level 8 + Larastan
+├── phpstan.neon.dist                 # PHPStan level max + Larastan/strict/deprecation/type-coverage
 ├── rector.php                        # Rector rules
 └── .php-cs-fixer.dist.php            # formatter rules
 ```
@@ -100,7 +103,7 @@ Module-aware генераторы `make:* --module` и полноценный Mo
 
 | Документ | Путь | Описание |
 |----------|------|----------|
-| README | `README.MD` | Landing-page пакета |
+| README | `README.md` | Landing-page пакета |
 | Getting Started | `docs/getting-started.md` | Установка и первая проверка |
 | Module Structure | `docs/module-structure.md` | Поддерживаемые пути модулей |
 | Manifest | `docs/manifest.md` | Контракт `module.json` |

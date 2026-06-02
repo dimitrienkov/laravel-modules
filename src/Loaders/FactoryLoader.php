@@ -33,8 +33,7 @@ final class FactoryLoader implements LoaderInterface
         private readonly Application $app,
         private readonly Filesystem $filesystem,
         private readonly ModuleLayout $layout,
-    ) {
-    }
+    ) {}
 
     public function load(Module $module): LoadReport
     {
@@ -44,8 +43,8 @@ final class FactoryLoader implements LoaderInterface
             return LoadReport::skipped(SkipReason::NoDirectory);
         }
 
-        $this->factoryNamespacesByModelNamespace[$this->layout->modelNamespace($module) . '\\'] =
-            $this->layout->factoryNamespace($module) . '\\';
+        $this->factoryNamespacesByModelNamespace[$this->layout->modelNamespace($module) . '\\']
+            = $this->layout->factoriesNamespace($module) . '\\';
 
         // The global resolver is registered once, but the namespace mapping is
         // recorded for every module with a Factories directory — so an
