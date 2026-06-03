@@ -21,6 +21,7 @@ use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
 use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModulePathsConfig;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
@@ -39,24 +40,18 @@ trait CreatesLifecycleEnvironment
         array $directories = ['app/Modules'],
         ?string $backupPath = null,
     ): Repository {
-        $paths = [
+        return new Repository(['modules' => ['paths' => [
             'directories' => $directories,
             'state' => $this->stateRoot,
-        ];
-
-        if ($backupPath !== null) {
-            $paths['backup'] = $backupPath;
-        }
-
-        return new Repository(['modules' => ['paths' => $paths]]);
+            'backup' => $backupPath ?? $this->tempDir . '/storage/app/module-backups',
+        ]]]);
     }
 
     protected function lifecycleStateRepository(Repository $config): ModuleStateRepository
     {
         return new ModuleStateRepository(
             paths: new ModuleStatePaths(
-                stateRoot: $this->configuredString($config, 'modules.paths.state'),
-                directories: $this->configuredDirectories($config),
+                configuredStateRoot: $this->lifecyclePathsConfig($config)->stateRoot(),
                 basePath: $this->tempDir,
             ),
             writer: new AtomicJsonWriter(),
@@ -93,7 +88,7 @@ trait CreatesLifecycleEnvironment
     ): ModuleRegistrySnapshotBuilder {
         return new ModuleRegistrySnapshotBuilder(
             scanner: new ModuleDirectoryScanner(
-                directories: $this->configuredDirectories($config),
+                directories: $this->lifecyclePathsConfig($config)->directories(),
                 filesystem: new LocalFilesystem(new Filesystem()),
                 layout: new ModuleLayout(),
                 basePath: $this->tempDir,
@@ -117,32 +112,24 @@ trait CreatesLifecycleEnvironment
 
     protected function lifecycleDirectoryPaths(Repository $config): ModuleDirectoryPaths
     {
+        $paths = $this->lifecyclePathsConfig($config);
+
         return new ModuleDirectoryPaths(
-            directories: $this->configuredDirectories($config),
+            directories: $paths->directories(),
             basePath: $this->tempDir,
             appPath: $this->tempDir . '/app',
-            backupRoot: $this->configuredString($config, 'modules.paths.backup'),
+            configuredBackupRoot: $paths->backupRoot(),
         );
     }
 
     /**
-     * Extract the structurally validated discovery roots from the test config,
-     * mirroring how the service provider resolves them for the real bindings.
-     *
-     * @return list<string>
+     * Build the path config from the test config through the same validating
+     * resolver the production composition root uses, so invalid config fails
+     * identically in tests and at runtime.
      */
-    private function configuredDirectories(Repository $config): array
+    private function lifecyclePathsConfig(Repository $config): ModulePathsConfig
     {
-        $directories = $config->get('modules.paths.directories', []);
-
-        return \is_array($directories) ? array_values(array_filter($directories, 'is_string')) : [];
-    }
-
-    private function configuredString(Repository $config, string $key): ?string
-    {
-        $value = $config->get($key);
-
-        return \is_string($value) && trim($value) !== '' ? $value : null;
+        return ModulePathsConfig::fromRepository($config);
     }
 
     protected function lifecycleDirectoryOps(ModuleDirectoryPaths $paths): ModuleDirectoryOperations

@@ -98,6 +98,7 @@ final class PartialModuleRollbackTest extends TestCase
                 directories: ['app/Modules'],
                 basePath: $this->tempDir,
                 appPath: $this->tempDir . '/app',
+                configuredBackupRoot: $this->tempDir . '/storage/app/module-backups',
             ),
         );
     }

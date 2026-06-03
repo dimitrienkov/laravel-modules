@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Feature;
 
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\LoaderInterface;
 use DimitrienkoV\LaravelModules\Contracts\ManifestValidatorInterface;
@@ -21,6 +22,7 @@ use DimitrienkoV\LaravelModules\Providers\ModuleLoaderServiceProvider;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Support\ApplicationNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
+use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use Illuminate\Container\Container;
 use Illuminate\Foundation\Application;
@@ -111,7 +113,7 @@ final class ModuleLoaderServiceProviderTest extends TestCase
         $app['config']->set('modules.paths.directories', ['app/Modules', 42]);
 
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('each entry must be a non-empty string');
+        $this->expectExceptionMessage('entry at index 1 must be a non-empty string, got [int]');
 
         $app->make(ModuleDirectoryScanner::class);
     }
@@ -124,9 +126,39 @@ final class ModuleLoaderServiceProviderTest extends TestCase
         $app['config']->set('modules.paths.directories', ['']);
 
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('each entry must be a non-empty string');
+        $this->expectExceptionMessage('entry at index 0 must be a non-empty string');
 
         $app->make(ModuleDirectoryScanner::class);
+    }
+
+    #[Test]
+    public function brokenPathsConfigIsRejectedBeforeBuildingAnyPathService(): void
+    {
+        // The composition root resolves `modules.paths.*` once through the shared
+        // ModulePathsConfig, so a broken config must fail the resolution of EVERY
+        // path-service consumer — not just the scanner — before any of them is
+        // built.
+        $this->provider()->register();
+        $app = $this->application();
+        $app['config']->set('modules.paths.directories', 'not-an-array');
+
+        $consumers = [
+            ModuleDirectoryScanner::class,
+            ModuleStatePaths::class,
+            ModuleDirectoryPaths::class,
+        ];
+
+        foreach ($consumers as $consumer) {
+            try {
+                $app->make($consumer);
+                self::fail("Resolving [{$consumer}] must reject broken modules.paths config.");
+            } catch (InvalidConfigurationException $invalidConfiguration) {
+                self::assertStringContainsString(
+                    'must be a list of directory paths',
+                    $invalidConfiguration->getMessage(),
+                );
+            }
+        }
     }
 
     #[Test]

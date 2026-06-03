@@ -167,8 +167,7 @@ final class ModuleRegistryTest extends TestCase
     {
         return new ModuleStateRepository(
             paths: new ModuleStatePaths(
-                stateRoot: $this->stateRoot,
-                directories: ['app/Modules'],
+                configuredStateRoot: $this->stateRoot,
                 basePath: $this->tempDir,
             ),
             writer: new AtomicJsonWriter(),

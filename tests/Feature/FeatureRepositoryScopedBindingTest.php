@@ -40,12 +40,15 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
 
     private string $tempDir;
 
+    private string $stateRoot;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->tempDir = sys_get_temp_dir() . '/laravel-modules-scoped-features-' . bin2hex(random_bytes(6));
         $this->modulePath = $this->tempDir . '/app/Modules/Blog';
+        $this->stateRoot = $this->tempDir . '/storage/app/private/modules';
 
         mkdir($this->modulePath, 0755, true);
         $this->writeManifest(['comments_enabled' => false]);
@@ -83,8 +86,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $validator = new ManifestValidator(new ManifestSettingsValidator());
 
         $statePaths = new ModuleStatePaths(
-            stateRoot: null,
-            directories: ['app/Modules'],
+            configuredStateRoot: $this->stateRoot,
             basePath: $this->tempDir,
         );
         $stateRepository = new ModuleStateRepository(
@@ -150,7 +152,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $this->writeModuleManifest($this->tempDir . '/app/Modules', 'blog', schema: [
             'comments_enabled' => ['type' => 'bool', 'default' => false],
         ]);
-        $this->writeModuleState($this->tempDir . '/storage/app/private/modules', 'blog', values: $values);
+        $this->writeModuleState($this->stateRoot, 'blog', values: $values);
     }
 
     private function application(): Application

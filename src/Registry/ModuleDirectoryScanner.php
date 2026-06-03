@@ -8,6 +8,7 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
+use DimitrienkoV\LaravelModules\Support\ModuleConfigKeys;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\PathNormalizer;
 
@@ -15,8 +16,9 @@ final readonly class ModuleDirectoryScanner
 {
     /**
      * @param list<string> $directories Configured module discovery roots,
-     *                                  already structurally validated by the
-     *                                  composition root.
+     *                                  produced and validated by
+     *                                  {@see \DimitrienkoV\LaravelModules\Support\ModulePathsConfig},
+     *                                  the single owner of `modules.paths.*`.
      */
     public function __construct(
         private array $directories,
@@ -52,7 +54,7 @@ final readonly class ModuleDirectoryScanner
                 $this->diagnostics->discoveryRootRejected($relativeDirectory, 'resolves outside app_path()');
 
                 throw InvalidConfigurationException::forKey(
-                    'modules.paths.directories',
+                    ModuleConfigKeys::DIRECTORIES,
                     "directory [{$directory}] resolves outside app_path().",
                 );
             }

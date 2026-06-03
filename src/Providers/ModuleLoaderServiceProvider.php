@@ -70,6 +70,7 @@ use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\Logging\ModuleLogger;
 use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModulePathsConfig;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
@@ -127,6 +128,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom($this->packageConfigPath(), 'modules');
 
+        $this->registerPathsConfig();
         $this->registerDiagnosticsBindings();
         $this->registerManifestBindings();
         $this->registerStateBindings();
@@ -227,62 +229,18 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     }
 
     /**
-     * Resolve the configured module discovery roots at the composition root and
-     * structurally validate them once, so path services receive a clean
-     * `list<string>` instead of capturing the framework config repository (an
-     * Octane anti-pattern). Domain checks that need the base/app path stay in
-     * the services themselves.
-     *
-     * @return list<string>
+     * Resolve and validate `modules.paths.*` once at the composition root and
+     * share it as a singleton, so every path service is built from the same
+     * scalars instead of capturing the framework config repository (an Octane
+     * anti-pattern). {@see ModulePathsConfig} is the single owner of reading and
+     * validating these keys.
      */
-    private function configuredModuleDirectories(): array
+    private function registerPathsConfig(): void
     {
-        $directories = $this->app->make(Repository::class)->get('modules.paths.directories', []);
-
-        if (! \is_array($directories)) {
-            throw InvalidConfigurationException::forKey(
-                'modules.paths.directories',
-                'must be a list of directory paths.',
-            );
-        }
-
-        $resolved = [];
-
-        foreach ($directories as $directory) {
-            if (! \is_string($directory) || trim($directory) === '') {
-                throw InvalidConfigurationException::forKey(
-                    'modules.paths.directories',
-                    'each entry must be a non-empty string.',
-                );
-            }
-
-            $resolved[] = $directory;
-        }
-
-        return $resolved;
-    }
-
-    /**
-     * Resolve the optional state-root override. A present-but-empty or non-string
-     * value falls back to the default (handled by {@see ModuleStatePaths::root()}).
-     */
-    private function configuredStateRoot(): ?string
-    {
-        $stateRoot = $this->app->make(Repository::class)->get('modules.paths.state');
-
-        return \is_string($stateRoot) && trim($stateRoot) !== '' ? $stateRoot : null;
-    }
-
-    /**
-     * Resolve the optional backup-root override. A present-but-empty or
-     * non-string value falls back to the default (handled by
-     * {@see ModuleDirectoryPaths::backupRoot()}).
-     */
-    private function configuredBackupRoot(): ?string
-    {
-        $backupRoot = $this->app->make(Repository::class)->get('modules.paths.backup');
-
-        return \is_string($backupRoot) && trim($backupRoot) !== '' ? $backupRoot : null;
+        $this->app->singleton(
+            ModulePathsConfig::class,
+            fn(): ModulePathsConfig => ModulePathsConfig::fromRepository($this->app->make(Repository::class)),
+        );
     }
 
     private function registerManifestBindings(): void
@@ -323,8 +281,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     private function registerStateBindings(): void
     {
         $this->app->singleton(ModuleStatePaths::class, fn(): ModuleStatePaths => new ModuleStatePaths(
-            stateRoot: $this->configuredStateRoot(),
-            directories: $this->configuredModuleDirectories(),
+            configuredStateRoot: $this->app->make(ModulePathsConfig::class)->stateRoot(),
             basePath: $this->app->basePath(),
         ));
 
@@ -344,7 +301,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->app->singleton(TopologicalSorter::class);
 
         $this->app->singleton(ModuleDirectoryScanner::class, fn(): ModuleDirectoryScanner => new ModuleDirectoryScanner(
-            directories: $this->configuredModuleDirectories(),
+            directories: $this->app->make(ModulePathsConfig::class)->directories(),
             filesystem: $this->app->make(LocalFilesystem::class),
             layout: $this->app->make(ModuleLayout::class),
             basePath: $this->app->basePath(),
@@ -394,10 +351,10 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->app->singleton(ModuleSourcePreparer::class);
 
         $this->app->singleton(ModuleDirectoryPaths::class, fn(): ModuleDirectoryPaths => new ModuleDirectoryPaths(
-            directories: $this->configuredModuleDirectories(),
+            directories: $this->app->make(ModulePathsConfig::class)->directories(),
             basePath: $this->app->basePath(),
             appPath: $this->app->path(),
-            backupRoot: $this->configuredBackupRoot(),
+            configuredBackupRoot: $this->app->make(ModulePathsConfig::class)->backupRoot(),
         ));
 
         $this->app->singleton(LifecycleRegistryInvalidator::class);

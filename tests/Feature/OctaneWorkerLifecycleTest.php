@@ -59,7 +59,6 @@ final class OctaneWorkerLifecycleTest extends TestCase
             json_encode(['autoload' => ['psr-4' => ['App\\' => 'app/']]], JSON_PRETTY_PRINT),
         );
 
-
         $this->writeModuleManifest($this->modulesDir, 'blog', schema: [
             'comments_enabled' => ['type' => 'bool', 'default' => false],
         ]);
@@ -92,8 +91,14 @@ final class OctaneWorkerLifecycleTest extends TestCase
     }
 
     #[Test]
-    public function frozenSnapshotKeepsIdentityAcrossScopeResets(): void
+    public function singletonMemoizesSnapshotAcrossScopeResets(): void
     {
+        // This pins singleton memoization: the registry holds one built snapshot
+        // object and a per-request scope reset does not rebuild it. It is NOT the
+        // Octane freeze guarantee itself — the real "enabled stays frozen while
+        // values are read fresh" contract is locked by
+        // featureValuesAreFreshWhileEnabledStaysFrozenWithinOneWorker through the
+        // enabled flag.
         $app = $this->application();
 
         $registry = $app->make(ModuleRegistryInterface::class);
@@ -108,7 +113,7 @@ final class OctaneWorkerLifecycleTest extends TestCase
         self::assertSame(
             $bootSnapshot,
             $afterRequestSnapshot,
-            'The discovery snapshot is built once at boot and must stay identical across requests.',
+            'The singleton registry memoizes its built snapshot across scope resets.',
         );
     }
 
@@ -151,7 +156,6 @@ final class OctaneWorkerLifecycleTest extends TestCase
         $registry = $app->make(ModuleRegistryInterface::class);
 
         $baselineCount = \count($registry->all());
-        $bootSnapshot = $this->snapshotOf($registry);
 
         $scopedInstances = [];
         for ($request = 0; $request < 5; $request++) {
@@ -160,9 +164,10 @@ final class OctaneWorkerLifecycleTest extends TestCase
             $features->getBool('blog', 'comments_enabled');
             $scopedInstances[] = $features;
 
-            // The frozen surface never grows with request count.
+            // The frozen surface never grows with request count. (Snapshot
+            // identity across resets is locked by
+            // singletonMemoizesSnapshotAcrossScopeResets — not re-asserted here.)
             self::assertCount($baselineCount, $registry->all());
-            self::assertSame($bootSnapshot, $this->snapshotOf($registry));
         }
 
         // Each request scope produced its own short-lived repository rather than

@@ -100,15 +100,7 @@ final class ModuleDirectoryPathsTest extends TestCase
     }
 
     #[Test]
-    public function backupRootReturnsDefaultWhenNotConfigured(): void
-    {
-        $paths = $this->makePaths(['app/Modules'], null);
-
-        $this->assertSame('/project/storage/app/module-backups', $paths->backupRoot());
-    }
-
-    #[Test]
-    public function backupRootReturnsCustomPath(): void
+    public function backupRootReturnsConfiguredPath(): void
     {
         $paths = $this->makePaths(['app/Modules'], '/custom/backups');
 
@@ -128,13 +120,15 @@ final class ModuleDirectoryPathsTest extends TestCase
     /**
      * @param list<string> $directories
      */
-    private function makePaths(array $directories, ?string $backup = null): ModuleDirectoryPaths
-    {
+    private function makePaths(
+        array $directories,
+        string $backup = '/project/storage/app/module-backups',
+    ): ModuleDirectoryPaths {
         return new ModuleDirectoryPaths(
             directories: $directories,
             basePath: $this->basePath,
             appPath: $this->appPath,
-            backupRoot: $backup,
+            configuredBackupRoot: $backup,
         );
     }
 }

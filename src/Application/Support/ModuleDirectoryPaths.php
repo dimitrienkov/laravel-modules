@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Application\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
+use DimitrienkoV\LaravelModules\Support\ModuleConfigKeys;
 use DimitrienkoV\LaravelModules\Support\PathNormalizer;
 use Illuminate\Support\Str;
 
@@ -12,14 +13,15 @@ final readonly class ModuleDirectoryPaths
 {
     /**
      * @param list<string> $directories Configured module discovery roots,
-     *                                  already structurally validated by the
-     *                                  composition root.
+     *                                  produced and validated by
+     *                                  {@see \DimitrienkoV\LaravelModules\Support\ModulePathsConfig},
+     *                                  the single owner of `modules.paths.*`.
      */
     public function __construct(
         private array $directories,
         private string $basePath,
         private string $appPath,
-        private ?string $backupRoot = null,
+        private string $configuredBackupRoot,
     ) {}
 
     public function defaultTargetRoot(): string
@@ -46,7 +48,7 @@ final readonly class ModuleDirectoryPaths
         ));
 
         throw InvalidConfigurationException::forKey(
-            'modules.paths.directories',
+            ModuleConfigKeys::DIRECTORIES,
             "directory [{$directory}] is not a configured module root. Configured roots: {$rootList}",
         );
     }
@@ -58,11 +60,7 @@ final readonly class ModuleDirectoryPaths
 
     public function backupRoot(): string
     {
-        if ($this->backupRoot !== null) {
-            return $this->backupRoot;
-        }
-
-        return $this->basePath . '/storage/app/module-backups';
+        return $this->configuredBackupRoot;
     }
 
     public function backupPath(string $moduleName): string
@@ -84,7 +82,7 @@ final readonly class ModuleDirectoryPaths
             $normalizedRoot = PathNormalizer::normalize($root);
             if (! str_starts_with($normalizedRoot, $normalizedAppPath)) {
                 throw InvalidConfigurationException::forKey(
-                    'modules.paths.directories',
+                    ModuleConfigKeys::DIRECTORIES,
                     "directory [{$directory}] resolves outside app_path().",
                 );
             }
@@ -94,7 +92,7 @@ final readonly class ModuleDirectoryPaths
 
         if ($roots === []) {
             throw InvalidConfigurationException::forKey(
-                'modules.paths.directories',
+                ModuleConfigKeys::DIRECTORIES,
                 'at least one module directory must be configured.',
             );
         }

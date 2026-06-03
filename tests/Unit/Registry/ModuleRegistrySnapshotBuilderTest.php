@@ -116,8 +116,7 @@ final class ModuleRegistrySnapshotBuilderTest extends TestCase
         $validator = new ManifestValidator(new ManifestSettingsValidator());
         $stateRepo = new ModuleStateRepository(
             paths: new ModuleStatePaths(
-                stateRoot: $this->stateRoot,
-                directories: ['app/Modules'],
+                configuredStateRoot: $this->stateRoot,
                 basePath: $this->tempDir,
             ),
             writer: new AtomicJsonWriter(),

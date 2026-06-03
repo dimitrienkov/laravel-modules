@@ -37,7 +37,7 @@ final class ModuleDirectoryOperationsTest extends TestCase
             directories: ['app/Modules'],
             basePath: $this->tempDir,
             appPath: $this->tempDir . '/app',
-            backupRoot: $this->tempDir . '/backups',
+            configuredBackupRoot: $this->tempDir . '/backups',
         );
 
         $this->ops = new ModuleDirectoryOperations(new LocalFilesystem($this->filesystem), $paths);
