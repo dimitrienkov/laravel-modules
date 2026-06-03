@@ -10,7 +10,6 @@ use DimitrienkoV\LaravelModules\Application\Support\PartialModuleRollback;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Tests\Support\UsesTempDirectory;
-use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
@@ -93,19 +92,13 @@ final class PartialModuleRollbackTest extends TestCase
 
     private function makeDirectoryOps(): ModuleDirectoryOperations
     {
-        $config = new Repository([
-            'modules' => [
-                'paths' => [
-                    'directories' => ['app/Modules'],
-                    'state' => $this->tempDir . '/state',
-                    'backups' => $this->tempDir . '/backups',
-                ],
-            ],
-        ]);
-
         return new ModuleDirectoryOperations(
             new LocalFilesystem(new Filesystem()),
-            new ModuleDirectoryPaths($config, $this->tempDir, $this->tempDir . '/app'),
+            new ModuleDirectoryPaths(
+                directories: ['app/Modules'],
+                basePath: $this->tempDir,
+                appPath: $this->tempDir . '/app',
+            ),
         );
     }
 }

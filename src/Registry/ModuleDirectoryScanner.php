@@ -10,12 +10,16 @@ use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\PathNormalizer;
-use Illuminate\Contracts\Config\Repository;
 
 final readonly class ModuleDirectoryScanner
 {
+    /**
+     * @param list<string> $directories Configured module discovery roots,
+     *                                  already structurally validated by the
+     *                                  composition root.
+     */
     public function __construct(
-        private Repository $config,
+        private array $directories,
         private LocalFilesystem $filesystem,
         private ModuleLayout $layout,
         private string $basePath,
@@ -28,26 +32,10 @@ final readonly class ModuleDirectoryScanner
      */
     public function scan(): array
     {
-        $directories = $this->config->get('modules.paths.directories', []);
-
-        if (! \is_array($directories)) {
-            throw InvalidConfigurationException::forKey(
-                'modules.paths.directories',
-                'must be a list of directory paths.',
-            );
-        }
-
         $normalizedAppPath = PathNormalizer::normalize($this->appPath);
         $moduleDirectories = [];
 
-        foreach ($directories as $directory) {
-            if (! \is_string($directory) || trim($directory) === '') {
-                throw InvalidConfigurationException::forKey(
-                    'modules.paths.directories',
-                    'each entry must be a non-empty string.',
-                );
-            }
-
+        foreach ($this->directories as $directory) {
             $relativeDirectory = trim($directory, '/\\');
             $root = $this->basePath . '/' . $relativeDirectory;
             $realRoot = realpath($root);

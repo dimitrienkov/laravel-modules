@@ -6,15 +6,20 @@ namespace DimitrienkoV\LaravelModules\Application\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use DimitrienkoV\LaravelModules\Support\PathNormalizer;
-use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\Str;
 
 final readonly class ModuleDirectoryPaths
 {
+    /**
+     * @param list<string> $directories Configured module discovery roots,
+     *                                  already structurally validated by the
+     *                                  composition root.
+     */
     public function __construct(
-        private Repository $config,
+        private array $directories,
         private string $basePath,
         private string $appPath,
+        private ?string $backupRoot = null,
     ) {}
 
     public function defaultTargetRoot(): string
@@ -53,10 +58,8 @@ final readonly class ModuleDirectoryPaths
 
     public function backupRoot(): string
     {
-        $backup = $this->config->get('modules.paths.backup');
-
-        if (\is_string($backup) && trim($backup) !== '') {
-            return $backup;
+        if ($this->backupRoot !== null) {
+            return $this->backupRoot;
         }
 
         return $this->basePath . '/storage/app/module-backups';
@@ -72,26 +75,10 @@ final readonly class ModuleDirectoryPaths
      */
     public function configuredRoots(): array
     {
-        $directories = $this->config->get('modules.paths.directories', []);
-
-        if (! \is_array($directories)) {
-            throw InvalidConfigurationException::forKey(
-                'modules.paths.directories',
-                'must be a list of directory paths.',
-            );
-        }
-
         $normalizedAppPath = PathNormalizer::normalize($this->appPath);
         $roots = [];
 
-        foreach ($directories as $directory) {
-            if (! \is_string($directory) || trim($directory) === '') {
-                throw InvalidConfigurationException::forKey(
-                    'modules.paths.directories',
-                    'each entry must be a non-empty string.',
-                );
-            }
-
+        foreach ($this->directories as $directory) {
             $root = PathNormalizer::resolveAbsolute($directory, $this->basePath);
 
             $normalizedRoot = PathNormalizer::normalize($root);

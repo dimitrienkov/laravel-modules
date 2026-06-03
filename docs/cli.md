@@ -1,4 +1,4 @@
-[← Logging](logging.md) · [Back to README](../README.md) · [Contributing →](contributing.md)
+[← Octane](octane.md) · [Back to README](../README.md) · [Contributing →](contributing.md)
 
 # CLI
 

@@ -8,7 +8,6 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryOperations;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Exceptions\DirectoryOperationException;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
-use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -34,19 +33,11 @@ final class ModuleDirectoryOperationsTest extends TestCase
         $this->filesystem->makeDirectory($this->tempDir . '/backups', 0755, true);
         $this->filesystem->makeDirectory($this->tempDir . '/source', 0755, true);
 
-        $config = new Repository([
-            'modules' => [
-                'paths' => [
-                    'directories' => ['app/Modules'],
-                    'backup' => $this->tempDir . '/backups',
-                ],
-            ],
-        ]);
-
         $paths = new ModuleDirectoryPaths(
-            config: $config,
+            directories: ['app/Modules'],
             basePath: $this->tempDir,
             appPath: $this->tempDir . '/app',
+            backupRoot: $this->tempDir . '/backups',
         );
 
         $this->ops = new ModuleDirectoryOperations(new LocalFilesystem($this->filesystem), $paths);

@@ -111,6 +111,7 @@
 | Architecture | `docs/architecture.md` | Registry, cache, lifecycle, диагностика |
 | Feature Toggles | `docs/feature-toggles.md` | Runtime settings API |
 | Logging | `docs/logging.md` | Opt-in диагностический слой и каталог событий |
+| Octane | `docs/octane.md` | Octane worker contract и reload-операционка |
 | CLI | `docs/cli.md` | Реализованные команды |
 | Contributing | `docs/contributing.md` | Quality gates и PR |
 

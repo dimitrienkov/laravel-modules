@@ -21,7 +21,6 @@ use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
-use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -114,17 +113,12 @@ final class LifecycleRegistryInvalidatorTest extends TestCase
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
 
-        $config = new Repository([
-            'modules' => [
-                'paths' => [
-                    'directories' => ['app/Modules'],
-                    'state' => $this->stateRoot,
-                ],
-            ],
-        ]);
-
         $stateRepo = new ModuleStateRepository(
-            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
+            paths: new ModuleStatePaths(
+                stateRoot: $this->stateRoot,
+                directories: ['app/Modules'],
+                basePath: $this->tempDir,
+            ),
             writer: new AtomicJsonWriter(),
             filesystem: new LocalFilesystem(new Filesystem()),
         );
@@ -149,7 +143,7 @@ final class LifecycleRegistryInvalidatorTest extends TestCase
         $registry = new ModuleRegistry(
             builder: new ModuleRegistrySnapshotBuilder(
                 scanner: new ModuleDirectoryScanner(
-                    config: $config,
+                    directories: ['app/Modules'],
                     filesystem: new LocalFilesystem(new Filesystem()),
                     layout: $layout,
                     basePath: $this->tempDir,

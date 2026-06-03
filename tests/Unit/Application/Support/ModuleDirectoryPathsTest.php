@@ -6,7 +6,6 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\Support;
 
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
-use Illuminate\Config\Repository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -64,15 +63,9 @@ final class ModuleDirectoryPathsTest extends TestCase
         $paths->configuredRoots();
     }
 
-    #[Test]
-    public function configuredRootsRejectsEmptyStringEntry(): void
-    {
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessageMatches('/non-empty string/');
-
-        $paths = $this->makePaths(['']);
-        $paths->configuredRoots();
-    }
+    // Per-entry structural validation (non-empty string) moved to the
+    // composition root and is locked in ModuleLoaderServiceProviderTest. The
+    // service still owns the app_path guard and the empty-list check below.
 
     #[Test]
     public function configuredRootsRejectsEmptyList(): void
@@ -137,22 +130,11 @@ final class ModuleDirectoryPathsTest extends TestCase
      */
     private function makePaths(array $directories, ?string $backup = null): ModuleDirectoryPaths
     {
-        $config = [
-            'modules' => [
-                'paths' => [
-                    'directories' => $directories,
-                ],
-            ],
-        ];
-
-        if ($backup !== null) {
-            $config['modules']['paths']['backup'] = $backup;
-        }
-
         return new ModuleDirectoryPaths(
-            config: new Repository($config),
+            directories: $directories,
             basePath: $this->basePath,
             appPath: $this->appPath,
+            backupRoot: $backup,
         );
     }
 }

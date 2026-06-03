@@ -10,7 +10,6 @@ use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
-use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
@@ -66,42 +65,10 @@ final class ModuleDirectoryScannerTest extends TestCase
         self::assertCount(1, $paths);
     }
 
-    #[Test]
-    public function throwsForNonStringConfigEntries(): void
-    {
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('each entry must be a non-empty string');
-
-        $this->scanner(['app/Modules', 42])->scan();
-    }
-
-    #[Test]
-    public function throwsForEmptyStringConfigEntry(): void
-    {
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('each entry must be a non-empty string');
-
-        $this->scanner([''])->scan();
-    }
-
-    #[Test]
-    public function throwsForNonArrayDirectoriesConfig(): void
-    {
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('must be a list of directory paths');
-
-        $scanner = new ModuleDirectoryScanner(
-            config: new Repository([
-                'modules' => ['paths' => ['directories' => 'not-an-array']],
-            ]),
-            filesystem: new LocalFilesystem(new Filesystem()),
-            layout: new ModuleLayout(),
-            basePath: $this->tempDir,
-            appPath: $this->tempDir . '/app',
-        );
-
-        $scanner->scan();
-    }
+    // Structural validation of `modules.paths.directories` (non-array config,
+    // non-string / empty entries) now lives at the composition root, before the
+    // scanner is constructed. Those cases are locked in
+    // ModuleLoaderServiceProviderTest; the scanner only owns the app_path guard.
 
     #[Test]
     public function returnsSortedPaths(): void
@@ -170,14 +137,12 @@ final class ModuleDirectoryScannerTest extends TestCase
     }
 
     /**
-     * @param array<mixed> $directories
+     * @param list<string> $directories
      */
     private function scanner(array $directories, ?ModuleDiagnosticsInterface $diagnostics = null): ModuleDirectoryScanner
     {
         return new ModuleDirectoryScanner(
-            config: new Repository([
-                'modules' => ['paths' => ['directories' => $directories]],
-            ]),
+            directories: $directories,
             filesystem: new LocalFilesystem(new Filesystem()),
             layout: new ModuleLayout(),
             basePath: $this->tempDir,

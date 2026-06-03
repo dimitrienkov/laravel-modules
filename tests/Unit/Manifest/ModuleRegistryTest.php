@@ -23,7 +23,6 @@ use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
-use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Mockery;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
@@ -166,17 +165,12 @@ final class ModuleRegistryTest extends TestCase
 
     private function stateRepository(): ModuleStateRepository
     {
-        $config = new Repository([
-            'modules' => [
-                'paths' => [
-                    'directories' => ['app/Modules'],
-                    'state' => $this->stateRoot,
-                ],
-            ],
-        ]);
-
         return new ModuleStateRepository(
-            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
+            paths: new ModuleStatePaths(
+                stateRoot: $this->stateRoot,
+                directories: ['app/Modules'],
+                basePath: $this->tempDir,
+            ),
             writer: new AtomicJsonWriter(),
             filesystem: new LocalFilesystem(new Filesystem()),
         );
@@ -187,14 +181,6 @@ final class ModuleRegistryTest extends TestCase
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
         $stateRepo = $this->stateRepository();
-        $config = new Repository([
-            'modules' => [
-                'paths' => [
-                    'directories' => ['app/Modules'],
-                    'state' => $this->stateRoot,
-                ],
-            ],
-        ]);
 
         $manifests = new ModuleManifestRepository(
             layout: $layout,
@@ -209,7 +195,7 @@ final class ModuleRegistryTest extends TestCase
         return new ModuleRegistry(
             builder: new ModuleRegistrySnapshotBuilder(
                 scanner: new ModuleDirectoryScanner(
-                    config: $config,
+                    directories: ['app/Modules'],
                     filesystem: new LocalFilesystem(new Filesystem()),
                     layout: $layout,
                     basePath: $this->tempDir,

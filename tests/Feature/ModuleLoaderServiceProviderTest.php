@@ -18,14 +18,17 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Providers\ModuleLoaderServiceProvider;
+use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Support\ApplicationNamespaceResolver;
 use DimitrienkoV\LaravelModules\Support\ContainerLifecycleHooks;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use Illuminate\Container\Container;
 use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use ArrayObject;
+use ReflectionProperty;
 use RuntimeException;
 use stdClass;
 
@@ -62,6 +65,68 @@ final class ModuleLoaderServiceProviderTest extends TestCase
 
         self::assertSame($first, $sameScope);
         self::assertNotSame($first, $nextScope);
+    }
+
+    #[Test]
+    public function featureRepositoryIsRecordedAsAScopedContainerBinding(): void
+    {
+        $this->provider()->register();
+        $app = $this->application();
+
+        // The container records every scoped abstract in `$scopedInstances`;
+        // Octane flushes exactly those on each `OperationTerminated`. Asserting
+        // membership here locks the registration itself — a regression to
+        // `singleton()` drops the abstract from this list and fails the test,
+        // even though a behavioural same/not-same check could be fooled by an
+        // accidental fresh instance.
+        $property = new ReflectionProperty(Container::class, 'scopedInstances');
+        /** @var list<string> $scopedInstances */
+        $scopedInstances = $property->getValue($app);
+
+        self::assertContains(
+            FeatureRepositoryInterface::class,
+            $scopedInstances,
+            'FeatureRepository must be bound as scoped so Octane resets per-request feature state.',
+        );
+    }
+
+    #[Test]
+    public function rejectsNonArrayModuleDirectoriesConfig(): void
+    {
+        $this->provider()->register();
+        $app = $this->application();
+        $app['config']->set('modules.paths.directories', 'not-an-array');
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('must be a list of directory paths');
+
+        $app->make(ModuleDirectoryScanner::class);
+    }
+
+    #[Test]
+    public function rejectsNonStringModuleDirectoryEntry(): void
+    {
+        $this->provider()->register();
+        $app = $this->application();
+        $app['config']->set('modules.paths.directories', ['app/Modules', 42]);
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('each entry must be a non-empty string');
+
+        $app->make(ModuleDirectoryScanner::class);
+    }
+
+    #[Test]
+    public function rejectsEmptyStringModuleDirectoryEntry(): void
+    {
+        $this->provider()->register();
+        $app = $this->application();
+        $app['config']->set('modules.paths.directories', ['']);
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('each entry must be a non-empty string');
+
+        $app->make(ModuleDirectoryScanner::class);
     }
 
     #[Test]

@@ -26,7 +26,6 @@ use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
-use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase;
@@ -83,15 +82,11 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
 
-        $config = new Repository([
-            'modules' => [
-                'paths' => [
-                    'directories' => ['app/Modules'],
-                ],
-            ],
-        ]);
-
-        $statePaths = new ModuleStatePaths(config: $config, basePath: $this->tempDir);
+        $statePaths = new ModuleStatePaths(
+            stateRoot: null,
+            directories: ['app/Modules'],
+            basePath: $this->tempDir,
+        );
         $stateRepository = new ModuleStateRepository(
             paths: $statePaths,
             writer: new AtomicJsonWriter(),
@@ -113,7 +108,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $app->instance(ModuleRegistryInterface::class, new ModuleRegistry(
             builder: new ModuleRegistrySnapshotBuilder(
                 scanner: new ModuleDirectoryScanner(
-                    config: $config,
+                    directories: ['app/Modules'],
                     filesystem: new LocalFilesystem(new Filesystem()),
                     layout: $layout,
                     basePath: $this->tempDir,

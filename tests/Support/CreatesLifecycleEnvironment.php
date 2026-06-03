@@ -54,7 +54,11 @@ trait CreatesLifecycleEnvironment
     protected function lifecycleStateRepository(Repository $config): ModuleStateRepository
     {
         return new ModuleStateRepository(
-            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
+            paths: new ModuleStatePaths(
+                stateRoot: $this->configuredString($config, 'modules.paths.state'),
+                directories: $this->configuredDirectories($config),
+                basePath: $this->tempDir,
+            ),
             writer: new AtomicJsonWriter(),
             filesystem: new LocalFilesystem(new Filesystem()),
         );
@@ -89,7 +93,7 @@ trait CreatesLifecycleEnvironment
     ): ModuleRegistrySnapshotBuilder {
         return new ModuleRegistrySnapshotBuilder(
             scanner: new ModuleDirectoryScanner(
-                config: $config,
+                directories: $this->configuredDirectories($config),
                 filesystem: new LocalFilesystem(new Filesystem()),
                 layout: new ModuleLayout(),
                 basePath: $this->tempDir,
@@ -113,7 +117,32 @@ trait CreatesLifecycleEnvironment
 
     protected function lifecycleDirectoryPaths(Repository $config): ModuleDirectoryPaths
     {
-        return new ModuleDirectoryPaths($config, $this->tempDir, $this->tempDir . '/app');
+        return new ModuleDirectoryPaths(
+            directories: $this->configuredDirectories($config),
+            basePath: $this->tempDir,
+            appPath: $this->tempDir . '/app',
+            backupRoot: $this->configuredString($config, 'modules.paths.backup'),
+        );
+    }
+
+    /**
+     * Extract the structurally validated discovery roots from the test config,
+     * mirroring how the service provider resolves them for the real bindings.
+     *
+     * @return list<string>
+     */
+    private function configuredDirectories(Repository $config): array
+    {
+        $directories = $config->get('modules.paths.directories', []);
+
+        return \is_array($directories) ? array_values(array_filter($directories, 'is_string')) : [];
+    }
+
+    private function configuredString(Repository $config, string $key): ?string
+    {
+        $value = $config->get($key);
+
+        return \is_string($value) && trim($value) !== '' ? $value : null;
     }
 
     protected function lifecycleDirectoryOps(ModuleDirectoryPaths $paths): ModuleDirectoryOperations

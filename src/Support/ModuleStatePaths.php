@@ -5,21 +5,24 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Support;
 
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
-use Illuminate\Contracts\Config\Repository;
 
 final readonly class ModuleStatePaths
 {
+    /**
+     * @param list<string> $directories Configured module discovery roots,
+     *                                  already structurally validated by the
+     *                                  composition root.
+     */
     public function __construct(
-        private Repository $config,
+        private ?string $stateRoot,
+        private array $directories,
         private string $basePath,
     ) {}
 
     public function root(): string
     {
-        $stateRoot = $this->config->get('modules.paths.state');
-
-        if ($stateRoot !== null && \is_string($stateRoot) && trim($stateRoot) !== '') {
-            return PathNormalizer::resolveAbsolute($stateRoot, $this->basePath);
+        if ($this->stateRoot !== null) {
+            return PathNormalizer::resolveAbsolute($this->stateRoot, $this->basePath);
         }
 
         return $this->basePath . '/storage/app/private/modules';
@@ -38,21 +41,9 @@ final readonly class ModuleStatePaths
     public function validate(): void
     {
         $stateRoot = $this->root();
-
-        $directories = $this->config->get('modules.paths.directories', []);
-        if (! \is_array($directories)) {
-            return;
-        }
-
         $normalizedStateRoot = PathNormalizer::normalize($stateRoot);
 
-        foreach ($directories as $directory) {
-            if (! \is_string($directory)) {
-                continue;
-            }
-            if (trim($directory) === '') {
-                continue;
-            }
+        foreach ($this->directories as $directory) {
             $resolved = PathNormalizer::resolveAbsolute($directory, $this->basePath);
             $normalizedDir = PathNormalizer::normalize($resolved);
 

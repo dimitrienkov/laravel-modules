@@ -22,7 +22,6 @@ use DimitrienkoV\LaravelModules\Support\AtomicJsonWriter;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
-use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -53,12 +52,12 @@ final class ModuleStateRepositoryTest extends TestCase
         $this->stateRoot = $this->tempDir . '/state';
         $this->filesystem->makeDirectory($this->stateRoot, 0755, true);
 
-        $config = new Repository([
-            'modules' => ['paths' => ['state' => $this->stateRoot, 'directories' => ['app/Modules']]],
-        ]);
-
         $this->repository = new ModuleStateRepository(
-            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
+            paths: new ModuleStatePaths(
+                stateRoot: $this->stateRoot,
+                directories: ['app/Modules'],
+                basePath: $this->tempDir,
+            ),
             writer: new AtomicJsonWriter(),
             filesystem: new LocalFilesystem(new Filesystem()),
         );

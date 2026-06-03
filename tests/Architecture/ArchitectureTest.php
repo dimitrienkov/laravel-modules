@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Request;
 use DimitrienkoV\LaravelModules\Loaders\VO\LoadReport;
 use DimitrienkoV\LaravelModules\Loaders\VO\PipelineRunSummary;
 use DimitrienkoV\LaravelModules\Loaders\VO\LoadStatus;
@@ -154,6 +155,10 @@ test('src does not contain debug or termination calls', function (): void {
 arch('src does not use Laravel facades')
     ->expect('DimitrienkoV\LaravelModules')
     ->not->toUse('Illuminate\Support\Facades');
+
+arch('src does not inject the HTTP request')
+    ->expect('DimitrienkoV\LaravelModules')
+    ->not->toUse(Request::class);
 
 test('src does not define mutable static properties', function (): void {
     $srcDir = realpath(__DIR__ . '/../../src');
