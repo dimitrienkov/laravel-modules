@@ -88,7 +88,7 @@ Lifecycle-команды (`make:module`, `modules:install`) принимают `
 
 ## Backup path
 
-`paths.backup` задаёт директорию для backup при `modules:update` и `modules:remove`. По умолчанию `storage_path('app/module-backups')`. После merge package config ключ обязателен и должен быть non-empty string path. Формат backup: `<name>-<Ymd-His>-<random-hex>`.
+`paths.backup` задаёт директорию для backup при `modules:update` и `modules:remove`. По умолчанию `storage_path('app/module-backups')`. После merge package config ключ обязателен и должен быть non-empty string path. Относительный путь резолвится в абсолютный относительно base path (через `PathNormalizer`, как и `paths.state`). Формат backup: `<name>-<Ymd-His>-<random-hex>`.
 
 ## State path
 

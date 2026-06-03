@@ -141,6 +141,11 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Force the eager resolve of the shared paths config so a broken
+        // `modules.paths.*` fails fast on worker boot, not deep inside a request
+        // when the first path service is built.
+        $this->app->make(ModulePathsConfig::class);
+
         $this->publishes([
             $this->packageConfigPath() => config_path('modules.php'),
         ], 'modules-config');
@@ -229,11 +234,11 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     }
 
     /**
-     * Resolve and validate `modules.paths.*` once at the composition root and
-     * share it as a singleton, so every path service is built from the same
-     * scalars instead of capturing the framework config repository (an Octane
-     * anti-pattern). {@see ModulePathsConfig} is the single owner of reading and
-     * validating these keys.
+     * Bind `modules.paths.*` as one shared, validated resolver so every path
+     * service is built from the same scalars resolved once, rather than each
+     * re-reading the config repository. {@see ModulePathsConfig} owns reading and
+     * structural validation of these keys; it is forced eagerly in boot() so a
+     * broken config fails on worker boot.
      */
     private function registerPathsConfig(): void
     {

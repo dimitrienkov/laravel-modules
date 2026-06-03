@@ -8,14 +8,21 @@ use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use Illuminate\Contracts\Config\Repository;
 
 /**
- * Single validating owner of the `modules.paths.*` configuration.
+ * Validating owner of how `modules.paths.*` is read and structurally checked.
  *
- * Resolved once at the composition root (bound as a shared singleton) and read
- * through {@see fromRepository()}, which validates eagerly and keeps only
- * scalars — never the framework config repository, so path services stay
- * decoupled and Octane-safe. Both the production object graph and the test
- * harness build their path services from this one resolver, so invalid config
- * fails identically everywhere.
+ * Resolved once at the composition root (bound as a shared singleton, forced
+ * eagerly in the provider's boot()) and read through {@see fromRepository()},
+ * which validates the structure — `directories` is a non-empty list of non-empty
+ * strings, `state`/`backup` are non-empty string paths — and keeps only scalars,
+ * never the framework config repository, so path services stay decoupled and
+ * Octane-safe. Both the production object graph and the test harness build their
+ * path services from this one resolver, so invalid config fails identically
+ * everywhere.
+ *
+ * It does NOT own consumer-specific path semantics: the `app_path()` containment
+ * guard lives in {@see \DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths}
+ * and {@see \DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner}, which
+ * resolve roots differently (pure-string vs `realpath`) on purpose.
  */
 final readonly class ModulePathsConfig
 {
@@ -32,8 +39,8 @@ final readonly class ModulePathsConfig
     {
         return new self(
             self::readDirectories($config),
-            self::readRequiredString($config, ModuleConfigKeys::STATE),
-            self::readRequiredString($config, ModuleConfigKeys::BACKUP),
+            self::readRequiredPath($config, ModuleConfigKeys::STATE_ROOT),
+            self::readRequiredPath($config, ModuleConfigKeys::BACKUP_ROOT),
         );
     }
 
@@ -96,7 +103,7 @@ final readonly class ModulePathsConfig
         return $resolved;
     }
 
-    private static function readRequiredString(Repository $config, string $key): string
+    private static function readRequiredPath(Repository $config, string $key): string
     {
         $value = $config->get($key);
 

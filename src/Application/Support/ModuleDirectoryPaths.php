@@ -12,10 +12,8 @@ use Illuminate\Support\Str;
 final readonly class ModuleDirectoryPaths
 {
     /**
-     * @param list<string> $directories Configured module discovery roots,
-     *                                  produced and validated by
-     *                                  {@see \DimitrienkoV\LaravelModules\Support\ModulePathsConfig},
-     *                                  the single owner of `modules.paths.*`.
+     * @param list<string> $directories Module discovery roots, structurally
+     *                                  validated by {@see \DimitrienkoV\LaravelModules\Support\ModulePathsConfig}.
      */
     public function __construct(
         private array $directories,
@@ -60,7 +58,7 @@ final readonly class ModuleDirectoryPaths
 
     public function backupRoot(): string
     {
-        return $this->configuredBackupRoot;
+        return PathNormalizer::resolveAbsolute($this->configuredBackupRoot, $this->basePath);
     }
 
     public function backupPath(string $moduleName): string
@@ -69,6 +67,13 @@ final readonly class ModuleDirectoryPaths
     }
 
     /**
+     * Resolve configured directories to absolute roots, enforcing the
+     * consumer-specific `app_path()` containment guard. Structural validation
+     * (non-empty list of non-empty strings) is already done by ModulePathsConfig;
+     * this class owns only the containment rule, resolving roots as pure strings
+     * — unlike {@see \DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner},
+     * which resolves via `realpath` because it touches the filesystem.
+     *
      * @return list<string>
      */
     public function configuredRoots(): array
@@ -88,13 +93,6 @@ final readonly class ModuleDirectoryPaths
             }
 
             $roots[] = $root;
-        }
-
-        if ($roots === []) {
-            throw InvalidConfigurationException::forKey(
-                ModuleConfigKeys::DIRECTORIES,
-                'at least one module directory must be configured.',
-            );
         }
 
         return $roots;

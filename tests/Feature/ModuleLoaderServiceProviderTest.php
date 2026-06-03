@@ -148,13 +148,60 @@ final class ModuleLoaderServiceProviderTest extends TestCase
             ModuleDirectoryPaths::class,
         ];
 
+        $this->assertEveryPathConsumerRejects($app, 'must be a list of directory paths');
+    }
+
+    #[Test]
+    public function brokenStateRootConfigIsRejectedBeforeBuildingAnyPathService(): void
+    {
+        $this->provider()->register();
+        $app = $this->application();
+        $app['config']->set('modules.paths.state', '');
+
+        $this->assertEveryPathConsumerRejects($app, 'modules.paths.state');
+    }
+
+    #[Test]
+    public function brokenBackupRootConfigIsRejectedBeforeBuildingAnyPathService(): void
+    {
+        $this->provider()->register();
+        $app = $this->application();
+        $app['config']->set('modules.paths.backup', '');
+
+        $this->assertEveryPathConsumerRejects($app, 'modules.paths.backup');
+    }
+
+    #[Test]
+    public function bootFailsFastWhenPathsConfigIsBroken(): void
+    {
+        // The provider resolves ModulePathsConfig eagerly in boot(), so a broken
+        // `modules.paths.*` fails on worker boot rather than deep inside the first
+        // request that happens to build a path service.
+        $provider = $this->provider();
+        $provider->register();
+        $this->application()['config']->set('modules.paths.directories', 'not-an-array');
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('must be a list of directory paths');
+
+        $provider->boot();
+    }
+
+    private function assertEveryPathConsumerRejects(Application $app, string $expectedMessageFragment): void
+    {
+        $consumers = [
+            ModuleDirectoryScanner::class,
+            ModuleStatePaths::class,
+            ModuleDirectoryPaths::class,
+        ];
+
         foreach ($consumers as $consumer) {
             try {
                 $app->make($consumer);
                 self::fail("Resolving [{$consumer}] must reject broken modules.paths config.");
             } catch (InvalidConfigurationException $invalidConfiguration) {
                 self::assertStringContainsString(
-                    'must be a list of directory paths',
+                    $expectedMessageFragment,
                     $invalidConfiguration->getMessage(),
                 );
             }

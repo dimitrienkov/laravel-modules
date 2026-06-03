@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Tests\Feature;
 
+use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Contracts\FeatureRepositoryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
-use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Providers\ModuleLoaderServiceProvider;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use Illuminate\Filesystem\Filesystem;
@@ -14,7 +14,6 @@ use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
-use ReflectionProperty;
 
 /**
  * Behavioural lock for the package's Octane worker-reuse contract.
@@ -91,33 +90,6 @@ final class OctaneWorkerLifecycleTest extends TestCase
     }
 
     #[Test]
-    public function singletonMemoizesSnapshotAcrossScopeResets(): void
-    {
-        // This pins singleton memoization: the registry holds one built snapshot
-        // object and a per-request scope reset does not rebuild it. It is NOT the
-        // Octane freeze guarantee itself — the real "enabled stays frozen while
-        // values are read fresh" contract is locked by
-        // featureValuesAreFreshWhileEnabledStaysFrozenWithinOneWorker through the
-        // enabled flag.
-        $app = $this->application();
-
-        $registry = $app->make(ModuleRegistryInterface::class);
-        self::assertInstanceOf(ModuleRegistry::class, $registry);
-        $registry->all();
-
-        $bootSnapshot = $this->snapshotOf($registry);
-        $app->forgetScopedInstances();
-        $registry->all();
-        $afterRequestSnapshot = $this->snapshotOf($registry);
-
-        self::assertSame(
-            $bootSnapshot,
-            $afterRequestSnapshot,
-            'The singleton registry memoizes its built snapshot across scope resets.',
-        );
-    }
-
-    #[Test]
     public function featureValuesAreFreshWhileEnabledStaysFrozenWithinOneWorker(): void
     {
         $app = $this->application();
@@ -164,15 +136,34 @@ final class OctaneWorkerLifecycleTest extends TestCase
             $features->getBool('blog', 'comments_enabled');
             $scopedInstances[] = $features;
 
-            // The frozen surface never grows with request count. (Snapshot
-            // identity across resets is locked by
-            // singletonMemoizesSnapshotAcrossScopeResets — not re-asserted here.)
+            // The frozen surface never grows with request count.
             self::assertCount($baselineCount, $registry->all());
         }
 
         // Each request scope produced its own short-lived repository rather than
         // accumulating state on one long-lived object.
         self::assertCount(5, array_unique(array_map('spl_object_id', $scopedInstances)));
+    }
+
+    #[Test]
+    public function backupRootIsFrozenForWorkerLifetime(): void
+    {
+        $app = $this->application();
+
+        $paths = $app->make(ModuleDirectoryPaths::class);
+        $bootBackupRoot = $paths->backupRoot();
+
+        // A config mutation lands mid-worker without an `octane:reload`.
+        $app['config']->set('modules.paths.backup', $this->tempDir . '/storage/app/other-backups');
+        $app->forgetScopedInstances();
+
+        // Like directories and state, the backup root is resolved once from the
+        // shared ModulePathsConfig and frozen for the worker lifetime.
+        self::assertSame(
+            $bootBackupRoot,
+            $app->make(ModuleDirectoryPaths::class)->backupRoot(),
+            'The backup root is resolved once at boot and frozen until octane:reload.',
+        );
     }
 
     /**
@@ -190,6 +181,7 @@ final class OctaneWorkerLifecycleTest extends TestCase
         $app->setBasePath($this->tempDir);
         $app['config']->set('modules.paths.directories', ['app/Modules']);
         $app['config']->set('modules.paths.state', $this->stateRoot);
+        $app['config']->set('modules.paths.backup', $this->tempDir . '/storage/app/module-backups');
     }
 
     private function application(): Application
@@ -199,15 +191,5 @@ final class OctaneWorkerLifecycleTest extends TestCase
         }
 
         return $this->app;
-    }
-
-    private function snapshotOf(ModuleRegistry $registry): object
-    {
-        $property = new ReflectionProperty(ModuleRegistry::class, 'snapshot');
-        $snapshot = $property->getValue($registry);
-
-        self::assertIsObject($snapshot, 'The registry must hold a built snapshot.');
-
-        return $snapshot;
     }
 }

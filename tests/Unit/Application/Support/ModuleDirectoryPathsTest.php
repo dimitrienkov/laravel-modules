@@ -63,19 +63,10 @@ final class ModuleDirectoryPathsTest extends TestCase
         $paths->configuredRoots();
     }
 
-    // Per-entry structural validation (non-empty string) moved to the
-    // composition root and is locked in ModuleLoaderServiceProviderTest. The
-    // service still owns the app_path guard and the empty-list check below.
-
-    #[Test]
-    public function configuredRootsRejectsEmptyList(): void
-    {
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessageMatches('/at least one/');
-
-        $paths = $this->makePaths([]);
-        $paths->configuredRoots();
-    }
+    // Structural validation (non-empty list, non-empty string entries) is owned
+    // by ModulePathsConfig and locked in ModulePathsConfigTest /
+    // ModuleLoaderServiceProviderTest. This service owns only the app_path guard
+    // asserted above.
 
     #[Test]
     public function targetModulePathBuildsStudlyCasePath(): void
@@ -100,11 +91,19 @@ final class ModuleDirectoryPathsTest extends TestCase
     }
 
     #[Test]
-    public function backupRootReturnsConfiguredPath(): void
+    public function backupRootKeepsAbsoluteConfiguredPath(): void
     {
         $paths = $this->makePaths(['app/Modules'], '/custom/backups');
 
         $this->assertSame('/custom/backups', $paths->backupRoot());
+    }
+
+    #[Test]
+    public function backupRootResolvesRelativePathAgainstBasePath(): void
+    {
+        $paths = $this->makePaths(['app/Modules'], 'storage/app/module-backups');
+
+        $this->assertSame('/project/storage/app/module-backups', $paths->backupRoot());
     }
 
     #[Test]

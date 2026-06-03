@@ -15,10 +15,8 @@ use DimitrienkoV\LaravelModules\Support\PathNormalizer;
 final readonly class ModuleDirectoryScanner
 {
     /**
-     * @param list<string> $directories Configured module discovery roots,
-     *                                  produced and validated by
-     *                                  {@see \DimitrienkoV\LaravelModules\Support\ModulePathsConfig},
-     *                                  the single owner of `modules.paths.*`.
+     * @param list<string> $directories Module discovery roots, structurally
+     *                                  validated by {@see \DimitrienkoV\LaravelModules\Support\ModulePathsConfig}.
      */
     public function __construct(
         private array $directories,
@@ -30,6 +28,12 @@ final readonly class ModuleDirectoryScanner
     ) {}
 
     /**
+     * Discover module directories under the configured roots. This class owns the
+     * scan-time `app_path()` containment guard, resolving roots via `realpath`
+     * (it reads the filesystem and skips missing roots) — distinct from
+     * {@see \DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths},
+     * which resolves the same roots as pure strings for target computation.
+     *
      * @return array<int, string>
      */
     public function scan(): array
