@@ -8,14 +8,18 @@ use DimitrienkoV\LaravelModules\Contracts\ModuleDiagnosticsInterface;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
 use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
+use DimitrienkoV\LaravelModules\Support\ModuleConfigKeys;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
 use DimitrienkoV\LaravelModules\Support\PathNormalizer;
-use Illuminate\Contracts\Config\Repository;
 
 final readonly class ModuleDirectoryScanner
 {
+    /**
+     * @param list<string> $directories Module discovery roots, structurally
+     *                                  validated by {@see \DimitrienkoV\LaravelModules\Support\ModulePathsConfig}.
+     */
     public function __construct(
-        private Repository $config,
+        private array $directories,
         private LocalFilesystem $filesystem,
         private ModuleLayout $layout,
         private string $basePath,
@@ -24,30 +28,20 @@ final readonly class ModuleDirectoryScanner
     ) {}
 
     /**
+     * Discover module directories under the configured roots. This class owns the
+     * scan-time `app_path()` containment guard, resolving roots via `realpath`
+     * (it reads the filesystem and skips missing roots) — distinct from
+     * {@see \DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths},
+     * which resolves the same roots as pure strings for target computation.
+     *
      * @return array<int, string>
      */
     public function scan(): array
     {
-        $directories = $this->config->get('modules.paths.directories', []);
-
-        if (! \is_array($directories)) {
-            throw InvalidConfigurationException::forKey(
-                'modules.paths.directories',
-                'must be a list of directory paths.',
-            );
-        }
-
         $normalizedAppPath = PathNormalizer::normalize($this->appPath);
         $moduleDirectories = [];
 
-        foreach ($directories as $directory) {
-            if (! \is_string($directory) || trim($directory) === '') {
-                throw InvalidConfigurationException::forKey(
-                    'modules.paths.directories',
-                    'each entry must be a non-empty string.',
-                );
-            }
-
+        foreach ($this->directories as $directory) {
             $relativeDirectory = trim($directory, '/\\');
             $root = $this->basePath . '/' . $relativeDirectory;
             $realRoot = realpath($root);
@@ -64,7 +58,7 @@ final readonly class ModuleDirectoryScanner
                 $this->diagnostics->discoveryRootRejected($relativeDirectory, 'resolves outside app_path()');
 
                 throw InvalidConfigurationException::forKey(
-                    'modules.paths.directories',
+                    ModuleConfigKeys::DIRECTORIES,
                     "directory [{$directory}] resolves outside app_path().",
                 );
             }

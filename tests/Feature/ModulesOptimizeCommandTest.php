@@ -25,7 +25,6 @@ use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
-use Illuminate\Config\Repository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
@@ -42,12 +41,15 @@ final class ModulesOptimizeCommandTest extends TestCase
 
     private string $tempDir;
 
+    private string $stateRoot;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->tempDir = sys_get_temp_dir() . '/laravel-modules-optimize-' . bin2hex(random_bytes(6));
         $this->modulePath = $this->tempDir . '/app/Modules/Blog';
+        $this->stateRoot = $this->tempDir . '/storage/app/private/modules';
 
         mkdir($this->modulePath, 0755, true);
         $this->writeManifest();
@@ -134,16 +136,11 @@ final class ModulesOptimizeCommandTest extends TestCase
 
     private function stateRepository(): ModuleStateRepository
     {
-        $config = new Repository([
-            'modules' => [
-                'paths' => [
-                    'directories' => ['app/Modules'],
-                ],
-            ],
-        ]);
-
         return new ModuleStateRepository(
-            paths: new ModuleStatePaths(config: $config, basePath: $this->tempDir),
+            paths: new ModuleStatePaths(
+                configuredStateRoot: $this->stateRoot,
+                basePath: $this->tempDir,
+            ),
             writer: new AtomicJsonWriter(),
             filesystem: new LocalFilesystem(new Filesystem()),
         );
@@ -163,19 +160,12 @@ final class ModulesOptimizeCommandTest extends TestCase
     {
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
-        $config = new Repository([
-            'modules' => [
-                'paths' => [
-                    'directories' => ['app/Modules'],
-                ],
-            ],
-        ]);
 
         $stateRepository = $this->stateRepository();
 
         return new ModuleRegistrySnapshotBuilder(
             scanner: new ModuleDirectoryScanner(
-                config: $config,
+                directories: ['app/Modules'],
                 filesystem: new LocalFilesystem(new Filesystem()),
                 layout: $layout,
                 basePath: $this->tempDir,
@@ -230,7 +220,7 @@ final class ModulesOptimizeCommandTest extends TestCase
         string $displayName = 'Blog',
     ): void {
         $this->writeModuleManifest($this->tempDir . '/app/Modules', $name, schema: []);
-        $this->writeModuleState($this->tempDir . '/storage/app/private/modules', $name);
+        $this->writeModuleState($this->stateRoot, $name);
     }
 
 }

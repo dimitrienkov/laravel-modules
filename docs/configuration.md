@@ -82,15 +82,17 @@ return [
 
 `ModuleDirectoryScanner` сканирует direct child directories и оставляет только директории с `module.json`.
 
+`paths.directories` должен быть непустым списком non-empty строк. Все ключи `modules.paths.*` читаются и валидируются один раз при boot воркера единым владельцем — `ModulePathsConfig`; пустой список, не-строковый или пустой элемент — ошибка конфигурации (`InvalidConfigurationException`) с указанием индекса проблемного элемента.
+
 Lifecycle-команды (`make:module`, `modules:install`) принимают `--directory` для явного указания target root. Аргумент должен быть одним из configured roots.
 
 ## Backup path
 
-`paths.backup` задаёт директорию для backup при `modules:update` и `modules:remove`. По умолчанию `storage_path('app/module-backups')`. Формат backup: `<name>-<Ymd-His>-<random-hex>`.
+`paths.backup` задаёт директорию для backup при `modules:update` и `modules:remove`. По умолчанию `storage_path('app/module-backups')`. После merge package config ключ обязателен и должен быть non-empty string path. Относительный путь резолвится в абсолютный относительно base path (через `PathNormalizer`, как и `paths.state`). Формат backup: `<name>-<Ymd-His>-<random-hex>`.
 
 ## State path
 
-`paths.state` задаёт корневую директорию для mutable state файлов модулей. По умолчанию `storage_path('app/private/modules')`. Каждый модуль получает поддиректорию `{name}/state.json`:
+`paths.state` задаёт корневую директорию для mutable state файлов модулей. По умолчанию `storage_path('app/private/modules')`. После merge package config ключ обязателен и должен быть non-empty string path. Каждый модуль получает поддиректорию `{name}/state.json`:
 
 ```
 storage/app/private/modules/
@@ -100,7 +102,7 @@ storage/app/private/modules/
     └── state.json
 ```
 
-`state.json` хранит `enabled`, `installed_at`, `updated_at`, опциональную секцию `source` (provenance: `kind`, `installed_version` и `checksum` для `zip`-origin) и `settings.values`. Полная структура `source` и пример `state.json` — в [docs/manifest.md](manifest.md). `ModuleStatePaths` валидирует, что state root не пересекается с module directories.
+`state.json` хранит `enabled`, `installed_at`, `updated_at`, опциональную секцию `source` (provenance: `kind`, `installed_version` и `checksum` для `zip`-origin) и `settings.values`. Полная структура `source` и пример `state.json` — в [docs/manifest.md](manifest.md). `ModuleStatePaths` резолвит абсолютный путь к каждому `{name}/state.json` из `paths.state` (через `PathNormalizer`); containment-проверки state root относительно module directories в runtime нет.
 
 ## Module groups
 

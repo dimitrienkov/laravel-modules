@@ -26,7 +26,6 @@ use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
-use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Application;
 use Orchestra\Testbench\TestCase;
@@ -41,12 +40,15 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
 
     private string $tempDir;
 
+    private string $stateRoot;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->tempDir = sys_get_temp_dir() . '/laravel-modules-scoped-features-' . bin2hex(random_bytes(6));
         $this->modulePath = $this->tempDir . '/app/Modules/Blog';
+        $this->stateRoot = $this->tempDir . '/storage/app/private/modules';
 
         mkdir($this->modulePath, 0755, true);
         $this->writeManifest(['comments_enabled' => false]);
@@ -83,15 +85,10 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
 
-        $config = new Repository([
-            'modules' => [
-                'paths' => [
-                    'directories' => ['app/Modules'],
-                ],
-            ],
-        ]);
-
-        $statePaths = new ModuleStatePaths(config: $config, basePath: $this->tempDir);
+        $statePaths = new ModuleStatePaths(
+            configuredStateRoot: $this->stateRoot,
+            basePath: $this->tempDir,
+        );
         $stateRepository = new ModuleStateRepository(
             paths: $statePaths,
             writer: new AtomicJsonWriter(),
@@ -113,7 +110,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $app->instance(ModuleRegistryInterface::class, new ModuleRegistry(
             builder: new ModuleRegistrySnapshotBuilder(
                 scanner: new ModuleDirectoryScanner(
-                    config: $config,
+                    directories: ['app/Modules'],
                     filesystem: new LocalFilesystem(new Filesystem()),
                     layout: $layout,
                     basePath: $this->tempDir,
@@ -155,7 +152,7 @@ final class FeatureRepositoryScopedBindingTest extends TestCase
         $this->writeModuleManifest($this->tempDir . '/app/Modules', 'blog', schema: [
             'comments_enabled' => ['type' => 'bool', 'default' => false],
         ]);
-        $this->writeModuleState($this->tempDir . '/storage/app/private/modules', 'blog', values: $values);
+        $this->writeModuleState($this->stateRoot, 'blog', values: $values);
     }
 
     private function application(): Application

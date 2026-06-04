@@ -24,7 +24,6 @@ use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesModuleFiles;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeNamespaceResolver;
-use Illuminate\Config\Repository;
 use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
@@ -140,18 +139,9 @@ final class FeatureRepositoryTest extends TestCase
 
     private function stateRepository(): ModuleStateRepository
     {
-        $config = new Repository([
-            'modules' => [
-                'paths' => [
-                    'directories' => ['app/Modules'],
-                    'state' => $this->stateRoot,
-                ],
-            ],
-        ]);
-
         return new ModuleStateRepository(
             paths: new ModuleStatePaths(
-                config: $config,
+                configuredStateRoot: $this->stateRoot,
                 basePath: $this->tempDir,
             ),
             writer: new AtomicJsonWriter(),
@@ -164,14 +154,6 @@ final class FeatureRepositoryTest extends TestCase
         $layout = new ModuleLayout();
         $validator = new ManifestValidator(new ManifestSettingsValidator());
         $stateRepo = $this->stateRepository();
-        $config = new Repository([
-            'modules' => [
-                'paths' => [
-                    'directories' => ['app/Modules'],
-                    'state' => $this->stateRoot,
-                ],
-            ],
-        ]);
 
         $manifests = new ModuleManifestRepository(
             layout: $layout,
@@ -186,7 +168,7 @@ final class FeatureRepositoryTest extends TestCase
         return new ModuleRegistry(
             builder: new ModuleRegistrySnapshotBuilder(
                 scanner: new ModuleDirectoryScanner(
-                    config: $config,
+                    directories: ['app/Modules'],
                     filesystem: new LocalFilesystem(new Filesystem()),
                     layout: $layout,
                     basePath: $this->tempDir,

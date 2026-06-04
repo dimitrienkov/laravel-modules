@@ -6,7 +6,6 @@ namespace DimitrienkoV\LaravelModules\Tests\Unit\Application\Support;
 
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDirectoryPaths;
 use DimitrienkoV\LaravelModules\Exceptions\InvalidConfigurationException;
-use Illuminate\Config\Repository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -64,25 +63,10 @@ final class ModuleDirectoryPathsTest extends TestCase
         $paths->configuredRoots();
     }
 
-    #[Test]
-    public function configuredRootsRejectsEmptyStringEntry(): void
-    {
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessageMatches('/non-empty string/');
-
-        $paths = $this->makePaths(['']);
-        $paths->configuredRoots();
-    }
-
-    #[Test]
-    public function configuredRootsRejectsEmptyList(): void
-    {
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessageMatches('/at least one/');
-
-        $paths = $this->makePaths([]);
-        $paths->configuredRoots();
-    }
+    // Structural validation (non-empty list, non-empty string entries) is owned
+    // by ModulePathsConfig and locked in ModulePathsConfigTest /
+    // ModuleLoaderServiceProviderTest. This service owns only the app_path guard
+    // asserted above.
 
     #[Test]
     public function targetModulePathBuildsStudlyCasePath(): void
@@ -107,19 +91,19 @@ final class ModuleDirectoryPathsTest extends TestCase
     }
 
     #[Test]
-    public function backupRootReturnsDefaultWhenNotConfigured(): void
-    {
-        $paths = $this->makePaths(['app/Modules'], null);
-
-        $this->assertSame('/project/storage/app/module-backups', $paths->backupRoot());
-    }
-
-    #[Test]
-    public function backupRootReturnsCustomPath(): void
+    public function backupRootKeepsAbsoluteConfiguredPath(): void
     {
         $paths = $this->makePaths(['app/Modules'], '/custom/backups');
 
         $this->assertSame('/custom/backups', $paths->backupRoot());
+    }
+
+    #[Test]
+    public function backupRootResolvesRelativePathAgainstBasePath(): void
+    {
+        $paths = $this->makePaths(['app/Modules'], 'storage/app/module-backups');
+
+        $this->assertSame('/project/storage/app/module-backups', $paths->backupRoot());
     }
 
     #[Test]
@@ -135,24 +119,15 @@ final class ModuleDirectoryPathsTest extends TestCase
     /**
      * @param list<string> $directories
      */
-    private function makePaths(array $directories, ?string $backup = null): ModuleDirectoryPaths
-    {
-        $config = [
-            'modules' => [
-                'paths' => [
-                    'directories' => $directories,
-                ],
-            ],
-        ];
-
-        if ($backup !== null) {
-            $config['modules']['paths']['backup'] = $backup;
-        }
-
+    private function makePaths(
+        array $directories,
+        string $backup = '/project/storage/app/module-backups',
+    ): ModuleDirectoryPaths {
         return new ModuleDirectoryPaths(
-            config: new Repository($config),
+            directories: $directories,
             basePath: $this->basePath,
             appPath: $this->appPath,
+            configuredBackupRoot: $backup,
         );
     }
 }

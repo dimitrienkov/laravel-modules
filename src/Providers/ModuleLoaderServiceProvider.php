@@ -70,6 +70,7 @@ use DimitrienkoV\LaravelModules\Support\LocalFilesystem;
 use DimitrienkoV\LaravelModules\Support\Logging\ModuleLogger;
 use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Support\ModuleLayout;
+use DimitrienkoV\LaravelModules\Support\ModulePathsConfig;
 use DimitrienkoV\LaravelModules\Support\ModuleStatePaths;
 use DimitrienkoV\LaravelModules\Support\TopologicalSorter;
 use DimitrienkoV\LaravelModules\Support\ZipExtractor;
@@ -127,6 +128,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom($this->packageConfigPath(), 'modules');
 
+        $this->registerPathsConfig();
         $this->registerDiagnosticsBindings();
         $this->registerManifestBindings();
         $this->registerStateBindings();
@@ -139,6 +141,11 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Force the eager resolve of the shared paths config so a broken
+        // `modules.paths.*` fails fast on worker boot, not deep inside a request
+        // when the first path service is built.
+        $this->app->make(ModulePathsConfig::class);
+
         $this->publishes([
             $this->packageConfigPath() => config_path('modules.php'),
         ], 'modules-config');
@@ -226,6 +233,21 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         return $normalized;
     }
 
+    /**
+     * Bind `modules.paths.*` as one shared, validated resolver so every path
+     * service is built from the same scalars resolved once, rather than each
+     * re-reading the config repository. {@see ModulePathsConfig} owns reading and
+     * structural validation of these keys; it is forced eagerly in boot() so a
+     * broken config fails on worker boot.
+     */
+    private function registerPathsConfig(): void
+    {
+        $this->app->singleton(
+            ModulePathsConfig::class,
+            fn(): ModulePathsConfig => ModulePathsConfig::fromRepository($this->app->make(Repository::class)),
+        );
+    }
+
     private function registerManifestBindings(): void
     {
         $this->app->singleton(LocalFilesystem::class);
@@ -264,7 +286,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     private function registerStateBindings(): void
     {
         $this->app->singleton(ModuleStatePaths::class, fn(): ModuleStatePaths => new ModuleStatePaths(
-            config: $this->app->make(Repository::class),
+            configuredStateRoot: $this->app->make(ModulePathsConfig::class)->stateRoot(),
             basePath: $this->app->basePath(),
         ));
 
@@ -284,7 +306,7 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->app->singleton(TopologicalSorter::class);
 
         $this->app->singleton(ModuleDirectoryScanner::class, fn(): ModuleDirectoryScanner => new ModuleDirectoryScanner(
-            config: $this->app->make(Repository::class),
+            directories: $this->app->make(ModulePathsConfig::class)->directories(),
             filesystem: $this->app->make(LocalFilesystem::class),
             layout: $this->app->make(ModuleLayout::class),
             basePath: $this->app->basePath(),
@@ -334,9 +356,10 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->app->singleton(ModuleSourcePreparer::class);
 
         $this->app->singleton(ModuleDirectoryPaths::class, fn(): ModuleDirectoryPaths => new ModuleDirectoryPaths(
-            config: $this->app->make(Repository::class),
+            directories: $this->app->make(ModulePathsConfig::class)->directories(),
             basePath: $this->app->basePath(),
             appPath: $this->app->path(),
+            configuredBackupRoot: $this->app->make(ModulePathsConfig::class)->backupRoot(),
         ));
 
         $this->app->singleton(LifecycleRegistryInvalidator::class);
