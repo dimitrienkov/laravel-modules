@@ -1,0 +1,154 @@
+<?php
+
+declare(strict_types=1);
+
+namespace DimitrienkoV\LaravelModules\MoonShine\Pages;
+
+use Override;
+use DimitrienkoV\LaravelModules\MoonShine\Resources\ModulesResource;
+use DimitrienkoV\LaravelModules\Application\Support\ModuleGroupLabelResolver;
+use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
+use DimitrienkoV\LaravelModules\Manifest\Enums\FeatureType;
+use DimitrienkoV\LaravelModules\Manifest\VO\FeatureDefinition;
+use DimitrienkoV\LaravelModules\Manifest\VO\Module;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
+use DimitrienkoV\LaravelModules\MoonShine\Data\ModuleAdminDto;
+use DimitrienkoV\LaravelModules\MoonShine\Support\FeatureFieldFactory;
+use Illuminate\Contracts\Translation\Translator;
+use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
+use MoonShine\Contracts\Core\TypeCasts\DataWrapperContract;
+use MoonShine\Contracts\UI\ComponentContract;
+use MoonShine\Crud\Pages\FormPage;
+use MoonShine\UI\Components\Layout\Box;
+
+/**
+ * Feature-flags form page for {@see ModulesResource}.
+ *
+ * Fields are built dynamically from the selected module's `settings.schema` via
+ * {@see FeatureFieldFactory} and grouped by `settings.schema.*.group`. Validation
+ * lives on the page (`rules()`), so the native Store/Update form-request pipeline
+ * enforces the schema (int min/max, enum options, types) before persistence.
+ * Persistence itself flows through {@see ModulesResource::save()},
+ * which writes only explicit overrides through `ModuleStateRepository::writeValues()`.
+ *
+ * @extends FormPage<ModulesResource>
+ */
+final class ModuleFormPage extends FormPage
+{
+    public function __construct(
+        CoreContract $core,
+        private readonly ModuleRegistryInterface $registry,
+        private readonly FeatureFieldFactory $fieldFactory,
+        private readonly ModuleGroupLabelResolver $groupLabels,
+        private readonly Translator $translator,
+    ) {
+        parent::__construct($core);
+    }
+
+    /**
+     * @return list<ComponentContract>
+     */
+    #[Override]
+    protected function fields(): iterable
+    {
+        $module = $this->selectedModule();
+
+        if (! $module instanceof Module) {
+            return [];
+        }
+
+        $components = [];
+
+        foreach ($this->fieldFactory->groupedFields($module->features) as $groupCode => $fields) {
+            $components[] = Box::make($this->groupHeading($groupCode), $fields);
+        }
+
+        return $components;
+    }
+
+    /**
+     * @param DataWrapperContract<ModuleAdminDto> $item
+     *
+     * @return array<string, list<string>>
+     */
+    #[Override]
+    protected function rules(DataWrapperContract $item): array
+    {
+        $module = $this->selectedModule();
+
+        if (! $module instanceof Module) {
+            return [];
+        }
+
+        $rules = [];
+
+        foreach ($module->features->all() as $definition) {
+            $rules[ModuleAdminDto::FEATURE_VALUES_KEY . '.' . $definition->key] = $this->rulesFor($definition);
+        }
+
+        return $rules;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function rulesFor(FeatureDefinition $definition): array
+    {
+        $rules = ['nullable'];
+
+        switch ($definition->type) {
+            case FeatureType::Boolean:
+                $rules[] = 'boolean';
+
+                break;
+            case FeatureType::Integer:
+                $rules[] = 'integer';
+
+                if ($definition->min !== null) {
+                    $rules[] = 'min:' . $definition->min;
+                }
+
+                if ($definition->max !== null) {
+                    $rules[] = 'max:' . $definition->max;
+                }
+
+                break;
+            case FeatureType::Enum:
+                $rules[] = 'string';
+
+                if ($definition->options !== []) {
+                    $rules[] = 'in:' . implode(',', $definition->options);
+                }
+
+                break;
+            case FeatureType::String:
+                $rules[] = 'string';
+
+                break;
+        }
+
+        return $rules;
+    }
+
+    private function selectedModule(): ?Module
+    {
+        $id = $this->getResource()?->getItemID();
+
+        if ($id === null || ! $this->registry->has((string) $id)) {
+            return null;
+        }
+
+        return $this->registry->find((string) $id);
+    }
+
+    private function groupHeading(string $groupCode): string
+    {
+        if ($groupCode === '') {
+            $label = $this->translator->get('module-loader::admin.ungrouped');
+
+            return \is_string($label) ? $label : 'ungrouped';
+        }
+
+        return $this->groupLabels->displayLabel(new ModuleGroup($groupCode));
+    }
+}

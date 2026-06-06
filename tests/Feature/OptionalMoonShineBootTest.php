@@ -50,6 +50,10 @@ final class OptionalMoonShineBootTest extends TestCase
         $expectation->once()
             ->with('App\\Modules\\Blog')
             ->andReturn($core);
+        // The admin-resource registration branch also runs (full MoonShine stack
+        // is installed in the test env); it is not the focus here, so allow it.
+        $core->shouldReceive('resources')->andReturnSelf();
+        $core->shouldReceive('pages')->andReturnSelf();
 
         $app = $this->application();
         $provider = $this->provider();
@@ -76,6 +80,10 @@ final class OptionalMoonShineBootTest extends TestCase
         $expectation->once()
             ->with('App\\Modules\\Blog')
             ->andReturn($core);
+        // The admin-resource registration branch also runs (full MoonShine stack
+        // is installed in the test env); it is not the focus here, so allow it.
+        $core->shouldReceive('resources')->andReturnSelf();
+        $core->shouldReceive('pages')->andReturnSelf();
 
         $app = $this->application();
         $provider = $this->provider();

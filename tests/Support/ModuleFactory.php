@@ -11,6 +11,7 @@ use DimitrienkoV\LaravelModules\Manifest\VO\ManifestMeta;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependencies;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleDependency;
+use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleState;
 use DimitrienkoV\LaravelModules\Manifest\VO\Version;
 
@@ -27,6 +28,8 @@ final readonly class ModuleFactory
         ?string $path = null,
         ?string $namespace = null,
         ModuleKind $kind = ModuleKind::Module,
+        ?string $group = null,
+        ?FeatureSchema $features = null,
         int $schemaVersion = ManifestValidator::CURRENT_SCHEMA_VERSION,
     ): Module {
         $path ??= sys_get_temp_dir() . '/laravel-modules/' . $name;
@@ -56,9 +59,10 @@ final readonly class ModuleFactory
                         ),
                     ),
                 ),
+                group: $group === null ? null : new ModuleGroup($group),
             ),
             state: new ModuleState($enabled, null),
-            features: new FeatureSchema([]),
+            features: $features ?? new FeatureSchema([]),
         );
     }
 }

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\Providers;
 
+use MoonShine\Crud\Resources\CrudResource;
+use MoonShine\UI\Fields\Switcher;
+use MoonShine\MenuManager\Attributes\CanSee;
 use Override;
 use DimitrienkoV\LaravelModules\Application\Support\LifecycleRegistryInvalidator;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleDependencyGuard;
@@ -59,6 +62,10 @@ use DimitrienkoV\LaravelModules\Manifest\ModuleManifestRepository;
 use DimitrienkoV\LaravelModules\Manifest\ModuleRegistry;
 use DimitrienkoV\LaravelModules\Manifest\ModuleStateRepository;
 use DimitrienkoV\LaravelModules\MoonShine\MoonShineModuleAutoloader;
+use DimitrienkoV\LaravelModules\MoonShine\Pages\ModuleDetailPage;
+use DimitrienkoV\LaravelModules\MoonShine\Pages\ModuleFormPage;
+use DimitrienkoV\LaravelModules\MoonShine\Pages\ModuleIndexPage;
+use DimitrienkoV\LaravelModules\MoonShine\Resources\ModulesResource;
 use DimitrienkoV\LaravelModules\Registry\ModuleDirectoryScanner;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistryCache;
 use DimitrienkoV\LaravelModules\Registry\ModuleRegistrySnapshotBuilder;
@@ -123,6 +130,20 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
 
     private const string MOONSHINE_CORE_CONTRACT = CoreContract::class;
 
+    /**
+     * Vendor classes that only ship with the full MoonShine admin stack
+     * (`moonshine/moonshine`). The admin resource is registered only when all of
+     * them exist, so a host with `moonshine/core`+`contracts` but no CRUD/UI does
+     * not hit a fatal autoload error.
+     *
+     * @var array<int, class-string>
+     */
+    private const array MOONSHINE_ADMIN_STACK = [
+        CrudResource::class,
+        Switcher::class,
+        CanSee::class,
+    ];
+
     #[Override]
     public function register(): void
     {
@@ -146,6 +167,8 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         // when the first path service is built.
         $this->app->make(ModulePathsConfig::class);
 
+        $this->loadTranslationsFrom($this->packageLangPath(), 'module-loader');
+
         $this->publishes([
             $this->packageConfigPath() => config_path('modules.php'),
         ], 'modules-config');
@@ -153,6 +176,10 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
         $this->publishes([
             $this->packageStubsPath() => base_path('stubs/modules'),
         ], 'modules-stubs');
+
+        $this->publishes([
+            $this->packageLangPath() => $this->app->langPath('vendor/module-loader'),
+        ], 'module-loader-translations');
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -404,9 +431,51 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
                     return;
                 }
 
+                // Per-module autoload bridge: always runs when MoonShine core is
+                // present, independent of the admin-UI flag.
                 $this->app->make(MoonShineModuleAutoloader::class)->autoload($core);
+
+                // Admin UI registration is gated separately on the full CRUD/UI
+                // stack plus the config flag.
+                $this->registerMoonShineAdminResource($core);
             },
         );
+    }
+
+    /**
+     * Register the admin {@see ModulesResource} and its pages on the MoonShine
+     * core, but only when the full CRUD/UI stack is installed and
+     * `modules.moonshine.enabled` is true. The flag is read through the typed
+     * config Repository, never the `config()` helper (arch rule).
+     */
+    private function registerMoonShineAdminResource(CoreContract $core): void
+    {
+        if (! $this->moonShineAdminStackAvailable()) {
+            return;
+        }
+
+        if ($this->app->make(Repository::class)->get('modules.moonshine.enabled', true) !== true) {
+            return;
+        }
+
+        $core
+            ->resources([ModulesResource::class])
+            ->pages([
+                ModuleIndexPage::class,
+                ModuleFormPage::class,
+                ModuleDetailPage::class,
+            ]);
+    }
+
+    private function moonShineAdminStackAvailable(): bool
+    {
+        foreach (self::MOONSHINE_ADMIN_STACK as $class) {
+            if (! class_exists($class)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -471,5 +540,10 @@ final class ModuleLoaderServiceProvider extends ServiceProvider
     private function packageStubsPath(): string
     {
         return \dirname(__DIR__, 2) . '/stubs';
+    }
+
+    private function packageLangPath(): string
+    {
+        return \dirname(__DIR__, 2) . '/lang';
     }
 }

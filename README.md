@@ -4,7 +4,7 @@
 
 `dimitrienkov0/laravel-modules` помогает Laravel-приложению находить модули в настроенных директориях, валидировать `module.json`, сортировать модули по зависимостям и загружать enabled-модули через предсказуемый loader pipeline.
 
-Текущий v2.0 core покрывает runtime loading, feature values, production registry cache, lifecycle-команды (`make:module`, `modules:install`, `modules:update`, `modules:remove`, `modules:enable`, `modules:disable`, `modules:list`, `modules:optimize`, `modules:optimize-clear`) и module-aware генераторы: native `make:* --module` для 22 артефактов плюс архитектурные `make:use-case/action/query/dto/vo` (см. [docs/cli.md](docs/cli.md)). Полноценный admin UI остаётся roadmap.
+Текущий v2.0 core покрывает runtime loading, feature values, production registry cache, lifecycle-команды (`make:module`, `modules:install`, `modules:update`, `modules:remove`, `modules:enable`, `modules:disable`, `modules:list`, `modules:optimize`, `modules:optimize-clear`) и module-aware генераторы: native `make:* --module` для 22 артефактов плюс архитектурные `make:use-case/action/query/dto/vo` (см. [docs/cli.md](docs/cli.md)). Опциональный MoonShine admin-UI управляет модулями из админки ([docs/moonshine.md](docs/moonshine.md)); установка/обновление через zip-upload в UI остаётся roadmap.
 
 ## Quick Start
 
@@ -118,6 +118,7 @@ final readonly class PostController
 | [Module Structure](docs/module-structure.md) | Поддерживаемые runtime-пути |
 | [Manifest](docs/manifest.md) | Контракт `module.json` |
 | [Configuration](docs/configuration.md) | Конфиг и routing options |
+| [MoonShine](docs/moonshine.md) | Опциональный admin-UI управления модулями |
 | [Architecture](docs/architecture.md) | Registry, cache, loaders, lifecycle |
 | [Feature Toggles](docs/feature-toggles.md) | Runtime settings API |
 | [Logging](docs/logging.md) | Opt-in диагностический слой и каталог событий |

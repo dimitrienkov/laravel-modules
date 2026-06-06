@@ -28,8 +28,7 @@
     "inertiajs/inertia-laravel": "^2",
     "larastan/larastan": "^3",
     "mockery/mockery": "^1.2",
-    "moonshine/contracts": "^4.0",
-    "moonshine/core": "^4.0",
+    "moonshine/moonshine": "^4.0",
     "orchestra/testbench": "^10|^11",
     "pestphp/pest": "^3",
     "pestphp/pest-plugin-arch": "^3",
@@ -43,8 +42,7 @@
   },
   "suggest": {
     "inertiajs/inertia-laravel": "Required only for loading module Routes/inertia.php files in Inertia host applications.",
-    "moonshine/core": "Required only for MoonShine admin UI integration.",
-    "moonshine/contracts": "Required only for MoonShine admin UI integration."
+    "moonshine/moonshine": "Required only for the MoonShine admin UI (modules resource, index/form/detail pages, menu autoload). Provides the full v4 CRUD/UI/Laravel stack."
   },
   "extra": {
     "laravel": {
