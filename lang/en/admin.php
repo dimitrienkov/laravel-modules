@@ -26,7 +26,6 @@ return [
     ],
 
     'provenance' => [
-        'heading' => 'Source',
         'kind' => 'Source kind',
         'version' => 'Installed version',
         'checksum' => 'Checksum',
@@ -41,17 +40,6 @@ return [
     'guard' => [
         'disable_blocked' => 'Cannot be disabled — required by: :modules',
         'remove_blocked' => 'Cannot be removed — required by: :modules',
-    ],
-
-    'toasts' => [
-        'enabled' => 'Module ":module" enabled.',
-        'disabled' => 'Module ":module" disabled.',
-        'removed' => 'Module ":module" removed (backup created).',
-        'saved' => 'Settings saved.',
-    ],
-
-    'empty' => [
-        'dependencies' => 'None',
     ],
 
     'values' => [

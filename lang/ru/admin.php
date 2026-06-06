@@ -26,7 +26,6 @@ return [
     ],
 
     'provenance' => [
-        'heading' => 'Источник',
         'kind' => 'Тип источника',
         'version' => 'Установленная версия',
         'checksum' => 'Контрольная сумма',
@@ -41,17 +40,6 @@ return [
     'guard' => [
         'disable_blocked' => 'Нельзя выключить — требуется модулям: :modules',
         'remove_blocked' => 'Нельзя удалить — требуется модулям: :modules',
-    ],
-
-    'toasts' => [
-        'enabled' => 'Модуль «:module» включён.',
-        'disabled' => 'Модуль «:module» выключен.',
-        'removed' => 'Модуль «:module» удалён (создан бэкап).',
-        'saved' => 'Настройки сохранены.',
-    ],
-
-    'empty' => [
-        'dependencies' => 'Нет',
     ],
 
     'values' => [
