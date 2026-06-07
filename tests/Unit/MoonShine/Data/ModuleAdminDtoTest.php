@@ -105,6 +105,20 @@ final class ModuleAdminDtoTest extends TestCase
     }
 
     #[Test]
+    public function featureColumnRoundTripsThroughFeatureKeyFromColumn(): void
+    {
+        self::assertSame('featureValues.retries', ModuleAdminDto::featureColumn('retries'));
+
+        // Round-trip: a column built from a key recovers exactly that key.
+        self::assertSame('retries', ModuleAdminDto::featureKeyFromColumn(ModuleAdminDto::featureColumn('retries')));
+
+        // Non-feature columns (and the bare prefix without a key match) are not
+        // feature columns and must return null.
+        self::assertNull(ModuleAdminDto::featureKeyFromColumn('enabled'));
+        self::assertNull(ModuleAdminDto::featureKeyFromColumn('other.retries'));
+    }
+
+    #[Test]
     public function handlesModuleWithoutSchemaOrProvenance(): void
     {
         $module = ModuleFactory::make(name: 'core', namespace: 'App\\Modules\\Core');

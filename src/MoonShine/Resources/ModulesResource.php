@@ -8,21 +8,20 @@ use Override;
 use MoonShine\Contracts\Core\PageContract;
 use DimitrienkoV\LaravelModules\Contracts\ModuleRegistryInterface;
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
-use DimitrienkoV\LaravelModules\Manifest\Enums\FeatureType;
-use DimitrienkoV\LaravelModules\Manifest\VO\FeatureDefinition;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleNotFoundException;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureValues;
 use DimitrienkoV\LaravelModules\Manifest\VO\Module;
 use DimitrienkoV\LaravelModules\MoonShine\Data\ModuleAdminDto;
 use DimitrienkoV\LaravelModules\MoonShine\Pages\ModuleDetailPage;
 use DimitrienkoV\LaravelModules\MoonShine\Pages\ModuleFormPage;
 use DimitrienkoV\LaravelModules\MoonShine\Pages\ModuleIndexPage;
+use DimitrienkoV\LaravelModules\MoonShine\Support\FeatureValueWriter;
 use Illuminate\Contracts\Config\Repository;
 use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
 use MoonShine\Contracts\Core\DependencyInjection\FieldsContract;
 use MoonShine\Contracts\Core\TypeCasts\DataWrapperContract;
 use MoonShine\Crud\Resources\CrudResource;
 use MoonShine\MenuManager\Attributes\CanSee;
-use RuntimeException;
 
 /**
  * MoonShine admin resource backed by the in-memory module registry rather than
@@ -59,6 +58,7 @@ final class ModulesResource extends CrudResource
         CoreContract $core,
         private readonly ModuleRegistryInterface $registry,
         private readonly ModuleStateRepositoryInterface $state,
+        private readonly FeatureValueWriter $valueWriter,
         private readonly Repository $config,
     ) {
         parent::__construct($core);
@@ -93,19 +93,17 @@ final class ModulesResource extends CrudResource
     public function getItems(): iterable
     {
         $items = [];
-        $order = 0;
 
         foreach ($this->registry->all() as $module) {
-            // The index only renders name/version/enabled, so values/provenance are
-            // not read per row here; findItem() reads fresh state for form/detail.
+            // The index only renders name/version/enabled, so values/provenance and
+            // the per-row load order are not computed here (loadOrder stays 0);
+            // findItem() reads fresh state and the real load order for form/detail.
             $items[] = ModuleAdminDto::fromModule(
                 module: $module,
                 values: new FeatureValues($module->features, []),
                 source: null,
-                loadOrder: $order,
+                loadOrder: 0,
             );
-
-            ++$order;
         }
 
         return $items;
@@ -119,13 +117,13 @@ final class ModulesResource extends CrudResource
         $id = $this->getItemID();
 
         if ($id === null) {
-            return $orFail ? throw new RuntimeException('No module selected.') : null;
+            return $orFail ? throw ModuleNotFoundException::noSelection() : null;
         }
 
         $name = (string) $id;
 
         if (! $this->registry->has($name)) {
-            return $orFail ? throw new RuntimeException("Module [{$name}] was not found.") : null;
+            return $orFail ? throw ModuleNotFoundException::forName($name) : null;
         }
 
         return $this->getCaster()->cast($this->toDto($this->registry->find($name)));
@@ -133,10 +131,18 @@ final class ModulesResource extends CrudResource
 
     public function save(DataWrapperContract $item, ?FieldsContract $fields = null): DataWrapperContract
     {
-        $module = $this->registry->find((string) $item->getKey());
+        $name = (string) $item->getKey();
 
-        // Persist feature values only — enabled stays untouched here.
-        $this->writeFeatureValues($module, $this->submittedFeatureValues($fields));
+        // A module that vanished between render and submit yields a clean typed
+        // error (and toast) instead of a TypeError from the registry's miss.
+        if (! $this->registry->has($name)) {
+            throw ModuleNotFoundException::forName($name);
+        }
+
+        $module = $this->registry->find($name);
+        $fields ??= $this->getFormFields()->onlyFields(withApplyWrappers: true);
+
+        $this->valueWriter->write($module, $this->valueWriter->submittedFeatureValues($fields));
 
         return $this->getCaster()->cast($this->toDto($module));
     }
@@ -190,85 +196,5 @@ final class ModulesResource extends CrudResource
         }
 
         return $order;
-    }
-
-    /**
-     * Read submitted feature values from the form fields. Each feature field's
-     * column is `featureValues.<key>` (see FeatureFieldFactory); the bare key is
-     * recovered here. A field absent from the request is skipped so unchanged
-     * defaults are never forced into the explicit value set.
-     *
-     * @return array<string, mixed> feature key => raw submitted value
-     */
-    private function submittedFeatureValues(?FieldsContract $fields): array
-    {
-        $fields ??= $this->getFormFields()->onlyFields(withApplyWrappers: true);
-
-        $prefix = ModuleAdminDto::FEATURE_VALUES_KEY . '.';
-        $submitted = [];
-
-        foreach ($fields as $field) {
-            $column = $field->getColumn();
-            if (! str_starts_with($column, $prefix)) {
-                continue;
-            }
-            if (! $field->hasRequestValue()) {
-                continue;
-            }
-
-            $value = $field->getRequestValue();
-            $submitted[substr($column, \strlen($prefix))] = $value === false ? null : $value;
-        }
-
-        return $submitted;
-    }
-
-    /**
-     * @param array<string, mixed> $submitted feature key => raw submitted value
-     */
-    private function writeFeatureValues(Module $module, array $submitted): void
-    {
-        $manifestPath = $module->manifestPath();
-        $explicit = [];
-
-        foreach ($module->features->all() as $key => $definition) {
-            if (! \array_key_exists($key, $submitted)) {
-                continue;
-            }
-
-            // Form transport delivers raw scalars (strings, "on" toggles); coerce to
-            // the schema's PHP type before the strict normalizer validates ranges.
-            $normalized = $definition->normalize(
-                $this->coerce($definition, $submitted[$key]),
-                $manifestPath,
-            );
-
-            // Defaults stay in the schema; only genuine overrides are persisted.
-            if ($definition->hasDefault && $normalized === $definition->default) {
-                continue;
-            }
-
-            $explicit[$key] = $normalized;
-        }
-
-        $this->state->writeValues(
-            $module,
-            FeatureValues::fromArray($explicit, $module->features, $module->name, $manifestPath),
-        );
-    }
-
-    /**
-     * Coerce a raw submitted value to the PHP type the feature schema expects.
-     * Range/option enforcement stays in {@see FeatureDefinition::normalize()}; a
-     * value that cannot be coerced is passed through unchanged so the normalizer
-     * rejects it with the canonical error.
-     */
-    private function coerce(FeatureDefinition $definition, mixed $value): mixed
-    {
-        return match ($definition->type) {
-            FeatureType::Boolean => filter_var($value, FILTER_VALIDATE_BOOLEAN),
-            FeatureType::Integer => is_numeric($value) ? (int) $value : $value,
-            FeatureType::Enum, FeatureType::String => \is_scalar($value) ? (string) $value : $value,
-        };
     }
 }

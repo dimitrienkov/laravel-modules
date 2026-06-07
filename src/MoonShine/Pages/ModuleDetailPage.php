@@ -43,27 +43,27 @@ final class ModuleDetailPage extends DetailPage
     protected function fields(): iterable
     {
         return [
-            Preview::make($this->t('columns.name'), 'displayName'),
-            Preview::make($this->t('columns.namespace'), 'namespace'),
-            Preview::make($this->t('columns.version'), 'version'),
-            Preview::make($this->t('columns.kind'), 'kind'),
-            Preview::make($this->t('columns.group'), 'group'),
-            Preview::make($this->t('columns.enabled'), 'enabled', fn(ModuleAdminDto $dto): string => $this->boolLabel($dto->enabled)),
-            Preview::make($this->t('columns.path'), 'path'),
-            Preview::make($this->t('columns.load_order'), 'loadOrder'),
-            Preview::make($this->t('columns.dependencies'), 'dependencies', fn(ModuleAdminDto $dto): string => $this->dependencies($dto)),
-            Preview::make($this->t('columns.dependents'), 'name', fn(ModuleAdminDto $dto): string => $this->dependentsOf($dto)),
-            Preview::make($this->t('columns.feature_values'), 'featureValues', fn(ModuleAdminDto $dto): string => $this->featureValues($dto)),
-            Preview::make($this->t('provenance.kind'), 'provenanceKind'),
-            Preview::make($this->t('provenance.version'), 'provenanceVersion'),
-            Preview::make($this->t('provenance.checksum'), 'provenanceChecksum'),
+            Preview::make($this->adminLabel('columns.name'), 'displayName'),
+            Preview::make($this->adminLabel('columns.namespace'), 'namespace'),
+            Preview::make($this->adminLabel('columns.version'), 'version'),
+            Preview::make($this->adminLabel('columns.kind'), 'kind'),
+            Preview::make($this->adminLabel('columns.group'), 'group'),
+            Preview::make($this->adminLabel('columns.enabled'), 'enabled', fn(ModuleAdminDto $dto): string => $this->boolLabel($dto->enabled)),
+            Preview::make($this->adminLabel('columns.path'), 'path'),
+            Preview::make($this->adminLabel('columns.load_order'), 'loadOrder'),
+            Preview::make($this->adminLabel('columns.dependencies'), 'dependencies', fn(ModuleAdminDto $dto): string => $this->dependencies($dto)),
+            Preview::make($this->adminLabel('columns.dependents'), 'name', fn(ModuleAdminDto $dto): string => $this->dependentsOf($dto)),
+            Preview::make($this->adminLabel('columns.feature_values'), 'featureValues', fn(ModuleAdminDto $dto): string => $this->featureValues($dto)),
+            Preview::make($this->adminLabel('provenance.kind'), 'provenanceKind'),
+            Preview::make($this->adminLabel('provenance.version'), 'provenanceVersion'),
+            Preview::make($this->adminLabel('provenance.checksum'), 'provenanceChecksum'),
         ];
     }
 
     private function dependencies(ModuleAdminDto $dto): string
     {
         if ($dto->dependencies === []) {
-            return $this->t('values.none');
+            return $this->adminLabel('values.none');
         }
 
         $lines = [];
@@ -79,13 +79,13 @@ final class ModuleDetailPage extends DetailPage
     {
         $names = $this->dependents->removeBlockers($dto->name);
 
-        return $names === [] ? $this->t('values.none') : implode(', ', $names);
+        return $names === [] ? $this->adminLabel('values.none') : implode(', ', $names);
     }
 
     private function featureValues(ModuleAdminDto $dto): string
     {
         if ($dto->featureValues === []) {
-            return $this->t('values.none');
+            return $this->adminLabel('values.none');
         }
 
         $lines = [];
@@ -103,15 +103,15 @@ final class ModuleDetailPage extends DetailPage
             return $this->boolLabel($value);
         }
 
-        return $value === null ? $this->t('values.none') : (string) $value;
+        return $value === null ? $this->adminLabel('values.none') : (string) $value;
     }
 
     private function boolLabel(bool $value): string
     {
-        return $this->t($value ? 'values.yes' : 'values.no');
+        return $this->adminLabel($value ? 'values.yes' : 'values.no');
     }
 
-    private function t(string $key): string
+    private function adminLabel(string $key): string
     {
         $label = $this->translator->get("module-loader::admin.{$key}");
 

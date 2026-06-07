@@ -15,7 +15,9 @@
 Optional packages:
 
 - `moonshine/core` и `moonshine/contracts` для лёгкого MoonShine 4 autoload bridge.
-- `moonshine/moonshine` (полный стек v4) для admin-UI управления модулями — см. [docs/moonshine.md](moonshine.md).
+- `moonshine/moonshine` — **полный стек MoonShine v4 на Laravel 12/13** для admin-UI
+  управления модулями (Index/Form/Detail, меню). Только лёгкого bridge для UI
+  недостаточно — нужен весь CRUD/UI-стек; см. [docs/moonshine.md → Требуемые пакеты](moonshine.md#требуемые-пакеты).
 - `inertiajs/inertia-laravel` для загрузки модульных `Routes/inertia.php`.
 
 ## Установка

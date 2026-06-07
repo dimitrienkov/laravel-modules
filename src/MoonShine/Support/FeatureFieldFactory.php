@@ -33,6 +33,13 @@ use MoonShine\UI\Fields\Text;
  */
 final readonly class FeatureFieldFactory
 {
+    /**
+     * Group code for features without an explicit `settings.schema.*.group`.
+     * Shared with {@see \DimitrienkoV\LaravelModules\MoonShine\Pages\ModuleFormPage}
+     * so producer and consumer agree on the ungrouped bucket key.
+     */
+    public const string UNGROUPED = '';
+
     public function __construct(
         private Translator $translator,
     ) {}
@@ -40,7 +47,7 @@ final readonly class FeatureFieldFactory
     public function field(FeatureDefinition $definition): FieldContract
     {
         $label = $this->label($definition);
-        $column = ModuleAdminDto::FEATURE_VALUES_KEY . '.' . $definition->key;
+        $column = ModuleAdminDto::featureColumn($definition->key);
 
         return match ($definition->type) {
             FeatureType::Boolean => Switcher::make($label, $column),
@@ -62,7 +69,7 @@ final readonly class FeatureFieldFactory
         $grouped = [];
 
         foreach ($schema->all() as $definition) {
-            $grouped[$definition->group ?? ''][] = $this->field($definition);
+            $grouped[$definition->group ?? self::UNGROUPED][] = $this->field($definition);
         }
 
         ksort($grouped);

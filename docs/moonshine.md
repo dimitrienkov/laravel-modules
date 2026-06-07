@@ -12,9 +12,13 @@
 - **Index** — внешние табы по `ModuleKind` (Subsystems / Integrations / Modules), а
   внутри каждого таба отдельная таблица на каждую `meta.group`. Колонки: имя
   (displayName), версия, переключатель `enabled`; строки отсортированы по алфавиту.
-- **Async enable/disable** — `Switcher` в строке вызывает `EnableModuleUseCase` /
-  `DisableModuleUseCase` без перезагрузки страницы. Это **не** дефолтный CRUD-save:
-  он пишет только feature-значения и не трогает `enabled`.
+  Список намеренно использует собственные `TableBuilder` **без пагинации и поиска** —
+  осознанный trade-off для манифест-driven списка (модулей единицы–десятки), а не
+  недоделка.
+- **Async enable/disable** — `Switcher` в строке переключает `enabled` через
+  `EnableModuleUseCase` / `DisableModuleUseCase` без перезагрузки страницы. Это
+  **lifecycle-операция**, а не дефолтный CRUD-`save()` ресурса: ресурсный `save()`
+  (см. Form) пишет только feature-значения и `enabled` не трогает.
 - **Удаление (Backup-only)** — строковое действие зовёт `RemoveModuleUseCase` строго
   со стратегией `RemoveStrategy::Backup`. Permanent в UI не выводится.
 - **Guard UX** — если у модуля есть зависимые, переключатель/удаление превентивно
@@ -77,6 +81,32 @@ composer require moonshine/moonshine
 `Detail`/`Form` всегда показывают актуальные данные: `findItem()` читает `state.json`
 на каждый рендер, а `modules:optimize` **никогда** не кэширует `settings.values`.
 Поэтому отдельная инвалидация кэша после правки фич не нужна.
+
+## Доступ и авторизация
+
+Все мутирующие операции UI — ресурсный `save()` (feature-значения), `toggleEnabled()`
+и `removeModule()` — защищены **только** глобальным MoonShine-логином/мидлварью
+админ-панели. Отдельного per-resource `Gate`/ability у пакета нет.
+
+Mass-assignment закрыт по построению:
+
+- `save()` принимает только колонки с префиксом `featureValues.` (фильтр в
+  `FeatureValueWriter`); `enabled` через форму не инжектится — он меняется
+  исключительно lifecycle-свитчером.
+- `delete()` / `massDelete()` — no-op: дефолтная кнопка удаления убрана, удаление
+  доступно лишь через явное Backup-действие.
+
+Для гранулярного доступа host может навесить собственный middleware/policy на
+MoonShine-ресурс — пакет этого не навязывает.
+
+## Диагностика
+
+Lifecycle-экшены (`toggleEnabled` / `removeModule`) наблюдаемы: они делегируют в
+diagnostics-aware UseCase'ы. Запись же feature-значений из формы (`save()` →
+`FeatureValueWriter::write()`) **намеренно не эмитит** diagnostics-событий: это не
+lifecycle-операция (нет соответствующего `LifecycleOperation`), и она идёт через уже
+валидирующий `ModuleStateRepository::writeValues()`. Контракт
+`ModuleDiagnosticsInterface` ради admin-edit'а не расширяется.
 
 ## Roadmap
 

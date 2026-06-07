@@ -83,7 +83,46 @@ final class ModuleFormPage extends FormPage
         $rules = [];
 
         foreach ($module->features->all() as $definition) {
-            $rules[ModuleAdminDto::FEATURE_VALUES_KEY . '.' . $definition->key] = $this->rulesFor($definition);
+            $rules[ModuleAdminDto::featureColumn($definition->key)] = $this->rulesFor($definition);
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Validation rules must be a superset of {@see FeatureDefinition::normalize()}:
+     * whatever the strict normalizer would reject has to fail here first, on the
+     * form, rather than surface as an unhandled normalizer exception on submit.
+     *
+     * @return list<string>
+     */
+    private function rulesFor(FeatureDefinition $definition): array
+    {
+        return match ($definition->type) {
+            FeatureType::Boolean => ['nullable', 'boolean'],
+            FeatureType::Integer => ['nullable', 'integer', ...$this->boundsRules($definition)],
+            FeatureType::Enum => ['nullable', 'string', ...$this->optionRules($definition)],
+            FeatureType::String => ['nullable', 'string', ...$this->boundsRules($definition)],
+        };
+    }
+
+    /**
+     * Laravel's `min`/`max` compare an integer's value and a string's length
+     * alike, so the same rule strings mirror both the Integer range and the
+     * String length bounds the normalizer enforces via `mb_strlen`.
+     *
+     * @return list<string>
+     */
+    private function boundsRules(FeatureDefinition $definition): array
+    {
+        $rules = [];
+
+        if ($definition->min !== null) {
+            $rules[] = 'min:' . $definition->min;
+        }
+
+        if ($definition->max !== null) {
+            $rules[] = 'max:' . $definition->max;
         }
 
         return $rules;
@@ -92,42 +131,13 @@ final class ModuleFormPage extends FormPage
     /**
      * @return list<string>
      */
-    private function rulesFor(FeatureDefinition $definition): array
+    private function optionRules(FeatureDefinition $definition): array
     {
-        $rules = ['nullable'];
-
-        switch ($definition->type) {
-            case FeatureType::Boolean:
-                $rules[] = 'boolean';
-
-                break;
-            case FeatureType::Integer:
-                $rules[] = 'integer';
-
-                if ($definition->min !== null) {
-                    $rules[] = 'min:' . $definition->min;
-                }
-
-                if ($definition->max !== null) {
-                    $rules[] = 'max:' . $definition->max;
-                }
-
-                break;
-            case FeatureType::Enum:
-                $rules[] = 'string';
-
-                if ($definition->options !== []) {
-                    $rules[] = 'in:' . implode(',', $definition->options);
-                }
-
-                break;
-            case FeatureType::String:
-                $rules[] = 'string';
-
-                break;
+        if ($definition->options === []) {
+            return [];
         }
 
-        return $rules;
+        return ['in:' . implode(',', $definition->options)];
     }
 
     private function selectedModule(): ?Module
@@ -143,12 +153,17 @@ final class ModuleFormPage extends FormPage
 
     private function groupHeading(string $groupCode): string
     {
-        if ($groupCode === '') {
-            $label = $this->translator->get('module-loader::admin.ungrouped');
-
-            return \is_string($label) ? $label : 'ungrouped';
+        if ($groupCode === FeatureFieldFactory::UNGROUPED) {
+            return $this->adminLabel('ungrouped');
         }
 
         return $this->groupLabels->displayLabel(new ModuleGroup($groupCode));
+    }
+
+    private function adminLabel(string $key): string
+    {
+        $label = $this->translator->get("module-loader::admin.{$key}");
+
+        return \is_string($label) ? $label : $key;
     }
 }

@@ -13,10 +13,12 @@ use DimitrienkoV\LaravelModules\Tests\Support\FakeModuleRegistry;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
 use MoonShine\Contracts\UI\ComponentContract;
 use MoonShine\Laravel\Providers\MoonShineServiceProvider;
+use MoonShine\UI\Components\ActionButton;
 use MoonShine\UI\Components\Layout\Box;
 use MoonShine\UI\Components\Table\TableBuilder;
 use MoonShine\UI\Components\Tabs;
 use MoonShine\UI\Components\Tabs\Tab;
+use MoonShine\UI\Fields\Switcher;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -100,6 +102,65 @@ final class ModuleIndexPageStructureTest extends TestCase
         $names = array_map(static fn(object $dto): string => $dto->displayName, $items);
 
         self::assertSame(['Alpha', 'Mike', 'Zebra'], $names);
+    }
+
+    #[Test]
+    public function preventivelyBlocksTheSwitcherAndRemoveButtonForADependedOnModule(): void
+    {
+        // 'app' (enabled) depends on 'core' (enabled): core can be neither disabled
+        // nor removed while app needs it; app itself has no dependents.
+        $registry = new FakeModuleRegistry();
+        $registry->add(ModuleFactory::make(name: 'core', kind: ModuleKind::Module, enabled: true));
+        $registry->add(ModuleFactory::make(name: 'app', kind: ModuleKind::Module, enabled: true, dependencies: ['core' => '^1.0']));
+
+        $this->app->instance(ModuleRegistryInterface::class, $registry);
+        $resource = $this->app->make(ModulesResource::class);
+        $page = $this->app->make(ModuleIndexPage::class);
+        $page->setResource($resource);
+
+        $caster = $resource->getCaster();
+        $rows = [];
+        foreach ($resource->getItems() as $dto) {
+            $rows[$dto->name] = $caster->cast($dto);
+        }
+
+        // Switcher: the depended-on 'core' is disabled with a tooltip; the free
+        // 'app' is untouched. Exercises the real afterFill closure, not just the
+        // dependents resolver.
+        $blockedSwitcher = $this->switcher($page)->fillCast($rows['core'], $caster);
+        self::assertTrue($blockedSwitcher->getAttributes()->get('disabled'));
+        self::assertNotEmpty($blockedSwitcher->getAttributes()->get('title'));
+
+        $freeSwitcher = $this->switcher($page)->fillCast($rows['app'], $caster);
+        self::assertNull($freeSwitcher->getAttributes()->get('title'));
+
+        // Remove button: same blocking, exercising the real onAfterSet closure.
+        $blockedRemove = $this->removeButton($page);
+        $blockedRemove->setData($rows['core']);
+        self::assertTrue($blockedRemove->getAttributes()->get('disabled'));
+        self::assertNotEmpty($blockedRemove->getAttributes()->get('title'));
+
+        $freeRemove = $this->removeButton($page);
+        $freeRemove->setData($rows['app']);
+        self::assertNull($freeRemove->getAttributes()->get('title'));
+    }
+
+    private function switcher(ModuleIndexPage $page): Switcher
+    {
+        $method = new ReflectionMethod($page, 'enabledSwitcher');
+        $method->setAccessible(true);
+
+        /** @var Switcher */
+        return $method->invoke($page, 'modules-module-ungrouped');
+    }
+
+    private function removeButton(ModuleIndexPage $page): ActionButton
+    {
+        $method = new ReflectionMethod($page, 'removeButton');
+        $method->setAccessible(true);
+
+        /** @var ActionButton */
+        return $method->invoke($page);
     }
 
     private function mixedRegistry(): FakeModuleRegistry

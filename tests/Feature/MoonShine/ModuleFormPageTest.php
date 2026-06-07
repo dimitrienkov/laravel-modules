@@ -67,6 +67,27 @@ final class ModuleFormPageTest extends TestCase
     }
 
     #[Test]
+    public function translatesStringLengthBoundsIntoValidationRules(): void
+    {
+        // A String with min/max must yield length rules so the form rejects an
+        // out-of-range value before the normalizer (mb_strlen) would — rules() is
+        // a superset of normalize().
+        $schema = new FeatureSchema([
+            'label' => $this->definition('label', FeatureType::String, min: 2, max: 16),
+        ]);
+
+        $page = $this->page(schema: $schema);
+        $method = new ReflectionMethod($page, 'rules');
+        $method->setAccessible(true);
+        $item = $page->getResource()->getCaster()->cast(ModuleAdminDto::empty());
+
+        /** @var array<string, list<string>> $rules */
+        $rules = $method->invoke($page, $item);
+
+        self::assertSame(['nullable', 'string', 'min:2', 'max:16'], $rules['featureValues.label']);
+    }
+
+    #[Test]
     public function rulesAreEmptyWhenNoModuleIsSelected(): void
     {
         $page = $this->page(selectModule: false);
@@ -97,10 +118,10 @@ final class ModuleFormPageTest extends TestCase
         return $reflection->invoke($page);
     }
 
-    private function page(bool $selectModule = true): ModuleFormPage
+    private function page(bool $selectModule = true, ?FeatureSchema $schema = null): ModuleFormPage
     {
         $registry = new FakeModuleRegistry();
-        $registry->add(ModuleFactory::make(name: 'blog', features: $this->schema()));
+        $registry->add(ModuleFactory::make(name: 'blog', features: $schema ?? $this->schema()));
         $this->app->instance(ModuleRegistryInterface::class, $registry);
 
         $resource = $this->app->make(ModulesResource::class);

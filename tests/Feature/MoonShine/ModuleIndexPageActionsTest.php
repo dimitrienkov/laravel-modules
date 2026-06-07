@@ -8,9 +8,12 @@ use DimitrienkoV\LaravelModules\Application\Support\ModuleGroupLabelResolver;
 use DimitrienkoV\LaravelModules\Application\UseCases\DisableModuleUseCase;
 use DimitrienkoV\LaravelModules\Application\UseCases\EnableModuleUseCase;
 use DimitrienkoV\LaravelModules\Application\UseCases\RemoveModuleUseCase;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyDisabledException;
+use DimitrienkoV\LaravelModules\Exceptions\ModuleAlreadyEnabledException;
 use DimitrienkoV\LaravelModules\Exceptions\ModuleDependencyDisabledException;
 use DimitrienkoV\LaravelModules\MoonShine\Pages\ModuleIndexPage;
 use DimitrienkoV\LaravelModules\MoonShine\Support\ModuleDependentsResolver;
+use DimitrienkoV\LaravelModules\MoonShine\Support\ModuleIndexGrouping;
 use DimitrienkoV\LaravelModules\MoonShine\Support\ModuleKindLabelResolver;
 use DimitrienkoV\LaravelModules\Support\Logging\NullModuleDiagnostics;
 use DimitrienkoV\LaravelModules\Tests\Support\CreatesLifecycleEnvironment;
@@ -102,6 +105,28 @@ final class ModuleIndexPageActionsTest extends TestCase
     }
 
     #[Test]
+    public function togglingAnAlreadyEnabledModuleSurfacesTheTypedException(): void
+    {
+        $this->createModule('blog', enabled: true);
+        $page = $this->makePage();
+
+        $this->expectException(ModuleAlreadyEnabledException::class);
+
+        $page->toggleEnabled($this->request('blog', enabled: true));
+    }
+
+    #[Test]
+    public function togglingAnAlreadyDisabledModuleSurfacesTheTypedException(): void
+    {
+        $this->createModule('blog', enabled: false);
+        $page = $this->makePage();
+
+        $this->expectException(ModuleAlreadyDisabledException::class);
+
+        $page->toggleEnabled($this->request('blog', enabled: false));
+    }
+
+    #[Test]
     public function removeUsesTheBackupStrategyOnly(): void
     {
         $this->createModule('blog', enabled: true);
@@ -110,7 +135,12 @@ final class ModuleIndexPageActionsTest extends TestCase
         $page->removeModule($this->request('blog', enabled: false));
 
         self::assertDirectoryDoesNotExist($this->tempDir . '/app/Modules/Blog');
-        self::assertNotEmpty($this->filesystem->directories($this->tempDir . '/backups'));
+
+        // A restorable, module-named backup must exist (backupPath() = name-stamp-hex),
+        // not merely a non-empty backups directory.
+        $backups = $this->filesystem->glob($this->tempDir . '/backups/blog-*');
+        self::assertCount(1, $backups);
+        self::assertFileExists($backups[0] . '/module.json');
     }
 
     #[Test]
@@ -141,6 +171,7 @@ final class ModuleIndexPageActionsTest extends TestCase
             new ModuleKindLabelResolver($this->translator()),
             new ModuleGroupLabelResolver($config),
             new ModuleDependentsResolver($registry),
+            new ModuleIndexGrouping(),
             $this->translator(),
         );
     }

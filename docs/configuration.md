@@ -208,7 +208,9 @@ if ($this->app->routesAreCached()) {
 composer require inertiajs/inertia-laravel
 ```
 
-Для лёгкого MoonShine autoload bridge достаточно `moonshine/core` + `moonshine/contracts`:
+Лёгкий MoonShine autoload bridge активируется уже при наличии одного `CoreContract`.
+Хосту, которому нужен **только** bridge (без полного admin-UI), достаточно
+`moonshine/core` + `moonshine/contracts`:
 
 ```bash
 composer require moonshine/core moonshine/contracts
@@ -219,6 +221,10 @@ composer require moonshine/core moonshine/contracts
 ```bash
 composer require moonshine/moonshine
 ```
+
+> `moonshine/moonshine` уже `replaces` `moonshine/core` и `moonshine/contracts`, поэтому
+> команда из двух пакетов нужна лишь для lightweight-сценария (bridge без CRUD/UI). По
+> этой причине `composer.json` пакета в `suggest` указывает только `moonshine/moonshine`.
 
 UI настраивается секцией `modules.moonshine` (`enabled`, `menu`) — детали в
 [docs/moonshine.md](moonshine.md).

@@ -23,12 +23,37 @@ use DimitrienkoV\LaravelModules\Manifest\VO\ModuleOrigin;
 final readonly class ModuleAdminDto
 {
     /**
-     * Property name under which feature values are nested. Form/detail fields use
-     * the dot-path column `featureValues.<key>` so MoonShine resolves a value via
-     * `data_get($dto, 'featureValues.<key>')`, and {@see ModulesResource::save()}
-     * maps that column prefix back to the bare feature key on submit.
+     * Property/column name under which feature values are nested. Form/detail
+     * fields use the dot-path column `featureValues.<key>` so MoonShine resolves a
+     * value via `data_get($dto, 'featureValues.<key>')`, and the write side maps
+     * that column back to the bare feature key on submit. Build and parse the
+     * dot-path only through {@see self::featureColumn()} /
+     * {@see self::featureKeyFromColumn()} so the convention lives in one place.
      */
-    public const string FEATURE_VALUES_KEY = 'featureValues';
+    public const string FEATURE_VALUES_COLUMN = 'featureValues';
+
+    /**
+     * The dot-path column a feature key is rendered/submitted under.
+     */
+    public static function featureColumn(string $key): string
+    {
+        return self::FEATURE_VALUES_COLUMN . '.' . $key;
+    }
+
+    /**
+     * The bare feature key behind a column, or null when the column is not a
+     * feature-value column.
+     */
+    public static function featureKeyFromColumn(string $column): ?string
+    {
+        $prefix = self::FEATURE_VALUES_COLUMN . '.';
+
+        if (! str_starts_with($column, $prefix)) {
+            return null;
+        }
+
+        return substr($column, \strlen($prefix));
+    }
 
     /**
      * @param array<string, string>               $dependencies  module name => Composer constraint

@@ -4,7 +4,7 @@
 
 `dimitrienkov0/laravel-modules` — Laravel-пакет для manifest-driven модульной архитектуры. Пакет загружает модули из настроенных директорий хост-приложения, читает `module.json`, строит dependency-aware registry, применяет loader-pipeline и предоставляет runtime API для feature toggles без БД.
 
-Текущий реализованный срез — **v2.0 core**: контракты, manifest VO, registry/cache, 15 лоадеров (полный loader pipeline), scoped `FeatureRepository`, optimizer-команды, lifecycle UseCase-классы и Artisan-команды (`make:module`, `modules:install/update/remove/enable/disable/list/optimize/optimize-clear`), support-сервисы (`ZipExtractor`, `ModuleSourcePreparer`, `ModuleDependencyGuard`, `ModuleDirectoryOperations`, `LifecycleRegistryInvalidator`, `ModuleDirectoryPaths`, `ModuleSkeletonBuilder`, `PartialModuleRollback`, `ModuleStatePaths`), optional bridges для MoonShine/Inertia и module-aware генераторы (native `make:* --module` для 22 артефактов через `ModuleAwareGenerator` trait + rebind parent-FQCN singleton'ов; архитектурные `make:use-case/action/query/dto/vo`; component-driven `make:module --with`). Полноценный MoonShine admin-UI остаётся roadmap-задачей следующих фаз.
+Текущий реализованный срез — **v2.0 core**: контракты, manifest VO, registry/cache, 15 лоадеров (полный loader pipeline), scoped `FeatureRepository`, optimizer-команды, lifecycle UseCase-классы и Artisan-команды (`make:module`, `modules:install/update/remove/enable/disable/list/optimize/optimize-clear`), support-сервисы (`ZipExtractor`, `ModuleSourcePreparer`, `ModuleDependencyGuard`, `ModuleDirectoryOperations`, `LifecycleRegistryInvalidator`, `ModuleDirectoryPaths`, `ModuleSkeletonBuilder`, `PartialModuleRollback`, `ModuleStatePaths`), optional bridges для MoonShine/Inertia и module-aware генераторы (native `make:* --module` для 22 артефактов через `ModuleAwareGenerator` trait + rebind parent-FQCN singleton'ов; архитектурные `make:use-case/action/query/dto/vo`; component-driven `make:module --with`). Опциональный package-level MoonShine admin-UI (`ModulesResource` + страницы Index/Form/Detail: управление модулями, enable/disable, backup-удаление, feature-формы, debug-страница) реализован поверх полного стека MoonShine v4.
 
 ## Целевые сценарии
 
@@ -36,13 +36,15 @@
 - Lifecycle UseCase-классы и Artisan-команды: enable/disable меняют только `state.json`; запись feature values через repository/API также остаётся в `state.json`; scaffold/install/update пишут immutable descriptor через `ModuleManifestRepositoryInterface::writeManifest()`.
 - Registry cache (v4) кеширует только manifest descriptors (`meta` + `settings.schema`) и `load_order`; state и values НЕ кешируются — читаются свежими из `state.json` при каждом request.
 - Optional MoonShine bridge через `MoonShineModuleAutoloader`.
+- Optional package-level MoonShine admin UI: `ModulesResource` (extends `CrudResource`) + страницы `ModuleIndexPage`/`ModuleFormPage`/`ModuleDetailPage` поверх registry/state, с `FeatureFieldFactory`/`FeatureValueWriter`/`ModuleIndexGrouping`. Регистрируется только при полном CRUD/UI-стеке MoonShine v4 и `modules.moonshine.enabled`.
 - Optional Inertia routes: `Routes/inertia.php` загружается только при наличии Inertia.
 - Pest architecture suite и PHPUnit unit/feature coverage для ядра.
 - PR-шаблон `.github/PULL_REQUEST_TEMPLATE.md` с quality checklist.
 
 ### Roadmap, не текущий runtime
 
-- MoonShine resources/pages для управления модулями и settings forms.
+- Per-module `MoonShine/` resources/pages **внутри** отдельного модуля (генераторы/runtime пока не поддерживают; package-level admin UI уже реализован — см. выше).
+- Установка/обновление модулей через zip-upload прямо в admin UI.
 - Packaging/marketplace/signature flow для коммерческой поставки.
 - Lifecycle events (`ModuleInstalled`, `ModuleEnabled`, etc.).
 

@@ -15,8 +15,10 @@ use DimitrienkoV\LaravelModules\Manifest\Enums\ModuleKind;
 use DimitrienkoV\LaravelModules\Manifest\VO\ModuleGroup;
 use DimitrienkoV\LaravelModules\MoonShine\Data\ModuleAdminDto;
 use DimitrienkoV\LaravelModules\MoonShine\Support\ModuleDependentsResolver;
+use DimitrienkoV\LaravelModules\MoonShine\Support\ModuleIndexGrouping;
 use DimitrienkoV\LaravelModules\MoonShine\Support\ModuleKindLabelResolver;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleGroupLabelResolver;
+use Closure;
 use Illuminate\Contracts\Translation\Translator;
 use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
 use MoonShine\Contracts\Core\TypeCasts\DataCasterContract;
@@ -51,15 +53,6 @@ use MoonShine\UI\Fields\Text;
  */
 final class ModuleIndexPage extends IndexPage
 {
-    /**
-     * Tab order: subsystems, then integrations, then plain modules.
-     */
-    private const array KIND_ORDER = [
-        ModuleKind::Subsystem,
-        ModuleKind::Integration,
-        ModuleKind::Module,
-    ];
-
     public function __construct(
         CoreContract $core,
         private readonly EnableModuleUseCase $enableModule,
@@ -68,6 +61,7 @@ final class ModuleIndexPage extends IndexPage
         private readonly ModuleKindLabelResolver $kindLabels,
         private readonly ModuleGroupLabelResolver $groupLabels,
         private readonly ModuleDependentsResolver $dependents,
+        private readonly ModuleIndexGrouping $grouping,
         private readonly Translator $translator,
     ) {
         parent::__construct($core);
@@ -86,17 +80,11 @@ final class ModuleIndexPage extends IndexPage
         }
 
         $caster = $resource->getCaster();
-
-        /** @var array<string, list<ModuleAdminDto>> $byKind */
-        $byKind = [];
-
-        foreach ($resource->getItems() as $dto) {
-            $byKind[$dto->kind][] = $dto;
-        }
+        $byKind = $this->grouping->byKind($resource->getItems());
 
         $tabs = [];
 
-        foreach (self::KIND_ORDER as $kind) {
+        foreach (ModuleIndexGrouping::KIND_ORDER as $kind) {
             $kindItems = $byKind[$kind->value] ?? [];
 
             if ($kindItems === []) {
@@ -144,23 +132,9 @@ final class ModuleIndexPage extends IndexPage
      */
     private function groupBoxes(ModuleKind $kind, array $items, DataCasterContract $caster): array
     {
-        /** @var array<string, list<ModuleAdminDto>> $byGroup */
-        $byGroup = [];
-
-        foreach ($items as $dto) {
-            $byGroup[$dto->group ?? ''][] = $dto;
-        }
-
-        ksort($byGroup);
-
         $boxes = [];
 
-        foreach ($byGroup as $groupCode => $groupItems) {
-            usort(
-                $groupItems,
-                static fn(ModuleAdminDto $a, ModuleAdminDto $b): int => strcmp($a->displayName, $b->displayName),
-            );
-
+        foreach ($this->grouping->groups($items) as $groupCode => $groupItems) {
             $boxes[] = Box::make(
                 $this->groupHeading($groupCode),
                 [$this->groupTable($kind, $groupCode, $groupItems, $caster)],
@@ -172,11 +146,18 @@ final class ModuleIndexPage extends IndexPage
 
     private function groupHeading(string $groupCode): string
     {
-        if ($groupCode === '') {
-            return $this->t('ungrouped');
+        if ($groupCode === ModuleIndexGrouping::UNGROUPED) {
+            return $this->adminLabel('ungrouped');
         }
 
         return $this->groupLabels->displayLabel(new ModuleGroup($groupCode));
+    }
+
+    private function tableName(ModuleKind $kind, string $groupCode): string
+    {
+        $suffix = $groupCode === ModuleIndexGrouping::UNGROUPED ? 'ungrouped' : $groupCode;
+
+        return 'modules-' . $kind->value . '-' . $suffix;
     }
 
     /**
@@ -184,13 +165,13 @@ final class ModuleIndexPage extends IndexPage
      */
     private function groupTable(ModuleKind $kind, string $groupCode, array $items, DataCasterContract $caster): TableBuilder
     {
-        $tableName = 'modules-' . $kind->value . '-' . ($groupCode === '' ? 'ungrouped' : $groupCode);
+        $tableName = $this->tableName($kind, $groupCode);
 
         return TableBuilder::make(items: $items)
             ->name($tableName)
             ->fields([
-                Text::make($this->t('columns.name'), 'displayName'),
-                Text::make($this->t('columns.version'), 'version'),
+                Text::make($this->adminLabel('columns.name'), 'displayName'),
+                Text::make($this->adminLabel('columns.version'), 'version'),
                 $this->enabledSwitcher($tableName),
             ])
             ->cast($caster)
@@ -200,7 +181,7 @@ final class ModuleIndexPage extends IndexPage
 
     private function enabledSwitcher(string $tableName): Switcher
     {
-        return Switcher::make($this->t('columns.enabled'), 'enabled')
+        return Switcher::make($this->adminLabel('columns.enabled'), 'enabled')
             ->updateOnPreview()
             ->onChangeMethod(
                 'toggleEnabled',
@@ -210,15 +191,19 @@ final class ModuleIndexPage extends IndexPage
             ->afterFill(function (Switcher $field): Switcher {
                 $dto = $field->getData()?->getOriginal();
 
-                if ($dto instanceof ModuleAdminDto) {
-                    $blockers = $this->dependents->disableBlockers($dto->name);
-
-                    if ($blockers !== []) {
-                        $field->disabled(true)->customAttributes([
-                            'title' => $this->guardTooltip('guard.disable_blocked', $blockers),
-                        ]);
-                    }
+                if (! $dto instanceof ModuleAdminDto) {
+                    return $field;
                 }
+
+                $blockers = $this->dependents->disableBlockers($dto->name);
+
+                if ($blockers === []) {
+                    return $field;
+                }
+
+                $field->disabled(true)->customAttributes([
+                    'title' => $this->guardTooltip('guard.disable_blocked', $blockers),
+                ]);
 
                 return $field;
             });
@@ -231,12 +216,12 @@ final class ModuleIndexPage extends IndexPage
     {
         return [
             ActionButton::make(
-                $this->t('actions.detail'),
-                fn(mixed $item, ?DataWrapperContract $casted): string => $this->pageUrl('detail', $casted),
+                $this->adminLabel('actions.detail'),
+                fn(mixed $item, ?DataWrapperContract $casted): string => $this->detailUrl($casted),
             )->icon('eye'),
             ActionButton::make(
-                $this->t('actions.settings'),
-                fn(mixed $item, ?DataWrapperContract $casted): string => $this->pageUrl('form', $casted),
+                $this->adminLabel('actions.settings'),
+                fn(mixed $item, ?DataWrapperContract $casted): string => $this->formUrl($casted),
             )->icon('cog'),
             $this->removeButton(),
         ];
@@ -244,40 +229,57 @@ final class ModuleIndexPage extends IndexPage
 
     private function removeButton(): ActionButton
     {
-        return ActionButton::make($this->t('actions.remove'), '#')
+        return ActionButton::make($this->adminLabel('actions.remove'), '#')
             ->icon('trash')
             ->method('removeModule', page: $this)
             ->withConfirm()
             ->onAfterSet(function (?DataWrapperContract $casted, ActionButtonContract $button): void {
                 $dto = $casted?->getOriginal();
 
-                if ($dto instanceof ModuleAdminDto) {
-                    $blockers = $this->dependents->removeBlockers($dto->name);
-
-                    if ($blockers !== []) {
-                        $button->customAttributes([
-                            'disabled' => true,
-                            'class' => 'btn-disabled',
-                            'title' => $this->guardTooltip('guard.remove_blocked', $blockers),
-                            '@click.prevent' => '',
-                        ]);
-                    }
+                if (! $dto instanceof ModuleAdminDto) {
+                    return;
                 }
+
+                $blockers = $this->dependents->removeBlockers($dto->name);
+
+                if ($blockers === []) {
+                    return;
+                }
+
+                $button->customAttributes([
+                    'disabled' => true,
+                    'class' => 'btn-disabled',
+                    'title' => $this->guardTooltip('guard.remove_blocked', $blockers),
+                    '@click.prevent' => '',
+                ]);
             });
     }
 
-    private function pageUrl(string $type, ?DataWrapperContract $casted): string
+    private function detailUrl(?DataWrapperContract $casted): string
+    {
+        return $this->pageUrl($casted, fn(int|string $key): ?string => $this->getResource()?->getDetailPageUrl($key));
+    }
+
+    private function formUrl(?DataWrapperContract $casted): string
+    {
+        return $this->pageUrl($casted, fn(int|string $key): ?string => $this->getResource()?->getFormPageUrl($key));
+    }
+
+    /**
+     * Resolve a row's page URL through the already-chosen resource method, so the
+     * route is selected by the caller (detail/form) rather than by a string type.
+     *
+     * @param Closure(int|string): ?string $toUrl maps a resolved row key to a URL
+     */
+    private function pageUrl(?DataWrapperContract $casted, Closure $toUrl): string
     {
         if (! $casted instanceof DataWrapperContract) {
             return '#';
         }
 
-        $key = $casted->getKey();
-        $resource = $this->getResource();
+        $url = $toUrl($casted->getKey() ?? '');
 
-        return $type === 'detail'
-            ? $resource?->getDetailPageUrl($key ?? '') ?? '#'
-            : $resource?->getFormPageUrl($key ?? '') ?? '#';
+        return $url ?? '#';
     }
 
     /**
@@ -290,10 +292,12 @@ final class ModuleIndexPage extends IndexPage
             ['modules' => implode(', ', $names)],
         );
 
-        return \is_string($label) ? $label : '';
+        // Fall back to the key (as adminLabel does) so a translation defect stays
+        // visible/traceable instead of rendering an empty tooltip.
+        return \is_string($label) ? $label : $key;
     }
 
-    private function t(string $key): string
+    private function adminLabel(string $key): string
     {
         $label = $this->translator->get("module-loader::admin.{$key}");
 
