@@ -93,7 +93,7 @@
 - `ModuleStateRepository` читает/пишет mutable state из `state.json` (`storage/app/private/modules/{name}/`).
 - `TopologicalSorter` сортирует модули по `meta.dependencies` и проверяет Composer SemVer constraints.
 - `ModuleRegistry` читает `bootstrap/cache/modules.php`, если cache существует, иначе сканирует файловую систему.
-- `ModuleLoaderPipeline` запускает 15 default loaders: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`. Pipeline изолирует ошибки: исключение в одном loader не останавливает загрузку остальных. Каждый `load()` возвращает `LoadReport` (`applied`/`skipped`), а pipeline скармливает его диагностике.
+- `ModuleLoaderPipeline` запускает 15 default loaders: `ConfigLoader`, `ServiceProviderLoader`, `MigrationLoader`, `FactoryLoader`, `LangLoader`, `ViewLoader`, `BladeComponentLoader`, `EventLoader`, `ObserverLoader`, `PolicyLoader`, `CommandLoader`, `MiddlewareLoader`, `RouteLoader`, `ConsoleRouteLoader`, `BroadcastLoader`. Pipeline изолирует ошибки: исключение в одном loader не останавливает загрузку остальных. Каждый `load()` возвращает `LoadReport` (`applied`/`skipped`), а pipeline скармливает его диагностике. Справочник по каждому лоадеру и написанию своего — `docs/loaders.md`.
 - Opt-in диагностика (`modules.logging`, off by default): `ModuleDiagnosticsInterface` биндится как `ModuleLogger` поверх host-канала PSR-3 либо `NullModuleDiagnostics`. Discovery/cache/pipeline/lifecycle инъецируют контракт (дефолт — null-object) и пишут только whitelisted-скаляры. См. `docs/logging.md`.
 - `MoonShineModuleAutoloader` подключается только при наличии MoonShine `CoreContract`.
 - `FeatureRepositoryInterface` биндится как scoped и читает актуальные `settings.values` из `state.json` через `ModuleStateRepository`, а не из production cache.
@@ -109,6 +109,7 @@
 | Manifest | `docs/manifest.md` | Контракт `module.json` |
 | Configuration | `docs/configuration.md` | Конфиг и маршруты |
 | Architecture | `docs/architecture.md` | Registry, cache, lifecycle, диагностика |
+| Loaders | `docs/loaders.md` | Справочник лоадеров и написание своего |
 | Feature Toggles | `docs/feature-toggles.md` | Runtime settings API |
 | Logging | `docs/logging.md` | Opt-in диагностический слой и каталог событий |
 | Octane | `docs/octane.md` | Octane worker contract и reload-операционка |

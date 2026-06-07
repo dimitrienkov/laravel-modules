@@ -1,4 +1,4 @@
-[← Configuration](configuration.md) · [Back to README](../README.md) · [Feature Toggles →](feature-toggles.md)
+[← Configuration](configuration.md) · [Back to README](../README.md) · [Loaders →](loaders.md)
 
 # Architecture
 
