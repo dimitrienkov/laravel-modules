@@ -73,12 +73,19 @@ final readonly class FeatureValueWriter
      * to the schema default, and cleared non-boolean fields, are stripped so the
      * value set never duplicates defaults.
      *
+     * A partial submit (only some schema fields posted) is merged onto the current
+     * explicit value set: keys absent from `$submitted` are left untouched, so a
+     * form that posts one field never silently drops the module's other overrides.
+     *
      * @param array<string, mixed> $submitted feature key => raw submitted value
      */
     public function write(Module $module, array $submitted): void
     {
         $manifestPath = $module->manifestPath();
-        $explicit = [];
+
+        // Start from the current explicit overrides so fields not present in this
+        // submit are preserved; only submitted keys are added, replaced, or removed.
+        $explicit = $this->state->readValues($module)->explicitValues();
 
         foreach ($module->features->all() as $key => $definition) {
             if (! \array_key_exists($key, $submitted)) {
@@ -89,9 +96,11 @@ final readonly class FeatureValueWriter
 
             // A cleared field (null or a blank string from ConvertEmptyStringsToNull
             // or a disabled middleware) reverts the override to the schema default:
-            // drop it instead of feeding null/'' to the strict normalizer. Boolean is
-            // exempt — it has no "empty" state; off arrives as a coercible false.
+            // drop only this key instead of feeding null/'' to the strict normalizer.
+            // Boolean is exempt — it has no "empty" state; off arrives as a coercible false.
             if ($definition->type !== FeatureType::Boolean && $this->isCleared($raw)) {
+                unset($explicit[$key]);
+
                 continue;
             }
 
@@ -104,6 +113,8 @@ final readonly class FeatureValueWriter
 
             // Defaults stay in the schema; only genuine overrides are persisted.
             if ($definition->hasDefault && $normalized === $definition->default) {
+                unset($explicit[$key]);
+
                 continue;
             }
 
@@ -118,17 +129,61 @@ final readonly class FeatureValueWriter
 
     /**
      * Coerce a raw submitted value to the PHP type the feature schema expects.
-     * Range/option enforcement stays in {@see FeatureDefinition::normalize()}; a
-     * value that cannot be coerced is passed through unchanged so the normalizer
-     * rejects it with the canonical error.
+     * Coercion fails closed: range/option enforcement stays in
+     * {@see FeatureDefinition::normalize()}, and a value that is not an
+     * unambiguous transport encoding of the schema type is passed through
+     * unchanged so the strict normalizer rejects it with the canonical error
+     * instead of being silently truncated to a wrong value.
      */
     private function coerce(FeatureDefinition $definition, mixed $value): mixed
     {
         return match ($definition->type) {
-            FeatureType::Boolean => filter_var($value, FILTER_VALIDATE_BOOLEAN),
-            FeatureType::Integer => is_numeric($value) ? (int) $value : $value,
+            FeatureType::Boolean => $this->coerceBool($value),
+            FeatureType::Integer => $this->coerceInt($value),
             FeatureType::Enum, FeatureType::String => \is_scalar($value) ? (string) $value : $value,
         };
+    }
+
+    /**
+     * Accept real booleans, an absent/off switch (null, mapped by
+     * {@see self::submittedFeatureValues()} from `false`), and the standard
+     * HTML/Laravel bool tokens `FILTER_VALIDATE_BOOLEAN` recognises ("1"/"0",
+     * "true"/"false", "on"/"off", "yes"/"no"). Anything else (e.g. "maybe")
+     * passes through so the normalizer rejects it — `FILTER_NULL_ON_FAILURE`
+     * stops an unrecognised token from being silently coerced to `false`.
+     */
+    private function coerceBool(mixed $value): mixed
+    {
+        if (\is_bool($value)) {
+            return $value;
+        }
+
+        if ($value === null) {
+            return false;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $value;
+    }
+
+    /**
+     * Accept real integers and strings that are an exact integer encoding
+     * (`FILTER_VALIDATE_INT`). Fractional, exponent, or otherwise non-integer
+     * strings ("3.5", "1e2") pass through unchanged so the normalizer rejects
+     * them rather than being truncated by a permissive `(int)` cast.
+     */
+    private function coerceInt(mixed $value): mixed
+    {
+        if (\is_int($value)) {
+            return $value;
+        }
+
+        if (\is_string($value)) {
+            $coerced = filter_var($value, FILTER_VALIDATE_INT);
+
+            return $coerced === false ? $value : $coerced;
+        }
+
+        return $value;
     }
 
     /**

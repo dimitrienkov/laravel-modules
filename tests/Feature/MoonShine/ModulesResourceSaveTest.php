@@ -66,6 +66,9 @@ final class ModulesResourceSaveTest extends TestCase
 
         $captured = null;
         $state = Mockery::mock(ModuleStateRepositoryInterface::class);
+        $state->shouldReceive('readValues')->once()->with(Mockery::type(Module::class))->andReturn(
+            new FeatureValues($module->features, []),
+        );
         $state->shouldReceive('writeValues')->once()
             ->with(Mockery::type(Module::class), Mockery::on(static function (FeatureValues $values) use (&$captured): bool {
                 $captured = $values;
@@ -90,6 +93,63 @@ final class ModulesResourceSaveTest extends TestCase
 
         self::assertInstanceOf(FeatureValues::class, $captured);
         self::assertSame(['retries' => 7], $captured->explicitValues());
+    }
+
+    #[Test]
+    public function partialSubmitPreservesAnUnrelatedExistingOverride(): void
+    {
+        $module = ModuleFactory::make(name: 'blog', features: $this->intEnumSchema());
+
+        $registry = new FakeModuleRegistry();
+        $registry->add($module);
+
+        // state.json already holds driver=file; the form posts only retries. The
+        // unrelated driver override must survive — not be wiped because its field
+        // was absent from this submit.
+        $this->bindRequest(['retries' => '7']);
+
+        [$state, $capture] = $this->stateCapturing(
+            $module,
+            FeatureValues::fromArray(['driver' => 'file'], $module->features, 'blog', $module->manifestPath()),
+        );
+
+        $resource = new ModulesResource($this->core(), $registry, $state, new FeatureValueWriter($state), $this->configRepository());
+        $item = $resource->getCaster()->cast(
+            ModuleAdminDto::fromModule($module, new FeatureValues($module->features, []), null, 0),
+        );
+
+        $resource->save($item, new Fields([$this->factory()->field($module->features->definition('blog', 'retries'))]));
+
+        self::assertInstanceOf(FeatureValues::class, $capture->value);
+        self::assertSame(['driver' => 'file', 'retries' => 7], $capture->value->explicitValues());
+    }
+
+    #[Test]
+    public function clearingOneFieldKeepsOtherExistingOverrides(): void
+    {
+        $module = ModuleFactory::make(name: 'blog', features: $this->intEnumSchema());
+
+        $registry = new FakeModuleRegistry();
+        $registry->add($module);
+
+        // state.json holds driver=file and retries=7; the form clears retries.
+        // Only retries is dropped; driver=file is preserved.
+        $this->bindRequest(['retries' => null]);
+
+        [$state, $capture] = $this->stateCapturing(
+            $module,
+            FeatureValues::fromArray(['driver' => 'file', 'retries' => 7], $module->features, 'blog', $module->manifestPath()),
+        );
+
+        $resource = new ModulesResource($this->core(), $registry, $state, new FeatureValueWriter($state), $this->configRepository());
+        $item = $resource->getCaster()->cast(
+            ModuleAdminDto::fromModule($module, new FeatureValues($module->features, []), null, 0),
+        );
+
+        $resource->save($item, new Fields([$this->factory()->field($module->features->definition('blog', 'retries'))]));
+
+        self::assertInstanceOf(FeatureValues::class, $capture->value);
+        self::assertSame(['driver' => 'file'], $capture->value->explicitValues());
     }
 
     #[Test]
@@ -221,6 +281,11 @@ final class ModulesResourceSaveTest extends TestCase
         };
 
         $state = Mockery::mock(ModuleStateRepositoryInterface::class);
+        // readValues() feeds the writer the pre-existing explicit overrides it must
+        // merge this submit onto; read() answers the post-write DTO rebuild.
+        $state->shouldReceive('readValues')->once()->with(Mockery::type(Module::class))->andReturn(
+            $existing ?? new FeatureValues($module->features, []),
+        );
         $state->shouldReceive('writeValues')->once()
             ->with(Mockery::type(Module::class), Mockery::on(static function (FeatureValues $values) use ($capture): bool {
                 $capture->value = $values;

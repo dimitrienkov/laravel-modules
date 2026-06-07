@@ -163,6 +163,8 @@ final class ModulesResourceTest extends TestCase
         );
 
         $state = Mockery::mock(ModuleStateRepositoryInterface::class);
+        $state->shouldReceive('readValues')->once()->with(Mockery::type(Module::class))
+            ->andReturn(new FeatureValues($module->features, []));
         $state->shouldReceive('writeValues')->once()
             ->with(Mockery::type(Module::class), Mockery::type(FeatureValues::class));
         $state->shouldReceive('read')->once()->andReturn($document);

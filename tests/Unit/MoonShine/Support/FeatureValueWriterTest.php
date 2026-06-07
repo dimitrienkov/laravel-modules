@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DimitrienkoV\LaravelModules\Tests\Unit\MoonShine\Support;
 
 use DimitrienkoV\LaravelModules\Contracts\ModuleStateRepositoryInterface;
+use DimitrienkoV\LaravelModules\Exceptions\InvalidManifestException;
 use DimitrienkoV\LaravelModules\Manifest\Enums\FeatureType;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureDefinition;
 use DimitrienkoV\LaravelModules\Manifest\VO\FeatureSchema;
@@ -92,13 +93,76 @@ final class FeatureValueWriterTest extends TestCase
         self::assertSame(['flag' => false], $values->explicitValues());
     }
 
+    #[Test]
+    public function preservesUnrelatedExistingOverrideOnPartialSubmit(): void
+    {
+        $module = ModuleFactory::make(name: 'blog', features: $this->schema());
+
+        // Only retries is posted; the pre-existing driver override must survive,
+        // not be wiped just because its field was absent from this submit.
+        $values = $this->writeAndCapture(
+            $module,
+            ['retries' => '7'],
+            existing: ['driver' => 'file'],
+        );
+
+        self::assertSame(['driver' => 'file', 'retries' => 7], $values->explicitValues());
+    }
+
+    #[Test]
+    public function clearingASubmittedKeyRemovesOnlyThatKeyAndKeepsOthers(): void
+    {
+        $module = ModuleFactory::make(name: 'blog', features: $this->schema());
+
+        // retries is cleared (revert to default) while driver is not posted at all:
+        // only retries is dropped, the unrelated driver override is preserved.
+        $values = $this->writeAndCapture(
+            $module,
+            ['retries' => null],
+            existing: ['driver' => 'file', 'retries' => 7],
+        );
+
+        self::assertSame(['driver' => 'file'], $values->explicitValues());
+    }
+
+    #[Test]
+    public function rejectsAnUnrecognisedBooleanTokenInsteadOfCoercingToFalse(): void
+    {
+        $module = ModuleFactory::make(name: 'blog', features: $this->schema());
+
+        $this->expectException(InvalidManifestException::class);
+
+        $this->writeExpectingNoPersist($module, ['flag' => 'maybe']);
+    }
+
+    #[Test]
+    public function rejectsAFractionalIntegerStringInsteadOfTruncating(): void
+    {
+        $module = ModuleFactory::make(name: 'blog', features: $this->schema());
+
+        $this->expectException(InvalidManifestException::class);
+
+        $this->writeExpectingNoPersist($module, ['retries' => '3.5']);
+    }
+
+    #[Test]
+    public function rejectsAnExponentIntegerStringInsteadOfTruncating(): void
+    {
+        $module = ModuleFactory::make(name: 'blog', features: $this->schema());
+
+        $this->expectException(InvalidManifestException::class);
+
+        $this->writeExpectingNoPersist($module, ['retries' => '1e2']);
+    }
+
     /**
-     * @param array<string, mixed> $submitted
+     * @param array<string, mixed>           $submitted
+     * @param array<string, bool|int|string> $existing  pre-existing explicit overrides in state.json
      */
-    private function writeAndCapture(Module $module, array $submitted): FeatureValues
+    private function writeAndCapture(Module $module, array $submitted, array $existing = []): FeatureValues
     {
         $captured = null;
-        $state = Mockery::mock(ModuleStateRepositoryInterface::class);
+        $state = $this->stateReading($module, $existing);
         $state->shouldReceive('writeValues')->once()
             ->with(Mockery::type(Module::class), Mockery::on(static function (FeatureValues $values) use (&$captured): bool {
                 $captured = $values;
@@ -111,6 +175,38 @@ final class FeatureValueWriterTest extends TestCase
         self::assertInstanceOf(FeatureValues::class, $captured);
 
         return $captured;
+    }
+
+    /**
+     * Write a submit that must be rejected before persistence: readValues() is
+     * answered but writeValues() must never fire.
+     *
+     * @param array<string, mixed> $submitted
+     */
+    private function writeExpectingNoPersist(Module $module, array $submitted): void
+    {
+        $state = $this->stateReading($module, []);
+        $state->shouldNotReceive('writeValues');
+
+        (new FeatureValueWriter($state))->write($module, $submitted);
+    }
+
+    /**
+     * State double whose readValues() returns the given pre-existing explicit
+     * overrides — the baseline write() merges this submit onto.
+     *
+     * @param array<string, bool|int|string> $existing
+     *
+     * @return ModuleStateRepositoryInterface&Mockery\MockInterface
+     */
+    private function stateReading(Module $module, array $existing): ModuleStateRepositoryInterface&Mockery\MockInterface
+    {
+        $state = Mockery::mock(ModuleStateRepositoryInterface::class);
+        $state->shouldReceive('readValues')->once()
+            ->with(Mockery::type(Module::class))
+            ->andReturn(FeatureValues::fromArray($existing, $module->features, $module->name, $module->manifestPath()));
+
+        return $state;
     }
 
     private function schema(): FeatureSchema

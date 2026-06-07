@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace DimitrienkoV\LaravelModules\MoonShine\Pages;
 
+use Illuminate\Validation\Rules\In;
 use Override;
 use DimitrienkoV\LaravelModules\MoonShine\Resources\ModulesResource;
 use DimitrienkoV\LaravelModules\Application\Support\ModuleGroupLabelResolver;
@@ -16,6 +17,7 @@ use DimitrienkoV\LaravelModules\MoonShine\Data\ModuleAdminDto;
 use DimitrienkoV\LaravelModules\MoonShine\Support\FeatureFieldFactory;
 use Illuminate\Contracts\Translation\Translator;
 use MoonShine\Contracts\Core\DependencyInjection\CoreContract;
+use Illuminate\Validation\Rule;
 use MoonShine\Contracts\Core\TypeCasts\DataWrapperContract;
 use MoonShine\Contracts\UI\ComponentContract;
 use MoonShine\Crud\Pages\FormPage;
@@ -69,7 +71,7 @@ final class ModuleFormPage extends FormPage
     /**
      * @param DataWrapperContract<ModuleAdminDto> $item
      *
-     * @return array<string, list<string>>
+     * @return array<string, list<string|In>>
      */
     #[Override]
     protected function rules(DataWrapperContract $item): array
@@ -94,7 +96,7 @@ final class ModuleFormPage extends FormPage
      * whatever the strict normalizer would reject has to fail here first, on the
      * form, rather than surface as an unhandled normalizer exception on submit.
      *
-     * @return list<string>
+     * @return list<string|In>
      */
     private function rulesFor(FeatureDefinition $definition): array
     {
@@ -129,7 +131,12 @@ final class ModuleFormPage extends FormPage
     }
 
     /**
-     * @return list<string>
+     * Build the enum membership rule via {@see Rule::in()} rather than a string
+     * `in:a,b`: the string form splits on commas, so an enum option that itself
+     * contains a comma would be validated as two separate values. `Rule::in()`
+     * takes the options as an array and keeps each one intact.
+     *
+     * @return list<In>
      */
     private function optionRules(FeatureDefinition $definition): array
     {
@@ -137,7 +144,7 @@ final class ModuleFormPage extends FormPage
             return [];
         }
 
-        return ['in:' . implode(',', $definition->options)];
+        return [Rule::in($definition->options)];
     }
 
     private function selectedModule(): ?Module

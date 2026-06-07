@@ -14,6 +14,7 @@ use DimitrienkoV\LaravelModules\MoonShine\Resources\ModulesResource;
 use DimitrienkoV\LaravelModules\Providers\ModuleLoaderServiceProvider;
 use DimitrienkoV\LaravelModules\Tests\Support\FakeModuleRegistry;
 use DimitrienkoV\LaravelModules\Tests\Support\ModuleFactory;
+use Illuminate\Validation\Rules\In;
 use MoonShine\Contracts\UI\FieldContract;
 use MoonShine\Laravel\Providers\MoonShineServiceProvider;
 use MoonShine\UI\Components\Layout\Box;
@@ -62,8 +63,37 @@ final class ModuleFormPageTest extends TestCase
 
         self::assertSame(['nullable', 'boolean'], $rules['featureValues.cache']);
         self::assertSame(['nullable', 'integer', 'min:1', 'max:5'], $rules['featureValues.retries']);
-        self::assertSame(['nullable', 'string', 'in:redis,file'], $rules['featureValues.driver']);
         self::assertSame(['nullable', 'string'], $rules['featureValues.label']);
+
+        // Enum membership is a Rule::in() object, not a string `in:redis,file`:
+        // nullable + string keep their place, the In rule carries the options.
+        $driver = $rules['featureValues.driver'];
+        self::assertSame('nullable', $driver[0]);
+        self::assertSame('string', $driver[1]);
+        self::assertInstanceOf(In::class, $driver[2]);
+        self::assertSame('in:"redis","file"', (string) $driver[2]);
+    }
+
+    #[Test]
+    public function buildsEnumRuleViaRuleInSoCommaContainingOptionsStaySingle(): void
+    {
+        // A single enum option that contains a comma must stay one option. The old
+        // string `in:redis,file` rule split on the comma; Rule::in() keeps it whole.
+        $schema = new FeatureSchema([
+            'driver' => $this->definition('driver', FeatureType::Enum, options: ['redis,file']),
+        ]);
+
+        $page = $this->page(schema: $schema);
+        $method = new ReflectionMethod($page, 'rules');
+        $method->setAccessible(true);
+        $item = $page->getResource()->getCaster()->cast(ModuleAdminDto::empty());
+
+        /** @var array<string, list<string|In>> $rules */
+        $rules = $method->invoke($page, $item);
+
+        $rule = $rules['featureValues.driver'][2];
+        self::assertInstanceOf(In::class, $rule);
+        self::assertSame('in:"redis,file"', (string) $rule);
     }
 
     #[Test]
