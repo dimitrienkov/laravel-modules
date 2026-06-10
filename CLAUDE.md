@@ -11,7 +11,7 @@ composer test          # arch + unit + feature (full suite)
 composer test:unit     # Unit suite only (PHPUnit)
 composer test:feature  # Feature suite only (Testbench)
 composer test:arch     # Architecture invariants (Pest)
-composer phpstan       # static analysis — src/ only (level 8 + Larastan)
+composer phpstan       # static analysis — src/ only (level max + Larastan)
 composer format        # PHP-CS-Fixer (PER 3.0 + project rules)
 composer format:dry    # check formatting without writing
 composer rector:dry    # preview Rector changes

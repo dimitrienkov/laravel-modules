@@ -120,6 +120,7 @@ final readonly class PostController
 | [Configuration](docs/configuration.md) | Конфиг и routing options |
 | [MoonShine](docs/moonshine.md) | Опциональный admin-UI управления модулями |
 | [Architecture](docs/architecture.md) | Registry, cache, loaders, lifecycle |
+| [Loaders](docs/loaders.md) | Справочник лоадеров и написание своего |
 | [Feature Toggles](docs/feature-toggles.md) | Runtime settings API |
 | [Logging](docs/logging.md) | Opt-in диагностический слой и каталог событий |
 | [Octane](docs/octane.md) | Octane worker contract и reload-операционка |
