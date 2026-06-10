@@ -65,7 +65,7 @@ Host-приложение может хранить внутри модуля с
 | `Routes/console.php` | `ConsoleRouteLoader` | 51 | Регистрирует console routes через kernel (deferred до boot) |
 | `Routes/channels.php` | `BroadcastLoader` | 52 | Загружает broadcast channels (deferred до boot) |
 
-Каждый loader проверяет наличие своего пути и завершает работу ранним return, если загружать нечего. Модули должны находиться внутри `app_path()` Laravel-приложения.
+Каждый loader проверяет наличие своего пути и завершает работу ранним return, если загружать нечего. Подробный справочник каждого лоадера (модель `LoadReport`, причины пропуска, написание своего) — в [Loaders](loaders.md). Модули должны находиться внутри `app_path()` Laravel-приложения.
 
 ## Namespace resolution
 
@@ -105,3 +105,4 @@ Disabled-модули обнаруживаются registry, но default loader
 - [Getting Started](getting-started.md) - установка и минимальный модуль.
 - [Configuration](configuration.md) - настройки route types.
 - [Architecture](architecture.md) - место loaders в boot flow.
+- [Loaders](loaders.md) - справочник лоадеров и написание своего.

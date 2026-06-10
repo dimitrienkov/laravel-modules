@@ -30,6 +30,17 @@ composer format:dry
 composer rector:dry
 ```
 
+Служебные скрипты для диагностики:
+
+| Script | Purpose |
+|--------|---------|
+| `composer test:bail` | Pest с остановкой на первом падении |
+| `composer rector` | Применить Rector-рефакторинги |
+| `composer rector:fresh` | Rector со сбросом кэша |
+| `composer rector:debug` | Rector dry-run с debug-выводом |
+| `composer phpstan:debug` | PHPStan с debug-выводом |
+| `composer phpstan:clear` | Очистить кэш PHPStan |
+
 ## Test suites
 
 | Script | Purpose |
@@ -47,6 +58,7 @@ composer rector:dry
 - Runtime code под `src/` должен использовать dependency injection вместо Laravel facades.
 - Не добавляйте `dd()`, `dump()`, `var_dump()`, `print_r()`, `exit()` или `die()` под `src/`.
 - Пишите `module.json` через public methods `ModuleManifestRepository`.
+- Прямой filesystem I/O (`file_get_contents`, `file_put_contents`, `fopen`, `mkdir` и т.д.) разрешён только в инфраструктурных классах: `AtomicFileWriter`, `LocalFilesystem`, `ManifestDocumentReader`, `ModuleRegistryCache`, `FactoryLoader`. Остальной код работает через их abstractions.
 - Держите optional integrations guarded по наличию class или interface.
 - Документируйте roadmap-функции отдельно от implemented runtime.
 

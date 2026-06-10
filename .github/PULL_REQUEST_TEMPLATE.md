@@ -25,7 +25,7 @@
 ## Чеклист
 
 - [ ] `composer test` проходит (Pest 3 arch + PHPUnit unit/feature)
-- [ ] `composer phpstan` проходит (level 8)
+- [ ] `composer phpstan` проходит (level max)
 - [ ] `composer format:dry` проходит (PHP-CS-Fixer)
 - [ ] `composer rector:dry` не показывает новых замечаний
 - [ ] `declare(strict_types=1)` в каждом новом `.php`-файле
