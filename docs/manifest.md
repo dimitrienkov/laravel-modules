@@ -154,6 +154,18 @@ Source-модуль не должен содержать `state.json`. `ModuleSo
 | `string` | String |
 | `enum` | String из `options` |
 
+Каждое feature-определение поддерживает ключи (неизвестный ключ → `InvalidManifestException`):
+
+| Key | Обязателен | Описание |
+|-----|------------|----------|
+| `type` | Да | Один из `bool`, `int`, `string`, `enum` |
+| `default` | Нет | Default value; нормализуется по type и constraints при чтении manifest |
+| `min` / `max` | Нет | Только для `int` (диапазон значения) и `string` (длина в UTF-8 символах); для `bool` и `enum` запрещены. `min` не может превышать `max` |
+| `options` | Для `enum` | Непустой список уникальных непустых строк; для остальных типов запрещён |
+| `label` | Нет | Человекочитаемое имя фичи для UI; на runtime не влияет |
+| `description` | Нет | Описание фичи для UI и документации; на runtime не влияет |
+| `group` | Нет | Группировка фич для UI; на runtime не влияет |
+
 `settings.schema` в `module.json` задаёт defaults. `settings.values` в `state.json` хранит только explicit overrides.
 
 ## `settings.values` (в `state.json`)
