@@ -208,11 +208,26 @@ if ($this->app->routesAreCached()) {
 composer require inertiajs/inertia-laravel
 ```
 
-Установите MoonShine только когда host-приложению нужна MoonShine autoload integration:
+Лёгкий MoonShine autoload bridge активируется уже при наличии одного `CoreContract`.
+Хосту, которому нужен **только** bridge (без полного admin-UI), достаточно
+`moonshine/core` + `moonshine/contracts`:
 
 ```bash
 composer require moonshine/core moonshine/contracts
 ```
+
+Для полноценного admin-UI (управление модулями из админки) нужен полный стек v4:
+
+```bash
+composer require moonshine/moonshine
+```
+
+> `moonshine/moonshine` уже `replaces` `moonshine/core` и `moonshine/contracts`, поэтому
+> команда из двух пакетов нужна лишь для lightweight-сценария (bridge без CRUD/UI). По
+> этой причине `composer.json` пакета в `suggest` указывает только `moonshine/moonshine`.
+
+UI настраивается секцией `modules.moonshine` (`enabled`, `menu`) — детали в
+[docs/moonshine.md](moonshine.md).
 
 Обе интеграции optional. Пакет включает их только при наличии нужных classes/interfaces.
 

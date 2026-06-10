@@ -4,15 +4,15 @@
 
 ## Обзор проекта
 
-`dimitrienkov0/laravel-modules` — manifest-driven Laravel-пакет для модульной архитектуры приложений. Текущий срез v2.0 core реализует обнаружение модулей по `module.json`, типизированный manifest layer, dependency-aware `ModuleRegistry`, loader-pipeline, runtime feature toggles, production cache, lifecycle UseCase-классы и Artisan-команды (`make:module`, `modules:install/update/remove/enable/disable/list/optimize/optimize-clear`), module-aware режим native-генераторов (`make:* --module`) и архитектурные генераторы (`make:use-case/action/query/dto/vo`), а также опциональный MoonShine autoload bridge.
+`dimitrienkov0/laravel-modules` — manifest-driven Laravel-пакет для модульной архитектуры приложений. Текущий срез v2.0 core реализует обнаружение модулей по `module.json`, типизированный manifest layer, dependency-aware `ModuleRegistry`, loader-pipeline, runtime feature toggles, production cache, lifecycle UseCase-классы и Artisan-команды (`make:module`, `modules:install/update/remove/enable/disable/list/optimize/optimize-clear`), module-aware режим native-генераторов (`make:* --module`) и архитектурные генераторы (`make:use-case/action/query/dto/vo`), опциональный MoonShine autoload bridge, а также опциональный MoonShine admin-UI (`ModulesResource` + Index/Form/Detail-страницы) под полным стеком `moonshine/moonshine`.
 
-Полноценный MoonShine admin-UI, lifecycle-события и marketplace-доставка (подпись/удалённый fetch) описаны в roadmap, но не должны документироваться как уже реализованные.
+Lifecycle-события, marketplace-доставка (подпись/удалённый fetch) и установка/обновление модулей через zip-upload в UI описаны в roadmap, но не должны документироваться как уже реализованные.
 
 ## Технологический стек
 
 - **Язык:** PHP 8.3+
 - **Фреймворк:** Laravel 12 / 13
-- **Admin-UI (опционально):** MoonShine 4 через `moonshine/core` и `moonshine/contracts`
+- **Admin-UI (опционально):** MoonShine 4 — лёгкий autoload bridge через `moonshine/core`+`moonshine/contracts`; полноценный admin-UI через `moonshine/moonshine`
 - **Optional integrations:** Inertia 2 для `Routes/inertia.php`
 - **Тесты:** Pest 3 + `pestphp/pest-plugin-arch` для архитектурных тестов; PHPUnit 11/12 + Orchestra Testbench 10/11 + Mockery для unit/feature
 - **Качество:** PHPStan 2 + Larastan 3, Rector 2, PHP-CS-Fixer; целевой стиль — PER Coding Style 3.0 с проектными правилами
@@ -41,7 +41,7 @@
 │   │   ├── Enums/                    # FeatureType, ModuleKind, ModuleOriginKind
 │   │   ├── Parsing/                  # фабрики и нормализаторы manifest fields
 │   │   └── VO/                       # Module, ManifestMeta, ModuleState, ModuleStateDocument, ModuleOrigin, FeatureValues и другие VO
-│   ├── MoonShine/                    # MoonShineModuleAutoloader, optional bridge
+│   ├── MoonShine/                    # optional bridge + admin-UI: MoonShineModuleAutoloader, Resources/, Pages/, Data/, Support/
 │   ├── Providers/                    # ModuleLoaderServiceProvider, ModuleGeneratorCommandsServiceProvider
 │   ├── Registry/                     # scanner, snapshot builder, cache и registry VO
 │   └── Support/                      # layout/state paths, atomic writers, filesystem, sorter, namespace resolver
@@ -108,6 +108,7 @@
 | Module Structure | `docs/module-structure.md` | Поддерживаемые пути модулей |
 | Manifest | `docs/manifest.md` | Контракт `module.json` |
 | Configuration | `docs/configuration.md` | Конфиг и маршруты |
+| MoonShine | `docs/moonshine.md` | Опциональный admin-UI управления модулями |
 | Architecture | `docs/architecture.md` | Registry, cache, lifecycle, диагностика |
 | Loaders | `docs/loaders.md` | Справочник лоадеров и написание своего |
 | Feature Toggles | `docs/feature-toggles.md` | Runtime settings API |

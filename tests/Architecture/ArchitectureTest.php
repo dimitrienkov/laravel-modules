@@ -384,6 +384,20 @@ arch('application layer does not depend on optional UI integrations')
         'Inertia',
     ]);
 
+arch('moonshine admin classes are final')
+    ->expect('DimitrienkoV\LaravelModules\MoonShine')
+    ->classes()
+    ->toBeFinal();
+
+arch('moonshine data and support objects are final readonly')
+    ->expect([
+        'DimitrienkoV\LaravelModules\MoonShine\Data',
+        'DimitrienkoV\LaravelModules\MoonShine\Support',
+    ])
+    ->classes()
+    ->toBeFinal()
+    ->toBeReadonly();
+
 arch('manifest repository implements its published contract')
     ->expect(ModuleManifestRepository::class)
     ->toImplement(ModuleManifestRepositoryInterface::class);

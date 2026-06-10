@@ -18,6 +18,16 @@ return [
         // 'content' => 'Content Management',
         // 'e-commerce' => 'E-Commerce',
     ],
+    // Optional MoonShine admin UI. Requires the full MoonShine v4 stack
+    // (moonshine/moonshine) in the host; without it the package core loads
+    // normally and this section is simply ignored. `enabled` gates registration
+    // of the `ModulesResource` and its Index/Form/Detail pages; `menu` gates
+    // whether the resource appears in MoonShine's auto-loaded menu (re-evaluated
+    // per request via `#[CanSee]`). See docs/moonshine.md.
+    'moonshine' => [
+        'enabled' => true,
+        'menu' => true,
+    ],
     // Opt-in diagnostic logging for module discovery, caching, the loader
     // pipeline and lifecycle operations. Off by default: the package core stays
     // silent unless the host explicitly enables it (typically for field

@@ -98,7 +98,12 @@ Disabled-модули обнаруживаются registry, но default loader
 
 | Путь | Текущий статус |
 |------|----------------|
-| `MoonShine/` admin pages/resources | Roadmap |
+| `MoonShine/` **внутри** host-модуля (per-module resources/pages) | Roadmap |
+
+> Roadmap-only здесь — это per-module `MoonShine/` ресурсы **внутри** отдельного модуля:
+> генераторы и runtime их пока не поддерживают. Package-level admin UI управления
+> модулями (`ModulesResource` + страницы Index/Form/Detail) уже **реализован** —
+> см. [docs/moonshine.md](moonshine.md).
 
 ## See Also
 
